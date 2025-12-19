@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Song {
+  vocadbId           Int       @id @map("vocadb_id")
+  title              String
+  titleEnglish       String?   @map("title_english")
+  titleJapanese      String?   @map("title_japanese")
+  titleRomaji        String?   @map("title_romaji")
+  titleKorean        String?   @map("title_korean")
+  titleOriginal      String?   @map("title_original")
+  artist             String
+  artistType         String?   @map("artist_type")
+  youtubeId          String    @unique @map("youtube_id")
+  youtubeUrl         String    @map("youtube_url")
+  thumbUrl           String?   @map("thumb_url")
+  favoritedTimes     Int       @default(0) @map("favorited_times")
+  ratingScore        Int       @default(0) @map("rating_score")
+  tags               String?
+  publishDate        DateTime? @map("publish_date") @db.Date
+  songType           String?   @map("song_type")
+  viewCount          Int?      @map("view_count")
+  viewCountUpdatedAt DateTime? @map("view_count_updated_at")
+  crawledAt          DateTime  @map("crawled_at")
+  defaultLanguage    String?   @map("default_language")
+
+  // Relations
+  dailyViewCounts DailyViewCount[]
+
+  @@index([viewCount(sort: Desc)], name: "idx_songs_viewcount")
+  @@index([favoritedTimes(sort: Desc)], name: "idx_songs_favorited")
+  @@index([ratingScore(sort: Desc)], name: "idx_songs_rating")
+  @@index([publishDate(sort: Desc)], name: "idx_songs_publish")
+  @@index([artist, viewCount(sort: Desc)], name: "idx_songs_artist")
+  @@index([titleKorean], name: "idx_songs_title_korean")
+  @@map("songs")
+}
+
+model DailyViewCount {
+  songId       Int      @map("song_id")
+  recordedDate DateTime @map("recorded_date") @db.Date
+  totalViews   Int      @map("total_views")
+
+  // Relations
+  song Song @relation(fields: [songId], references: [vocadbId], onDelete: Cascade)
+
+  @@id([songId, recordedDate])
+  @@index([recordedDate(sort: Desc)], name: "idx_daily_date")
+  @@map("daily_view_counts")
+}
+
+model CrawlerProgress {
+  id             String    @id @default(uuid())
+  crawlerType    String    @map("crawler_type") // 'vocadb' | 'youtube' | 'localized'
+  status         String // 'running' | 'completed' | 'failed'
+  startedAt      DateTime  @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+  lastOffset     Int       @default(0) @map("last_offset")
+  totalProcessed Int       @default(0) @map("total_processed")
+  totalTarget    Int?      @map("total_target")
+  errorMessage   String?   @map("error_message")
+  metadata       Json?
+
+  @@index([crawlerType, status])
+  @@map("crawler_progress")
+}

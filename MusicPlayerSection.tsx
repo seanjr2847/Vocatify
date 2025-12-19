@@ -14,11 +14,9 @@ export const MusicPlayerSection = (): JSX.Element => {
     <footer className="relative w-full h-[125px] bg-[#1d21234c] border border-solid border-[#ffffff1a] shadow-[0px_-25px_100px_#0f0f0f82] backdrop-blur-[15px] backdrop-brightness-[100%] [-webkit-backdrop-filter:blur(15px)_brightness(100%)]">
       <div className="flex items-center justify-between h-full px-8">
         <div className="flex items-center gap-4 flex-1">
-          <img
-            className="w-[49px] h-[49px] object-cover rounded"
-            alt="Album artwork"
-            src=""
-          />
+          <div className="w-[49px] h-[49px] bg-white/10 rounded">
+            {/* Album artwork placeholder - add your album src here */}
+          </div>
           <div className="flex flex-col">
             <span className="font-bold text-white text-[14px] leading-[17px] whitespace-nowrap">
               Seasons in
