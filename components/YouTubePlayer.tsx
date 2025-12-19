@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import YouTube, { YouTubeProps } from 'react-youtube';
+import YouTube, { YouTubeProps, YouTubeEvent } from 'react-youtube';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 
 export function YouTubePlayer() {
@@ -35,7 +35,7 @@ export function YouTubePlayer() {
     },
   };
 
-  const onReady: YouTubeProps['onReady'] = useCallback((event) => {
+  const onReady: YouTubeProps['onReady'] = useCallback((event: YouTubeEvent) => {
     playerRef.current = event.target;
     setIsReady(true);
 
@@ -53,7 +53,7 @@ export function YouTubePlayer() {
     }
   }, [state.volume, updateDuration, playerRef]);
 
-  const onStateChange: YouTubeProps['onStateChange'] = useCallback((event) => {
+  const onStateChange: YouTubeProps['onStateChange'] = useCallback((event: YouTubeEvent) => {
     const playerState = event.data;
 
     // YouTube Player States:
@@ -84,7 +84,7 @@ export function YouTubePlayer() {
     }
   }, [updatePlayingState, updateDuration, playerRef]);
 
-  const onError: YouTubeProps['onError'] = useCallback((event) => {
+  const onError: YouTubeProps['onError'] = useCallback((event: YouTubeEvent) => {
     console.error('YouTube Player Error:', event.data);
     // Error codes:
     // 2: Invalid parameter
