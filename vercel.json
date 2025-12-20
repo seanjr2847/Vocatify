@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/vocadb",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/youtube",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/localized",
+      "schedule": "0 4 * * 0"
+    }
+  ]
+}

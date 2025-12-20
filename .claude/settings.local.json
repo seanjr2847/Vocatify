@@ -41,7 +41,16 @@
       "Bash(node:*)",
       "Bash(npx prisma init:*)",
       "Bash(npx prisma generate:*)",
-      "Bash(npx prisma format)"
+      "Bash(npx prisma format)",
+      "Bash(cmd /c \"dir lib\\\\generated\\\\prisma\")",
+      "Bash(cmd /c \"if exist lib\\\\generated \\(echo Directory exists\\) else \\(echo Directory does not exist\\)\")",
+      "Bash(cmd /c \"dir /b lib\\\\generated 2>nul || echo generated directory not found\")",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npm run db:migrate-to-postgresql:*)",
+      "Bash(cmd /c \"dir /b lib\\\\generated\\\\prisma\")",
+      "Bash(tsx scripts/db/test-prisma-connection.ts:*)",
+      "Bash(cmd /c \"rmdir /s /q node_modules\\\\@prisma\\\\client 2>nul & npx prisma generate\")",
+      "Bash(cmd /c \"if exist vercel.json \\(echo exists\\) else \\(echo not_found\\)\")"
     ]
   }
 }

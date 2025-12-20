@@ -3,11 +3,11 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../lib/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Song {
@@ -28,7 +28,7 @@ model Song {
   tags               String?
   publishDate        DateTime? @map("publish_date") @db.Date
   songType           String?   @map("song_type")
-  viewCount          Int?      @map("view_count")
+  viewCount          BigInt?   @map("view_count")
   viewCountUpdatedAt DateTime? @map("view_count_updated_at")
   crawledAt          DateTime  @map("crawled_at")
   defaultLanguage    String?   @map("default_language")
@@ -48,7 +48,7 @@ model Song {
 model DailyViewCount {
   songId       Int      @map("song_id")
   recordedDate DateTime @map("recorded_date") @db.Date
-  totalViews   Int      @map("total_views")
+  totalViews   BigInt   @map("total_views")
 
   // Relations
   song Song @relation(fields: [songId], references: [vocadbId], onDelete: Cascade)

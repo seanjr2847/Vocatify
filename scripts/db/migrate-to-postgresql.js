@@ -1,25 +1,15 @@
 /**
- * SQLite to PostgreSQL Data Migration Script
+ * SQLite to PostgreSQL Data Migration Script (CommonJS version)
  *
  * Migrates all data from SQLite to PostgreSQL:
  * - Songs table (~270K records)
  * - DailyViewCounts table (if exists)
- *
- * Features:
- * - Batch processing (10K read, 1K insert)
- * - Date string to DateTime conversion
- * - Progress tracking
- * - Error handling with rollback
- * - Data validation
  */
 
-import { config } from 'dotenv';
-// Load environment variables BEFORE importing Prisma
-config();
-
-import Database from 'better-sqlite3';
-import { PrismaClient } from '../../lib/generated/prisma';
-import path from 'path';
+require('dotenv/config');
+const Database = require('better-sqlite3');
+const { PrismaClient } = require('@prisma/client');
+const path = require('path');
 
 const BATCH_SIZE_READ = 10000;  // Read 10K from SQLite at a time
 const BATCH_SIZE_INSERT = 1000;  // Insert 1K into PostgreSQL at a time
@@ -27,43 +17,10 @@ const BATCH_SIZE_INSERT = 1000;  // Insert 1K into PostgreSQL at a time
 // Database connections
 const sqlitePath = path.join(process.cwd(), 'data', 'vocadb', 'vocatify.db');
 const sqlite = new Database(sqlitePath, { readonly: true });
-const prisma = new PrismaClient();
-
-// Type definitions
-interface SQLiteSong {
-  vocadbId: number;
-  title: string;
-  titleEnglish?: string;
-  titleJapanese?: string;
-  titleRomaji?: string;
-  titleKorean?: string;
-  titleOriginal?: string;
-  artist: string;
-  artistType?: string;
-  youtubeId: string;
-  youtubeUrl: string;
-  thumbUrl?: string;
-  favoritedTimes: number;
-  ratingScore: number;
-  tags?: string;
-  publishDate?: string;
-  songType?: string;
-  viewCount?: number;
-  viewCountUpdatedAt?: string;
-  crawledAt: string;
-  defaultLanguage?: string;
-}
-
-interface SQLiteDailyViewCount {
-  vocadbId: number;
-  youtubeId: string;
-  viewCount: number;
-  dailyIncrease: number;
-  recordDate: string;
-}
+const prisma = new PrismaClient({});
 
 // Helper: Convert SQLite date string to DateTime
-function parseDate(dateStr?: string): Date | null {
+function parseDate(dateStr) {
   if (!dateStr) return null;
   try {
     const date = new Date(dateStr);
@@ -74,7 +31,7 @@ function parseDate(dateStr?: string): Date | null {
 }
 
 // Helper: Convert SQLite song to Prisma format
-function convertSong(song: SQLiteSong) {
+function convertSong(song) {
   return {
     vocadbId: song.vocadbId,
     title: song.title,
@@ -93,7 +50,7 @@ function convertSong(song: SQLiteSong) {
     tags: song.tags || null,
     publishDate: parseDate(song.publishDate),
     songType: song.songType || null,
-    viewCount: song.viewCount || null,
+    viewCount: song.viewCount != null ? BigInt(song.viewCount) : null,
     viewCountUpdatedAt: parseDate(song.viewCountUpdatedAt),
     crawledAt: parseDate(song.crawledAt) || new Date(),
     defaultLanguage: song.defaultLanguage || null,
@@ -105,9 +62,7 @@ async function migrateSongs() {
   console.log('📦 Migrating Songs Table\n');
 
   // Get total count
-  const totalCount = sqlite
-    .prepare('SELECT COUNT(*) as count FROM songs')
-    .get() as { count: number };
+  const totalCount = sqlite.prepare('SELECT COUNT(*) as count FROM songs').get();
 
   console.log(`Total songs to migrate: ${totalCount.count.toLocaleString()}\n`);
 
@@ -119,7 +74,7 @@ async function migrateSongs() {
     // Read batch from SQLite
     const songs = sqlite
       .prepare(`SELECT * FROM songs LIMIT ? OFFSET ?`)
-      .all(BATCH_SIZE_READ, offset) as SQLiteSong[];
+      .all(BATCH_SIZE_READ, offset);
 
     if (songs.length === 0) break;
 
@@ -143,7 +98,7 @@ async function migrateSongs() {
         const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
 
         console.log(`  ✅ Inserted: ${totalMigrated.toLocaleString()}/${totalCount.count.toLocaleString()} (${percent}%) | ${elapsed}min`);
-      } catch (error: any) {
+      } catch (error) {
         console.error(`  ❌ Error inserting batch at offset ${offset + i}:`, error.message);
         throw error;
       }
@@ -176,9 +131,7 @@ async function migrateDailyViewCounts() {
   }
 
   // Get total count
-  const totalCount = sqlite
-    .prepare('SELECT COUNT(*) as count FROM daily_view_counts')
-    .get() as { count: number };
+  const totalCount = sqlite.prepare('SELECT COUNT(*) as count FROM daily_view_counts').get();
 
   if (totalCount.count === 0) {
     console.log('ℹ️  daily_view_counts table is empty. Skipping.\n');
@@ -195,7 +148,7 @@ async function migrateDailyViewCounts() {
     // Read batch from SQLite
     const records = sqlite
       .prepare(`SELECT * FROM daily_view_counts LIMIT ? OFFSET ?`)
-      .all(BATCH_SIZE_READ, offset) as SQLiteDailyViewCount[];
+      .all(BATCH_SIZE_READ, offset);
 
     if (records.length === 0) break;
 
@@ -206,9 +159,9 @@ async function migrateDailyViewCounts() {
       const batch = records.slice(i, i + BATCH_SIZE_INSERT);
 
       const converted = batch.map(record => ({
-        songId: record.vocadbId,
-        recordedDate: parseDate(record.recordDate) || new Date(),
-        totalViews: record.viewCount,
+        songId: record.song_id,
+        recordedDate: parseDate(record.recorded_date) || new Date(),
+        totalViews: record.total_views != null ? BigInt(record.total_views) : BigInt(0),
       }));
 
       try {
@@ -223,7 +176,7 @@ async function migrateDailyViewCounts() {
         const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
 
         console.log(`  ✅ Inserted: ${totalMigrated.toLocaleString()}/${totalCount.count.toLocaleString()} (${percent}%) | ${elapsed}min`);
-      } catch (error: any) {
+      } catch (error) {
         console.error(`  ❌ Error inserting batch at offset ${offset + i}:`, error.message);
         throw error;
       }
@@ -240,7 +193,7 @@ async function migrateDailyViewCounts() {
 }
 
 // Validate migration
-async function validateMigration(sqliteSongCount: number, sqliteDailyCount: number) {
+async function validateMigration(sqliteSongCount, sqliteDailyCount) {
   console.log('🔍 Validating Migration\n');
 
   // Check songs count
@@ -292,15 +245,11 @@ async function main() {
 
   try {
     // Check SQLite database exists
-    const sqliteSongCount = sqlite
-      .prepare('SELECT COUNT(*) as count FROM songs')
-      .get() as { count: number };
+    const sqliteSongCount = sqlite.prepare('SELECT COUNT(*) as count FROM songs').get().count;
 
     const sqliteDailyCount = (() => {
       try {
-        const result = sqlite
-          .prepare('SELECT COUNT(*) as count FROM daily_view_counts')
-          .get() as { count: number };
+        const result = sqlite.prepare('SELECT COUNT(*) as count FROM daily_view_counts').get();
         return result.count;
       } catch {
         return 0;
@@ -308,7 +257,7 @@ async function main() {
     })();
 
     console.log(`📊 SQLite Database Stats:`);
-    console.log(`   Songs: ${sqliteSongCount.count.toLocaleString()}`);
+    console.log(`   Songs: ${sqliteSongCount.toLocaleString()}`);
     console.log(`   DailyViewCounts: ${sqliteDailyCount.toLocaleString()}\n`);
 
     // Confirm before proceeding
@@ -322,7 +271,7 @@ async function main() {
     const migratedDaily = await migrateDailyViewCounts();
 
     // Validate
-    await validateMigration(sqliteSongCount.count, sqliteDailyCount);
+    await validateMigration(sqliteSongCount, sqliteDailyCount);
 
     console.log('✅ Migration Complete!\n');
     console.log(`📊 Summary:`);
@@ -330,7 +279,7 @@ async function main() {
     console.log(`   DailyViewCounts migrated: ${migratedDaily.toLocaleString()}`);
     console.log(`\n🎉 You can now use PostgreSQL as your primary database!\n`);
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Migration failed:', error.message);
     console.error('\nFull error:', error);
     process.exit(1);
