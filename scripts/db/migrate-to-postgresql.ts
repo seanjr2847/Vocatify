@@ -18,7 +18,7 @@ import { config } from 'dotenv';
 config();
 
 import Database from 'better-sqlite3';
-import { PrismaClient } from '../../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import path from 'path';
 
 const BATCH_SIZE_READ = 10000;  // Read 10K from SQLite at a time
