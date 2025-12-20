@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "crawl": "tsx scripts/crawler/sqlite-crawler.ts 100",
     "crawl:test": "tsx scripts/crawler/sqlite-crawler.ts 50 100",
     "crawl:quick": "tsx scripts/crawler/sqlite-crawler.ts 100 1000",
