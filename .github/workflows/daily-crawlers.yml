@@ -1,0 +1,106 @@
+name: Daily Crawlers
+
+on:
+  # Run daily at 2:00 AM, 3:00 AM UTC
+  schedule:
+    - cron: '0 2 * * *'  # VocaDB crawler
+    - cron: '0 3 * * *'  # YouTube crawler
+
+  # Run weekly on Sunday at 4:00 AM UTC
+  schedule:
+    - cron: '0 4 * * 0'  # Localized titles crawler
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      crawler:
+        description: 'Which crawler to run'
+        required: true
+        type: choice
+        options:
+          - vocadb
+          - youtube
+          - localized
+          - all
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  VERCEL_URL: ${{ secrets.VERCEL_URL }}
+  CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+jobs:
+  vocadb-crawler:
+    name: VocaDB Crawler
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.event.schedule == '0 2 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
+
+    steps:
+      - name: Trigger VocaDB Cron Endpoint
+        run: |
+          response=$(curl -X POST "${{ env.VERCEL_URL }}/api/cron/vocadb" \
+            -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -w "\n%{http_code}" \
+            -s)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "VocaDB crawler failed with status $http_code"
+            exit 1
+          fi
+
+  youtube-crawler:
+    name: YouTube Crawler
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.event.schedule == '0 3 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
+
+    steps:
+      - name: Trigger YouTube Cron Endpoint
+        run: |
+          response=$(curl -X POST "${{ env.VERCEL_URL }}/api/cron/youtube" \
+            -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -w "\n%{http_code}" \
+            -s)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "YouTube crawler failed with status $http_code"
+            exit 1
+          fi
+
+  localized-titles-crawler:
+    name: Localized Titles Crawler
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.event.schedule == '0 4 * * 0' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'localized' || github.event.inputs.crawler == 'all'))
+
+    steps:
+      - name: Trigger Localized Titles Cron Endpoint
+        run: |
+          response=$(curl -X POST "${{ env.VERCEL_URL }}/api/cron/localized" \
+            -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -w "\n%{http_code}" \
+            -s)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "Localized titles crawler failed with status $http_code"
+            exit 1
+          fi
