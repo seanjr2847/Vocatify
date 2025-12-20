@@ -102,8 +102,7 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
 
           <div className="flex flex-col gap-[15px]">
             {topCharts.slice(0, 3).map((chart) => (
-              <Card
-                key={chart.vocadbId}
+              <Card key={chart.vocadbId}
                 className="bg-dark-alt rounded-[20px] border-0 overflow-hidden hover:bg-dark-alt/80 transition-colors cursor-pointer group"
                 onClick={() => router.push(`/songs/${chart.vocadbId}`)}
               >
@@ -164,8 +163,7 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
         <ScrollArea className="w-full whitespace-nowrap">
           <div className="flex gap-[30px] pb-4">
             {newReleases.map((release) => (
-              <div
-                key={release.vocadbId}
+              <div key={release.vocadbId}
                 className="inline-flex flex-col gap-[5px] w-[153px] cursor-pointer group"
                 onClick={() => router.push(`/songs/${release.vocadbId}`)}
               >
@@ -226,8 +224,7 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
         <ScrollArea className="w-full whitespace-nowrap">
           <div className="flex gap-[30px] pb-4">
             {popularSongs.map((item) => (
-              <div
-                key={item.vocadbId}
+              <div key={item.vocadbId}
                 className="inline-flex flex-col gap-[5px] w-[153px] cursor-pointer group"
                 onClick={() => router.push(`/songs/${item.vocadbId}`)}
               >

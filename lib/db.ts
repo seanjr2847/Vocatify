@@ -62,7 +62,27 @@ export async function getTotalRanking(limit: number = 100, offset: number = 0): 
   const songs = await prisma.$queryRaw<RankingItem[]>`
     SELECT
       ROW_NUMBER() OVER (ORDER BY view_count DESC) as rank,
-      *
+      vocadb_id as "vocadbId",
+      title,
+      title_english as "titleEnglish",
+      title_japanese as "titleJapanese",
+      title_romaji as "titleRomaji",
+      title_korean as "titleKorean",
+      title_original as "titleOriginal",
+      artist,
+      artist_type as "artistType",
+      youtube_id as "youtubeId",
+      youtube_url as "youtubeUrl",
+      thumb_url as "thumbUrl",
+      favorited_times as "favoritedTimes",
+      rating_score as "ratingScore",
+      tags,
+      publish_date as "publishDate",
+      song_type as "songType",
+      view_count as "viewCount",
+      view_count_updated_at as "viewCountUpdatedAt",
+      crawled_at as "crawledAt",
+      default_language as "defaultLanguage"
     FROM songs
     WHERE view_count IS NOT NULL
       AND artist_type = 'Vocaloid'
@@ -103,7 +123,27 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY tc.daily_increase DESC) as rank,
-      s.*,
+      s.vocadb_id as "vocadbId",
+      s.title,
+      s.title_english as "titleEnglish",
+      s.title_japanese as "titleJapanese",
+      s.title_romaji as "titleRomaji",
+      s.title_korean as "titleKorean",
+      s.title_original as "titleOriginal",
+      s.artist,
+      s.artist_type as "artistType",
+      s.youtube_id as "youtubeId",
+      s.youtube_url as "youtubeUrl",
+      s.thumb_url as "thumbUrl",
+      s.favorited_times as "favoritedTimes",
+      s.rating_score as "ratingScore",
+      s.tags,
+      s.publish_date as "publishDate",
+      s.song_type as "songType",
+      s.view_count as "viewCount",
+      s.view_count_updated_at as "viewCountUpdatedAt",
+      s.crawled_at as "crawledAt",
+      s.default_language as "defaultLanguage",
       tc.daily_increase as "dailyIncrease"
     FROM today_changes tc
     INNER JOIN songs s ON s.vocadb_id = tc.song_id
@@ -146,7 +186,27 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY wi.weekly_increase DESC) as rank,
-      s.*,
+      s.vocadb_id as "vocadbId",
+      s.title,
+      s.title_english as "titleEnglish",
+      s.title_japanese as "titleJapanese",
+      s.title_romaji as "titleRomaji",
+      s.title_korean as "titleKorean",
+      s.title_original as "titleOriginal",
+      s.artist,
+      s.artist_type as "artistType",
+      s.youtube_id as "youtubeId",
+      s.youtube_url as "youtubeUrl",
+      s.thumb_url as "thumbUrl",
+      s.favorited_times as "favoritedTimes",
+      s.rating_score as "ratingScore",
+      s.tags,
+      s.publish_date as "publishDate",
+      s.song_type as "songType",
+      s.view_count as "viewCount",
+      s.view_count_updated_at as "viewCountUpdatedAt",
+      s.crawled_at as "crawledAt",
+      s.default_language as "defaultLanguage",
       wi.weekly_increase as "weeklyIncrease"
     FROM weekly_increases wi
     INNER JOIN songs s ON s.vocadb_id = wi.song_id
@@ -165,7 +225,27 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
   const songs = await prisma.$queryRaw<RankingItem[]>`
     SELECT
       ROW_NUMBER() OVER (ORDER BY view_count DESC) as rank,
-      *
+      vocadb_id as "vocadbId",
+      title,
+      title_english as "titleEnglish",
+      title_japanese as "titleJapanese",
+      title_romaji as "titleRomaji",
+      title_korean as "titleKorean",
+      title_original as "titleOriginal",
+      artist,
+      artist_type as "artistType",
+      youtube_id as "youtubeId",
+      youtube_url as "youtubeUrl",
+      thumb_url as "thumbUrl",
+      favorited_times as "favoritedTimes",
+      rating_score as "ratingScore",
+      tags,
+      publish_date as "publishDate",
+      song_type as "songType",
+      view_count as "viewCount",
+      view_count_updated_at as "viewCountUpdatedAt",
+      crawled_at as "crawledAt",
+      default_language as "defaultLanguage"
     FROM songs
     WHERE publish_date >= CURRENT_DATE - INTERVAL '30 days'
       AND view_count IS NOT NULL
