@@ -111,7 +111,7 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                   <img
                     className="absolute top-[17px] left-[17px] w-[63px] h-[63px] object-cover rounded"
                     alt={chart.title}
-                    src={getYouTubeThumbnail(chart.youtubeId)}
+                    src={chart.thumbUrl || getYouTubeThumbnail(chart.youtubeId)}
                   />
 
                   <div className="absolute top-[17px] left-[94px] font-regular-17px font-[number:var(--regular-17px-font-weight)] text-white text-[length:var(--regular-17px-font-size)] tracking-[var(--regular-17px-letter-spacing)] leading-[var(--regular-17px-line-height)] max-w-[250px] truncate [font-style:var(--regular-17px-font-style)]">
@@ -173,7 +173,7 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                   <img
                     className="w-full h-full object-cover rounded"
                     alt={release.title}
-                    src={getYouTubeThumbnail(release.youtubeId)}
+                    src={release.thumbUrl || getYouTubeThumbnail(release.youtubeId)}
                   />
                   <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
                     <button
@@ -235,7 +235,7 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                   <img
                     className="w-full h-full object-cover rounded"
                     alt={item.title}
-                    src={getYouTubeThumbnail(item.youtubeId)}
+                    src={item.thumbUrl || getYouTubeThumbnail(item.youtubeId)}
                   />
                   <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
                     <button
