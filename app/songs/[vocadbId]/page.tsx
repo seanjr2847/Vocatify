@@ -14,46 +14,7 @@ import { RankingBadges } from '@/components/RankingBadges';
 import { ExternalLinks } from '@/components/ExternalLinks';
 import { StatisticsPanel } from '@/components/StatisticsPanel';
 import { RelatedSongsCarousel } from '@/components/RelatedSongsCarousel';
-
-interface Song {
-  vocadbId: number;
-  title: string;
-  titleEnglish?: string;
-  titleJapanese?: string;
-  titleRomaji?: string;
-  artist: string;
-  artistType?: string;
-  youtubeId: string;
-  youtubeUrl: string;
-  thumbUrl?: string;
-  favoritedTimes: number;
-  ratingScore: number;
-  tags?: string;
-  publishDate?: string;
-  songType?: string;
-  viewCount?: number;
-  viewCountUpdatedAt?: string;
-  crawledAt: string;
-}
-
-interface DailyViewCount {
-  song_id: number;
-  recorded_date: string;
-  total_views: number;
-}
-
-interface RankingPositions {
-  total: number | null;
-  daily: number | null;
-  weekly: number | null;
-}
-
-interface SongStatistics {
-  dailyAverage: number;
-  weeklyAverage: number;
-  monthlyAverage: number;
-  totalDays: number;
-}
+import type { Song, DailyViewCount, RankingPositions, SongStatistics } from '@/lib/db';
 
 interface ApiResponse {
   success: boolean;
@@ -85,30 +46,32 @@ async function getSongData(vocadbId: string): Promise<ApiResponse> {
   return res.json();
 }
 
-function formatNumber(num: number): string {
-  if (num >= 1_000_000_000) {
-    return `${(num / 1_000_000_000).toFixed(1)}B`;
+function formatNumber(num: number | bigint | null | undefined): string {
+  if (!num) return '0';
+  const n = typeof num === 'bigint' ? Number(num) : num;
+  if (n >= 1_000_000_000) {
+    return `${(n / 1_000_000_000).toFixed(1)}B`;
   }
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1)}M`;
   }
-  if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(1)}K`;
+  if (n >= 1_000) {
+    return `${(n / 1_000).toFixed(1)}K`;
   }
-  return num.toString();
+  return n.toString();
 }
 
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return 'N/A';
+function formatDate(dateInput?: string | Date | null): string {
+  if (!dateInput) return 'N/A';
   try {
-    const date = new Date(dateStr);
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
   } catch {
-    return dateStr;
+    return 'N/A';
   }
 }
 
@@ -129,7 +92,7 @@ export default async function SongDetailPage({
   // 최근 7일 증가량 계산
   const recentViews = dailyViews.slice(-7);
   const weeklyIncrease = recentViews.length >= 2
-    ? recentViews[recentViews.length - 1].total_views - recentViews[0].total_views
+    ? recentViews[recentViews.length - 1].totalViews - recentViews[0].totalViews
     : 0;
 
   return (

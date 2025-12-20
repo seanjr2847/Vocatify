@@ -10,14 +10,16 @@ interface RankingSongCardProps {
   song: RankingItem;
 }
 
-function formatNumber(num: number): string {
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1)}M`;
+function formatNumber(num: number | bigint | null | undefined): string {
+  if (!num) return '0';
+  const n = typeof num === 'bigint' ? Number(num) : num;
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1)}M`;
   }
-  if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(1)}K`;
+  if (n >= 1_000) {
+    return `${(n / 1_000).toFixed(1)}K`;
   }
-  return num.toString();
+  return n.toString();
 }
 
 function getYouTubeThumbnail(videoId: string): string {

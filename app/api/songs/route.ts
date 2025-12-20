@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const songs = searchSongs(query, limit, offset);
+    const songs = await searchSongs(query, limit, offset);
 
     return NextResponse.json({
       success: true,

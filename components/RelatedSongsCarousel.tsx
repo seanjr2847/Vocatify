@@ -3,32 +3,26 @@
 import Link from 'next/link';
 import { Play, Eye } from 'lucide-react';
 import { useState } from 'react';
-
-interface Song {
-  vocadbId: number;
-  title: string;
-  artist: string;
-  thumbUrl?: string;
-  viewCount?: number;
-  youtubeId: string;
-}
+import type { Song } from '@/lib/db';
 
 interface RelatedSongsCarouselProps {
   songs: Song[];
   title: string;
 }
 
-function formatNumber(num: number): string {
-  if (num >= 1_000_000_000) {
-    return `${(num / 1_000_000_000).toFixed(1)}B`;
+function formatNumber(num: number | bigint | null | undefined): string {
+  if (!num) return '0';
+  const n = typeof num === 'bigint' ? Number(num) : num;
+  if (n >= 1_000_000_000) {
+    return `${(n / 1_000_000_000).toFixed(1)}B`;
   }
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1)}M`;
   }
-  if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(1)}K`;
+  if (n >= 1_000) {
+    return `${(n / 1_000).toFixed(1)}K`;
   }
-  return num.toLocaleString();
+  return n.toLocaleString();
 }
 
 export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps) {

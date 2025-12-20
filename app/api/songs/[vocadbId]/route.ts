@@ -30,7 +30,7 @@ export async function GET(
       );
     }
 
-    const song = getSongById(vocadbId);
+    const song = await getSongById(vocadbId);
 
     if (!song) {
       return NextResponse.json(

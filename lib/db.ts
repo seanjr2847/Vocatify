@@ -1,43 +1,45 @@
 /**
- * SQLite 데이터베이스 라이브러리 (새로운 daily_view_counts 구조용)
- * - 복합 기본 키 (song_id, recorded_date)
- * - Window function으로 증가량 계산
+ * PostgreSQL 데이터베이스 라이브러리 (Prisma 사용)
+ * - daily_view_counts 테이블 활용
+ * - Prisma를 통한 타입 안전 쿼리
  */
 
-import Database from 'better-sqlite3';
-import path from 'path';
+import { prisma } from './prisma';
 
 export interface Song {
   vocadbId: number;
   title: string;
-  titleEnglish?: string;
-  titleJapanese?: string;
-  titleRomaji?: string;
+  titleEnglish?: string | null;
+  titleJapanese?: string | null;
+  titleRomaji?: string | null;
+  titleKorean?: string | null;
+  titleOriginal?: string | null;
   artist: string;
-  artistType?: string;
+  artistType?: string | null;
   youtubeId: string;
   youtubeUrl: string;
-  thumbUrl?: string;
+  thumbUrl?: string | null;
   favoritedTimes: number;
   ratingScore: number;
-  tags?: string;
-  publishDate?: string;
-  songType?: string;
-  viewCount?: number;
-  viewCountUpdatedAt?: string;
-  crawledAt: string;
+  tags?: string | null;
+  publishDate?: Date | null;
+  songType?: string | null;
+  viewCount?: bigint | null;
+  viewCountUpdatedAt?: Date | null;
+  crawledAt: Date;
+  defaultLanguage?: string | null;
 }
 
 export interface DailyViewCount {
-  song_id: number;
-  recorded_date: string;
-  total_views: number;
+  songId: number;
+  recordedDate: Date;
+  totalViews: bigint;
 }
 
 export interface RankingItem extends Song {
   rank: number;
-  dailyIncrease?: number;
-  weeklyIncrease?: number;
+  dailyIncrease?: bigint;
+  weeklyIncrease?: bigint;
 }
 
 export interface RankingPositions {
@@ -53,62 +55,32 @@ export interface SongStatistics {
   totalDays: number;
 }
 
-let db: Database.Database | null = null;
-
-/**
- * DB 인스턴스 가져오기 (싱글톤)
- */
-export function getDb(): Database.Database {
-  if (!db) {
-    const dbPath = path.join(process.cwd(), 'data', 'vocadb', 'vocatify.db');
-    db = new Database(dbPath, { readonly: false });
-
-    // WAL 모드 활성화 (동시성 향상)
-    db.pragma('journal_mode = WAL');
-  }
-
-  return db;
-}
-
-/**
- * DB 연결 종료
- */
-export function closeDb(): void {
-  if (db) {
-    db.close();
-    db = null;
-  }
-}
-
 /**
  * 총 조회수 기준 랭킹 조회 (보컬로이드만)
  */
-export function getTotalRanking(limit: number = 100, offset: number = 0): RankingItem[] {
-  const db = getDb();
-
-  const query = `
+export async function getTotalRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
+  const songs = await prisma.$queryRaw<RankingItem[]>`
     SELECT
-      ROW_NUMBER() OVER (ORDER BY viewCount DESC) as rank,
+      ROW_NUMBER() OVER (ORDER BY view_count DESC) as rank,
       *
     FROM songs
-    WHERE viewCount IS NOT NULL
-      AND artistType = 'Vocaloid'
-    ORDER BY viewCount DESC
-    LIMIT ? OFFSET ?
+    WHERE view_count IS NOT NULL
+      AND artist_type = 'Vocaloid'
+    ORDER BY view_count DESC
+    LIMIT ${limit} OFFSET ${offset}
   `;
 
-  const stmt = db.prepare(query);
-  return stmt.all(limit, offset) as RankingItem[];
+  return songs.map((song, idx) => ({
+    ...song,
+    rank: offset + idx + 1,
+  }));
 }
 
 /**
  * 일간 증가량 기준 랭킹 조회 (보컬로이드만)
- * Window function으로 전날 대비 증가량 계산
  */
-export function getDailyRanking(limit: number = 100, offset: number = 0): RankingItem[] {
-  const db = getDb();
-
-  const query = `
+export async function getDailyRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
+  const songs = await prisma.$queryRaw<any[]>`
     WITH daily_changes AS (
       SELECT
         song_id,
@@ -119,52 +91,48 @@ export function getDailyRanking(limit: number = 100, offset: number = 0): Rankin
           ORDER BY recorded_date
         ) as daily_increase
       FROM daily_view_counts
-      WHERE recorded_date >= date('now', '-2 days', 'localtime')
+      WHERE recorded_date >= CURRENT_DATE - INTERVAL '2 days'
     ),
     today_changes AS (
       SELECT
         song_id,
         daily_increase
       FROM daily_changes
-      WHERE recorded_date = date('now', 'localtime')
+      WHERE recorded_date = CURRENT_DATE
         AND daily_increase > 0
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY tc.daily_increase DESC) as rank,
       s.*,
-      tc.daily_increase as dailyIncrease
+      tc.daily_increase as "dailyIncrease"
     FROM today_changes tc
-    INNER JOIN songs s ON s.vocadbId = tc.song_id
-    WHERE s.artistType = 'Vocaloid'
+    INNER JOIN songs s ON s.vocadb_id = tc.song_id
+    WHERE s.artist_type = 'Vocaloid'
     ORDER BY tc.daily_increase DESC
-    LIMIT ? OFFSET ?
+    LIMIT ${limit} OFFSET ${offset}
   `;
 
-  const stmt = db.prepare(query);
-  return stmt.all(limit, offset) as RankingItem[];
+  return songs;
 }
 
 /**
  * 주간 증가량 기준 랭킹 조회 (보컬로이드만)
- * 최근 7일간 증가량 합계 계산
  */
-export function getWeeklyRanking(limit: number = 100, offset: number = 0): RankingItem[] {
-  const db = getDb();
-
-  const query = `
+export async function getWeeklyRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
+  const songs = await prisma.$queryRaw<any[]>`
     WITH weekly_data AS (
       SELECT
         song_id,
         recorded_date,
         total_views
       FROM daily_view_counts
-      WHERE recorded_date >= date('now', '-8 days', 'localtime')
+      WHERE recorded_date >= CURRENT_DATE - INTERVAL '8 days'
     ),
     weekly_changes AS (
       SELECT
         song_id,
-        MAX(CASE WHEN recorded_date = date('now', 'localtime') THEN total_views END) as latest_views,
-        MAX(CASE WHEN recorded_date = date('now', '-7 days', 'localtime') THEN total_views END) as week_ago_views
+        MAX(CASE WHEN recorded_date = CURRENT_DATE THEN total_views END) as latest_views,
+        MAX(CASE WHEN recorded_date = CURRENT_DATE - INTERVAL '7 days' THEN total_views END) as week_ago_views
       FROM weekly_data
       GROUP BY song_id
     ),
@@ -179,163 +147,155 @@ export function getWeeklyRanking(limit: number = 100, offset: number = 0): Ranki
     SELECT
       ROW_NUMBER() OVER (ORDER BY wi.weekly_increase DESC) as rank,
       s.*,
-      wi.weekly_increase as weeklyIncrease
+      wi.weekly_increase as "weeklyIncrease"
     FROM weekly_increases wi
-    INNER JOIN songs s ON s.vocadbId = wi.song_id
-    WHERE s.artistType = 'Vocaloid'
+    INNER JOIN songs s ON s.vocadb_id = wi.song_id
+    WHERE s.artist_type = 'Vocaloid'
     ORDER BY wi.weekly_increase DESC
-    LIMIT ? OFFSET ?
+    LIMIT ${limit} OFFSET ${offset}
   `;
 
-  const stmt = db.prepare(query);
-  return stmt.all(limit, offset) as RankingItem[];
+  return songs;
 }
 
 /**
  * 신곡 랭킹 조회 (30일 이내, 500만 조회수 이하, 보컬로이드만)
  */
-export function getNewSongsRanking(limit: number = 100, offset: number = 0): RankingItem[] {
-  const db = getDb();
-
-  const query = `
+export async function getNewSongsRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
+  const songs = await prisma.$queryRaw<RankingItem[]>`
     SELECT
-      ROW_NUMBER() OVER (ORDER BY viewCount DESC) as rank,
+      ROW_NUMBER() OVER (ORDER BY view_count DESC) as rank,
       *
     FROM songs
-    WHERE publishDate >= date('now', '-30 days', 'localtime')
-      AND viewCount IS NOT NULL
-      AND viewCount <= 5000000
-      AND artistType = 'Vocaloid'
-    ORDER BY viewCount DESC
-    LIMIT ? OFFSET ?
+    WHERE publish_date >= CURRENT_DATE - INTERVAL '30 days'
+      AND view_count IS NOT NULL
+      AND view_count <= 5000000
+      AND artist_type = 'Vocaloid'
+    ORDER BY view_count DESC
+    LIMIT ${limit} OFFSET ${offset}
   `;
 
-  const stmt = db.prepare(query);
-  return stmt.all(limit, offset) as RankingItem[];
+  return songs.map((song, idx) => ({
+    ...song,
+    rank: offset + idx + 1,
+  }));
 }
 
 /**
  * 곡 검색 (보컬로이드만)
  */
-export function searchSongs(
+export async function searchSongs(
   query: string,
   limit: number = 20,
   offset: number = 0
-): Song[] {
-  const db = getDb();
-
-  const searchQuery = `
-    SELECT *
-    FROM songs
-    WHERE (title LIKE ?
-       OR titleEnglish LIKE ?
-       OR titleJapanese LIKE ?
-       OR artist LIKE ?)
-      AND artistType = 'Vocaloid'
-    ORDER BY viewCount DESC NULLS LAST
-    LIMIT ? OFFSET ?
-  `;
-
+): Promise<Song[]> {
   const searchPattern = `%${query}%`;
-  const stmt = db.prepare(searchQuery);
-  return stmt.all(
-    searchPattern,
-    searchPattern,
-    searchPattern,
-    searchPattern,
-    limit,
-    offset
-  ) as Song[];
+
+  return await prisma.song.findMany({
+    where: {
+      AND: [
+        {
+          OR: [
+            { title: { contains: query, mode: 'insensitive' } },
+            { titleEnglish: { contains: query, mode: 'insensitive' } },
+            { titleJapanese: { contains: query, mode: 'insensitive' } },
+            { titleKorean: { contains: query, mode: 'insensitive' } },
+            { artist: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        { artistType: 'Vocaloid' },
+      ],
+    },
+    orderBy: [
+      { viewCount: 'desc' },
+    ],
+    take: limit,
+    skip: offset,
+  });
 }
 
 /**
  * 특정 곡 상세 정보 조회
  */
-export function getSongById(vocadbId: number): Song | null {
-  const db = getDb();
-
-  const query = `
-    SELECT *
-    FROM songs
-    WHERE vocadbId = ?
-  `;
-
-  const stmt = db.prepare(query);
-  return (stmt.get(vocadbId) as Song) || null;
+export async function getSongById(vocadbId: number): Promise<Song | null> {
+  return await prisma.song.findUnique({
+    where: { vocadbId },
+  });
 }
 
 /**
  * 곡의 일별 조회수 기록 조회
  */
-export function getDailyViewCounts(
+export async function getDailyViewCounts(
   vocadbId: number,
   days: number = 30
-): DailyViewCount[] {
-  const db = getDb();
+): Promise<DailyViewCount[]> {
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
 
-  const query = `
-    SELECT *
-    FROM daily_view_counts
-    WHERE song_id = ?
-      AND recorded_date >= date('now', '-' || ? || ' days', 'localtime')
-    ORDER BY recorded_date ASC
-  `;
-
-  const stmt = db.prepare(query);
-  return stmt.all(vocadbId, days) as DailyViewCount[];
+  return await prisma.dailyViewCount.findMany({
+    where: {
+      songId: vocadbId,
+      recordedDate: {
+        gte: startDate,
+      },
+    },
+    orderBy: {
+      recordedDate: 'asc',
+    },
+  });
 }
 
 /**
  * 전체 통계 조회 (보컬로이드만)
  */
-export function getStats(): {
+export async function getStats(): Promise<{
   totalSongs: number;
   songsWithViews: number;
-  totalViews: number;
-  lastUpdate: string | null;
-} {
-  const db = getDb();
+  totalViews: bigint;
+  lastUpdate: Date | null;
+}> {
+  const result = await prisma.song.aggregate({
+    where: { artistType: 'Vocaloid' },
+    _count: {
+      vocadbId: true,
+      viewCount: true,
+    },
+    _sum: {
+      viewCount: true,
+    },
+    _max: {
+      viewCountUpdatedAt: true,
+    },
+  });
 
-  const query = `
-    SELECT
-      COUNT(*) as totalSongs,
-      COUNT(viewCount) as songsWithViews,
-      SUM(viewCount) as totalViews,
-      MAX(viewCountUpdatedAt) as lastUpdate
-    FROM songs
-    WHERE artistType = 'Vocaloid'
-  `;
-
-  const stmt = db.prepare(query);
-  return stmt.get() as {
-    totalSongs: number;
-    songsWithViews: number;
-    totalViews: number;
-    lastUpdate: string | null;
+  return {
+    totalSongs: result._count.vocadbId || 0,
+    songsWithViews: result._count.viewCount || 0,
+    totalViews: result._sum.viewCount || BigInt(0),
+    lastUpdate: result._max.viewCountUpdatedAt,
   };
 }
 
 /**
  * 곡의 랭킹 위치 조회 (전체/일간/주간)
  */
-export function getSongRankPositions(vocadbId: number): RankingPositions {
-  const db = getDb();
-
+export async function getSongRankPositions(vocadbId: number): Promise<RankingPositions> {
   // 총 조회수 랭킹 위치
-  const totalQuery = `
+  const totalRank = await prisma.$queryRaw<{ position: bigint }[]>`
     WITH ranked AS (
       SELECT
-        vocadbId,
-        ROW_NUMBER() OVER (ORDER BY viewCount DESC) as position
+        vocadb_id,
+        ROW_NUMBER() OVER (ORDER BY view_count DESC) as position
       FROM songs
-      WHERE viewCount IS NOT NULL
-        AND artistType = 'Vocaloid'
+      WHERE view_count IS NOT NULL
+        AND artist_type = 'Vocaloid'
     )
-    SELECT position FROM ranked WHERE vocadbId = ?
+    SELECT position FROM ranked WHERE vocadb_id = ${vocadbId}
   `;
 
   // 일간 증가량 랭킹 위치
-  const dailyQuery = `
+  const dailyRank = await prisma.$queryRaw<{ position: bigint }[]>`
     WITH daily_changes AS (
       SELECT
         song_id,
@@ -346,14 +306,14 @@ export function getSongRankPositions(vocadbId: number): RankingPositions {
           ORDER BY recorded_date
         ) as daily_increase
       FROM daily_view_counts
-      WHERE recorded_date >= date('now', '-2 days', 'localtime')
+      WHERE recorded_date >= CURRENT_DATE - INTERVAL '2 days'
     ),
     today_changes AS (
       SELECT
         song_id,
         daily_increase
       FROM daily_changes
-      WHERE recorded_date = date('now', 'localtime')
+      WHERE recorded_date = CURRENT_DATE
         AND daily_increase > 0
     ),
     ranked AS (
@@ -362,24 +322,24 @@ export function getSongRankPositions(vocadbId: number): RankingPositions {
         ROW_NUMBER() OVER (ORDER BY daily_increase DESC) as position
       FROM today_changes
     )
-    SELECT position FROM ranked WHERE song_id = ?
+    SELECT position FROM ranked WHERE song_id = ${vocadbId}
   `;
 
   // 주간 증가량 랭킹 위치
-  const weeklyQuery = `
+  const weeklyRank = await prisma.$queryRaw<{ position: bigint }[]>`
     WITH weekly_data AS (
       SELECT
         song_id,
         recorded_date,
         total_views
       FROM daily_view_counts
-      WHERE recorded_date >= date('now', '-8 days', 'localtime')
+      WHERE recorded_date >= CURRENT_DATE - INTERVAL '8 days'
     ),
     weekly_changes AS (
       SELECT
         song_id,
-        MAX(CASE WHEN recorded_date = date('now', 'localtime') THEN total_views END) as latest_views,
-        MAX(CASE WHEN recorded_date = date('now', '-7 days', 'localtime') THEN total_views END) as week_ago_views
+        MAX(CASE WHEN recorded_date = CURRENT_DATE THEN total_views END) as latest_views,
+        MAX(CASE WHEN recorded_date = CURRENT_DATE - INTERVAL '7 days' THEN total_views END) as week_ago_views
       FROM weekly_data
       GROUP BY song_id
     ),
@@ -397,72 +357,58 @@ export function getSongRankPositions(vocadbId: number): RankingPositions {
         ROW_NUMBER() OVER (ORDER BY weekly_increase DESC) as position
       FROM weekly_increases
     )
-    SELECT position FROM ranked WHERE song_id = ?
+    SELECT position FROM ranked WHERE song_id = ${vocadbId}
   `;
 
-  const totalStmt = db.prepare(totalQuery);
-  const dailyStmt = db.prepare(dailyQuery);
-  const weeklyStmt = db.prepare(weeklyQuery);
-
-  const totalResult = totalStmt.get(vocadbId) as { position: number } | undefined;
-  const dailyResult = dailyStmt.get(vocadbId) as { position: number } | undefined;
-  const weeklyResult = weeklyStmt.get(vocadbId) as { position: number } | undefined;
-
   return {
-    total: totalResult?.position ?? null,
-    daily: dailyResult?.position ?? null,
-    weekly: weeklyResult?.position ?? null,
+    total: totalRank[0] ? Number(totalRank[0].position) : null,
+    daily: dailyRank[0] ? Number(dailyRank[0].position) : null,
+    weekly: weeklyRank[0] ? Number(weeklyRank[0].position) : null,
   };
 }
 
 /**
  * 같은 아티스트의 다른 인기곡 조회
  */
-export function getRelatedSongsByArtist(
+export async function getRelatedSongsByArtist(
   artist: string,
   currentVocadbId: number,
   limit: number = 6
-): Song[] {
-  const db = getDb();
-
-  const query = `
-    SELECT *
-    FROM songs
-    WHERE artist = ?
-      AND vocadbId != ?
-      AND viewCount IS NOT NULL
-      AND artistType = 'Vocaloid'
-    ORDER BY viewCount DESC
-    LIMIT ?
-  `;
-
-  const stmt = db.prepare(query);
-  return stmt.all(artist, currentVocadbId, limit) as Song[];
+): Promise<Song[]> {
+  return await prisma.song.findMany({
+    where: {
+      artist,
+      vocadbId: { not: currentVocadbId },
+      viewCount: { not: null },
+      artistType: 'Vocaloid',
+    },
+    orderBy: {
+      viewCount: 'desc',
+    },
+    take: limit,
+  });
 }
 
 /**
  * 곡의 통계 정보 조회 (일/주/월 평균 증가량)
  */
-export function getSongStatistics(vocadbId: number): SongStatistics | null {
-  const db = getDb();
-
-  // 일별 증가량 계산 및 통계
-  const query = `
+export async function getSongStatistics(vocadbId: number): Promise<SongStatistics | null> {
+  const result = await prisma.$queryRaw<SongStatistics[]>`
     WITH daily_increases AS (
       SELECT
         recorded_date,
         total_views,
         total_views - LAG(total_views) OVER (ORDER BY recorded_date) as daily_increase,
-        strftime('%Y-%W', recorded_date) as week,
-        strftime('%Y-%m', recorded_date) as month
+        TO_CHAR(recorded_date, 'IYYY-IW') as week,
+        TO_CHAR(recorded_date, 'YYYY-MM') as month
       FROM daily_view_counts
-      WHERE song_id = ?
+      WHERE song_id = ${vocadbId}
       ORDER BY recorded_date
     ),
     daily_stats AS (
       SELECT
-        AVG(CASE WHEN recorded_date >= date('now', '-30 days', 'localtime') AND daily_increase > 0 THEN daily_increase END) as daily_avg,
-        COUNT(DISTINCT CASE WHEN recorded_date >= date('now', '-30 days', 'localtime') THEN recorded_date END) as total_days
+        AVG(CASE WHEN recorded_date >= CURRENT_DATE - INTERVAL '30 days' AND daily_increase > 0 THEN daily_increase END) as daily_avg,
+        COUNT(DISTINCT CASE WHEN recorded_date >= CURRENT_DATE - INTERVAL '30 days' THEN recorded_date END) as total_days
       FROM daily_increases
     ),
     weekly_stats AS (
@@ -473,10 +419,10 @@ export function getSongStatistics(vocadbId: number): SongStatistics | null {
           week,
           MAX(total_views) - MIN(total_views) as weekly_increase
         FROM daily_increases
-        WHERE recorded_date >= date('now', '-84 days', 'localtime')
+        WHERE recorded_date >= CURRENT_DATE - INTERVAL '84 days'
         GROUP BY week
-        HAVING weekly_increase > 0
-      )
+        HAVING MAX(total_views) - MIN(total_views) > 0
+      ) t
     ),
     monthly_stats AS (
       SELECT
@@ -486,28 +432,24 @@ export function getSongStatistics(vocadbId: number): SongStatistics | null {
           month,
           MAX(total_views) - MIN(total_views) as monthly_increase
         FROM daily_increases
-        WHERE recorded_date >= date('now', '-180 days', 'localtime')
+        WHERE recorded_date >= CURRENT_DATE - INTERVAL '180 days'
         GROUP BY month
-        HAVING monthly_increase > 0
-      )
+        HAVING MAX(total_views) - MIN(total_views) > 0
+      ) t
     )
     SELECT
-      COALESCE(d.daily_avg, 0) as dailyAverage,
-      COALESCE(w.weekly_avg, 0) as weeklyAverage,
-      COALESCE(m.monthly_avg, 0) as monthlyAverage,
-      COALESCE(d.total_days, 0) as totalDays
+      COALESCE(d.daily_avg, 0)::FLOAT as "dailyAverage",
+      COALESCE(w.weekly_avg, 0)::FLOAT as "weeklyAverage",
+      COALESCE(m.monthly_avg, 0)::FLOAT as "monthlyAverage",
+      COALESCE(d.total_days, 0)::INT as "totalDays"
     FROM daily_stats d
     CROSS JOIN weekly_stats w
     CROSS JOIN monthly_stats m
   `;
 
-  const stmt = db.prepare(query);
-  const result = stmt.get(vocadbId) as SongStatistics | undefined;
-
-  // 데이터가 충분하지 않으면 null 반환 (최소 7일 필요)
-  if (!result || result.totalDays < 7) {
+  if (!result[0] || result[0].totalDays < 7) {
     return null;
   }
 
-  return result;
+  return result[0];
 }

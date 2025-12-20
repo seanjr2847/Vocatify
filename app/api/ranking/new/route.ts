@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const ranking = getNewSongsRanking(limit, offset);
+    const ranking = await await getNewSongsRanking(limit, offset);
 
     return NextResponse.json({
       success: true,

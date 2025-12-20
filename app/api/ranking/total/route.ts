@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const ranking = getTotalRanking(limit, offset);
+    const ranking = await await getTotalRanking(limit, offset);
 
     return NextResponse.json({
       success: true,

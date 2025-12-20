@@ -1,28 +1,24 @@
 "use client";
 
 import { ResponsiveLine } from '@nivo/line';
-
-interface DailyViewCount {
-  song_id: number;
-  recorded_date: string;
-  total_views: number;
-}
+import type { DailyViewCount } from '@/lib/db';
 
 interface DailyViewsChartProps {
   data: DailyViewCount[];
 }
 
-function formatNumber(num: number): string {
-  if (num >= 1_000_000_000) {
-    return `${(num / 1_000_000_000).toFixed(1)}B`;
+function formatNumber(num: number | bigint): string {
+  const n = typeof num === 'bigint' ? Number(num) : num;
+  if (n >= 1_000_000_000) {
+    return `${(n / 1_000_000_000).toFixed(1)}B`;
   }
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1)}M`;
   }
-  if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(1)}K`;
+  if (n >= 1_000) {
+    return `${(n / 1_000).toFixed(1)}K`;
   }
-  return num.toString();
+  return n.toString();
 }
 
 export function DailyViewsChart({ data }: DailyViewsChartProps) {
@@ -32,11 +28,11 @@ export function DailyViewsChart({ data }: DailyViewsChartProps) {
       id: '조회수',
       color: '#39c5bb',
       data: data.map(record => ({
-        x: new Date(record.recorded_date).toLocaleDateString('ko-KR', {
+        x: new Date(record.recordedDate).toLocaleDateString('ko-KR', {
           month: 'short',
           day: 'numeric',
         }),
-        y: record.total_views,
+        y: Number(record.totalViews),
       })),
     },
   ];

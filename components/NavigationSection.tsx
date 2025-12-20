@@ -15,15 +15,16 @@ interface NavigationSectionProps {
 }
 
 // 조회수 포맷팅 함수
-function formatViews(views: number | undefined): string {
+function formatViews(views: number | bigint | null | undefined): string {
   if (!views) return "0";
-  if (views >= 1000000) {
-    return `${(views / 1000000).toFixed(1)}M`;
+  const n = typeof views === 'bigint' ? Number(views) : views;
+  if (n >= 1000000) {
+    return `${(n / 1000000).toFixed(1)}M`;
   }
-  if (views >= 1000) {
-    return `${(views / 1000).toFixed(1)}K`;
+  if (n >= 1000) {
+    return `${(n / 1000).toFixed(1)}K`;
   }
-  return views.toString();
+  return n.toString();
 }
 
 // YouTube 썸네일 URL 생성
