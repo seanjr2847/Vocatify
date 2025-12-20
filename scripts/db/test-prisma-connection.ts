@@ -3,7 +3,7 @@
  */
 
 import 'dotenv/config';
-import { PrismaClient } from '../../lib/generated/prisma/index.js';
+import { PrismaClient } from '@prisma/client';
 
 async function testConnection() {
   const prisma = new PrismaClient();
