@@ -36,7 +36,7 @@ jobs:
     steps:
       - name: Trigger VocaDB Cron Endpoint
         run: |
-          response=$(curl -X POST "${{ env.VERCEL_URL }}/api/cron/vocadb" \
+          response=$(curl -L -X POST "${{ env.VERCEL_URL }}/api/cron/vocadb" \
             -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             -w "\n%{http_code}" \
@@ -61,7 +61,7 @@ jobs:
     steps:
       - name: Trigger YouTube Cron Endpoint
         run: |
-          response=$(curl -X POST "${{ env.VERCEL_URL }}/api/cron/youtube" \
+          response=$(curl -L -X POST "${{ env.VERCEL_URL }}/api/cron/youtube" \
             -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             -w "\n%{http_code}" \
@@ -86,7 +86,7 @@ jobs:
     steps:
       - name: Trigger Localized Titles Cron Endpoint
         run: |
-          response=$(curl -X POST "${{ env.VERCEL_URL }}/api/cron/localized" \
+          response=$(curl -L -X POST "${{ env.VERCEL_URL }}/api/cron/localized" \
             -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             -w "\n%{http_code}" \
