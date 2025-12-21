@@ -3,10 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Home, Music, Radio, Search, User, Video } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { NavigationSection } from "@/components/NavigationSection";
-import { RankingItem } from "@/lib/db";
+import { SearchSuggestions } from "@/components/SearchSuggestions";
+import { RankingItem, Song } from "@/lib/db";
 
 const navigationItems = [
   { icon: Home, alt: "홈", active: false },
@@ -27,15 +29,55 @@ interface HomeClientProps {
 }
 
 export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<Song[]>([]);
+  const [suggestionsTotal, setSuggestionsTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Debounced search for suggestions
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/songs?query=${encodeURIComponent(searchQuery)}&limit=7`
+        );
+        const data = await response.json();
+
+        if (data.success) {
+          setSuggestions(data.data);
+          setSuggestionsTotal(data.pagination.total);
+          setShowSuggestions(true);
+        }
+      } catch (error) {
+        console.error("검색 오류:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.length >= 2) {
-      // TODO: 검색 기능 구현
-      console.log("검색:", searchQuery);
+      router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+      setShowSuggestions(false);
     }
   };
+
+  const handleCloseSuggestions = useCallback(() => {
+    setShowSuggestions(false);
+  }, []);
 
   return (
     <div className="bg-[#1d2123] overflow-hidden w-full min-w-[1280px] flex flex-col min-h-screen">
@@ -74,15 +116,26 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
 
         <main className="flex-1 flex flex-col">
           <header className="h-[73px] bg-[#1d2123] flex items-center px-[27px]">
-            <form onSubmit={handleSearch} className="flex items-center gap-[22px] w-full">
+            <form onSubmit={handleSearch} className="flex items-center gap-[22px] w-full relative">
               <Search className="w-4 h-4 text-white/25" />
-              <Input
-                type="text"
-                placeholder="아티스트 검색"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="border-0 bg-transparent text-sm font-semibold text-white/25 placeholder:text-white/25 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [font-family:'Quicksand-SemiBold',Helvetica]"
-              />
+              <div className="flex-1 relative">
+                <Input
+                  type="text"
+                  placeholder="아티스트 검색"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="border-0 bg-transparent text-sm font-semibold text-white/25 placeholder:text-white/25 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [font-family:'Quicksand-SemiBold',Helvetica] w-full"
+                />
+                {showSuggestions && (
+                  <SearchSuggestions
+                    suggestions={suggestions}
+                    query={searchQuery}
+                    total={suggestionsTotal}
+                    isLoading={isLoading}
+                    onClose={handleCloseSuggestions}
+                  />
+                )}
+              </div>
             </form>
           </header>
 

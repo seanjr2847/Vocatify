@@ -262,36 +262,79 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
 }
 
 /**
- * 곡 검색 (보컬로이드만)
+ * 곡 검색 결과 인터페이스
+ */
+export interface SearchResult {
+  songs: Song[];
+  total: number;
+}
+
+/**
+ * 정렬 옵션 타입
+ */
+export type SortBy = 'viewCount' | 'publishDate' | 'title' | 'artist';
+
+/**
+ * 곡 검색 (보컬로이드만 또는 전체)
  */
 export async function searchSongs(
   query: string,
   limit: number = 20,
-  offset: number = 0
-): Promise<Song[]> {
-  const searchPattern = `%${query}%`;
-
-  return await prisma.song.findMany({
-    where: {
-      AND: [
-        {
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { titleEnglish: { contains: query, mode: 'insensitive' } },
-            { titleJapanese: { contains: query, mode: 'insensitive' } },
-            { titleKorean: { contains: query, mode: 'insensitive' } },
-            { artist: { contains: query, mode: 'insensitive' } },
-          ],
-        },
-        { artistType: 'Vocaloid' },
-      ],
-    },
-    orderBy: [
-      { viewCount: 'desc' },
+  offset: number = 0,
+  sortBy: SortBy = 'viewCount',
+  artistType: string | null = 'Vocaloid'
+): Promise<SearchResult> {
+  // Build where clause
+  const whereClause: any = {
+    OR: [
+      { title: { contains: query, mode: 'insensitive' } },
+      { titleEnglish: { contains: query, mode: 'insensitive' } },
+      { titleJapanese: { contains: query, mode: 'insensitive' } },
+      { titleKorean: { contains: query, mode: 'insensitive' } },
+      { artist: { contains: query, mode: 'insensitive' } },
     ],
-    take: limit,
-    skip: offset,
-  });
+  };
+
+  // Add artist type filter if specified
+  if (artistType) {
+    whereClause.AND = [{ artistType }];
+  }
+
+  // Build order by clause
+  const orderByClause: any[] = [];
+  switch (sortBy) {
+    case 'viewCount':
+      orderByClause.push({ viewCount: 'desc' });
+      break;
+    case 'publishDate':
+      orderByClause.push({ publishDate: 'desc' });
+      break;
+    case 'title':
+      orderByClause.push({ title: 'asc' });
+      break;
+    case 'artist':
+      orderByClause.push({ artist: 'asc' });
+      orderByClause.push({ viewCount: 'desc' }); // Secondary sort by viewCount
+      break;
+  }
+
+  // Execute queries in parallel
+  const [songs, total] = await Promise.all([
+    prisma.song.findMany({
+      where: whereClause,
+      orderBy: orderByClause,
+      take: limit,
+      skip: offset,
+    }),
+    prisma.song.count({
+      where: whereClause,
+    }),
+  ]);
+
+  return {
+    songs,
+    total,
+  };
 }
 
 /**

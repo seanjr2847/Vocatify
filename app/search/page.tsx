@@ -1,0 +1,44 @@
+import { searchSongs } from "@/lib/db";
+import { SearchResults } from "@/components/SearchResults";
+import { redirect } from "next/navigation";
+
+interface SearchPageProps {
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    sortBy?: string;
+    artistType?: string;
+  }>;
+}
+
+export default async function SearchPage({ searchParams }: SearchPageProps) {
+  const params = await searchParams;
+  const query = params.q || "";
+  const page = parseInt(params.page || "1");
+  const sortBy = (params.sortBy || "viewCount") as any;
+  const artistType = params.artistType === "all" ? null : "Vocaloid";
+
+  // Redirect to home if no query
+  if (!query || query.length < 2) {
+    redirect("/");
+  }
+
+  const limit = 20;
+  const offset = (page - 1) * limit;
+
+  // Fetch search results server-side
+  const result = await searchSongs(query, limit, offset, sortBy, artistType);
+
+  return (
+    <div className="min-h-screen bg-[#1d2123]">
+      <SearchResults
+        initialResults={result.songs}
+        total={result.total}
+        query={query}
+        currentPage={page}
+        sortBy={sortBy}
+        artistType={artistType || "Vocaloid"}
+      />
+    </div>
+  );
+}
