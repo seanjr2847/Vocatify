@@ -2,7 +2,9 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -42,6 +44,10 @@ model Song {
   @@index([publishDate(sort: Desc)], name: "idx_songs_publish")
   @@index([artist, viewCount(sort: Desc)], name: "idx_songs_artist")
   @@index([titleKorean], name: "idx_songs_title_korean")
+  @@index([title], name: "idx_songs_title_search")
+  @@index([titleEnglish], name: "idx_songs_title_english_search")
+  @@index([titleJapanese], name: "idx_songs_title_japanese_search")
+  @@index([titleRomaji], name: "idx_songs_title_romaji_search")
   @@map("songs")
 }
 

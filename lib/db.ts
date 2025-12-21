@@ -262,20 +262,31 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
 }
 
 /**
+ * 검색 곡 인터페이스 (매칭 필드 정보 포함)
+ */
+export interface SearchSong extends Song {
+  matchedField?: 'title' | 'titleEnglish' | 'titleJapanese' | 'titleKorean' | 'titleRomaji' | 'artist';
+  relevanceScore?: number;
+}
+
+/**
  * 곡 검색 결과 인터페이스
  */
 export interface SearchResult {
-  songs: Song[];
+  songs: SearchSong[];
   total: number;
 }
 
 /**
  * 정렬 옵션 타입
  */
-export type SortBy = 'viewCount' | 'publishDate' | 'title' | 'artist';
+export type SortBy = 'viewCount' | 'publishDate' | 'title' | 'artist' | 'relevance';
 
 /**
  * 곡 검색 (보컬로이드만 또는 전체)
+ * - 로마지 검색 지원
+ * - 매칭된 필드 정보 반환
+ * - 관련성 점수 계산
  */
 export async function searchSongs(
   query: string,
@@ -284,13 +295,16 @@ export async function searchSongs(
   sortBy: SortBy = 'viewCount',
   artistType: string | null = 'Vocaloid'
 ): Promise<SearchResult> {
-  // Build where clause
+  const lowerQuery = query.toLowerCase();
+
+  // Build where clause with romaji support
   const whereClause: any = {
     OR: [
       { title: { contains: query, mode: 'insensitive' } },
       { titleEnglish: { contains: query, mode: 'insensitive' } },
       { titleJapanese: { contains: query, mode: 'insensitive' } },
       { titleKorean: { contains: query, mode: 'insensitive' } },
+      { titleRomaji: { contains: query, mode: 'insensitive' } },
       { artist: { contains: query, mode: 'insensitive' } },
     ],
   };
@@ -314,7 +328,12 @@ export async function searchSongs(
       break;
     case 'artist':
       orderByClause.push({ artist: 'asc' });
-      orderByClause.push({ viewCount: 'desc' }); // Secondary sort by viewCount
+      orderByClause.push({ viewCount: 'desc' });
+      break;
+    case 'relevance':
+      // For relevance, we'll use viewCount as secondary
+      // Primary relevance scoring is done post-query
+      orderByClause.push({ viewCount: 'desc' });
       break;
   }
 
@@ -331,8 +350,67 @@ export async function searchSongs(
     }),
   ]);
 
+  // Add matched field info and relevance score
+  const songsWithMatch: SearchSong[] = songs.map((song) => {
+    let matchedField: SearchSong['matchedField'] = undefined;
+    let relevanceScore = 0;
+
+    // Check which field matched and calculate relevance
+    const checkMatch = (value: string | null, field: SearchSong['matchedField'], baseScore: number) => {
+      if (!value) return false;
+      const lowerValue = value.toLowerCase();
+      if (lowerValue === lowerQuery) {
+        // Exact match - highest score
+        matchedField = field;
+        relevanceScore = baseScore + 100;
+        return true;
+      } else if (lowerValue.startsWith(lowerQuery)) {
+        // Prefix match - high score
+        matchedField = field;
+        relevanceScore = baseScore + 50;
+        return true;
+      } else if (lowerValue.includes(lowerQuery)) {
+        // Contains match - normal score
+        matchedField = field;
+        relevanceScore = baseScore;
+        return true;
+      }
+      return false;
+    };
+
+    // Priority order for matching
+    if (!checkMatch(song.titleKorean, 'titleKorean', 40)) {
+      if (!checkMatch(song.title, 'title', 35)) {
+        if (!checkMatch(song.titleEnglish, 'titleEnglish', 30)) {
+          if (!checkMatch(song.titleJapanese, 'titleJapanese', 25)) {
+            if (!checkMatch(song.titleRomaji, 'titleRomaji', 20)) {
+              checkMatch(song.artist, 'artist', 15);
+            }
+          }
+        }
+      }
+    }
+
+    // Add view count bonus (normalized)
+    if (song.viewCount) {
+      const viewBonus = Math.log10(Number(song.viewCount) + 1) * 2;
+      relevanceScore += viewBonus;
+    }
+
+    return {
+      ...song,
+      matchedField,
+      relevanceScore,
+    };
+  });
+
+  // Sort by relevance if requested
+  if (sortBy === 'relevance') {
+    songsWithMatch.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+  }
+
   return {
-    songs,
+    songs: songsWithMatch,
     total,
   };
 }

@@ -3,12 +3,17 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Home, Music, Radio, Search, User, Video } from "lucide-react";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { NavigationSection } from "@/components/NavigationSection";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { RankingItem, Song } from "@/lib/db";
+
+interface SearchSong extends Song {
+  matchedField?: 'title' | 'titleEnglish' | 'titleJapanese' | 'titleKorean' | 'titleRomaji' | 'artist';
+  relevanceScore?: number;
+}
 
 const navigationItems = [
   { icon: Home, alt: "홈", active: false },
@@ -31,16 +36,33 @@ interface HomeClientProps {
 export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<Song[]>([]);
+  const [suggestions, setSuggestions] = useState<SearchSong[]>([]);
   const [suggestionsTotal, setSuggestionsTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const searchCacheRef = useRef<Map<string, { data: SearchSong[]; total: number; timestamp: number }>>(new Map());
 
-  // Debounced search for suggestions
+  // Cache expiration time (5 minutes)
+  const CACHE_TTL = 5 * 60 * 1000;
+
+  // Debounced search for suggestions with caching
   useEffect(() => {
     if (searchQuery.length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
+      setSelectedIndex(-1);
+      return;
+    }
+
+    // Check cache first
+    const cached = searchCacheRef.current.get(searchQuery);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      setSuggestions(cached.data);
+      setSuggestionsTotal(cached.total);
+      setShowSuggestions(true);
+      setSelectedIndex(-1);
       return;
     }
 
@@ -48,7 +70,7 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
     const timer = setTimeout(async () => {
       try {
         const response = await fetch(
-          `/api/songs?query=${encodeURIComponent(searchQuery)}&limit=7`
+          `/api/songs?query=${encodeURIComponent(searchQuery)}&limit=7&sortBy=relevance`
         );
         const data = await response.json();
 
@@ -56,16 +78,81 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
           setSuggestions(data.data);
           setSuggestionsTotal(data.pagination.total);
           setShowSuggestions(true);
+          setSelectedIndex(-1);
+
+          // Store in cache
+          searchCacheRef.current.set(searchQuery, {
+            data: data.data,
+            total: data.pagination.total,
+            timestamp: Date.now(),
+          });
+
+          // Clean old cache entries (keep max 50)
+          if (searchCacheRef.current.size > 50) {
+            const entries = Array.from(searchCacheRef.current.entries());
+            entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+            entries.slice(0, 10).forEach(([key]) => searchCacheRef.current.delete(key));
+          }
         }
       } catch (error) {
         console.error("검색 오류:", error);
       } finally {
         setIsLoading(false);
       }
-    }, 300); // 300ms debounce
+    }, 200); // 200ms debounce (reduced from 300ms)
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === 'Escape') {
+        setShowSuggestions(false);
+      }
+      return;
+    }
+
+    const maxIndex = suggestionsTotal > suggestions.length ? suggestions.length : suggestions.length - 1;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev < maxIndex ? prev + 1 : -1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev > -1 ? prev - 1 : maxIndex));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex === -1) {
+          // Submit search form
+          if (searchQuery.length >= 2) {
+            router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+            setShowSuggestions(false);
+          }
+        } else if (selectedIndex === suggestions.length) {
+          // "View all results" option
+          router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+          setShowSuggestions(false);
+        } else {
+          // Select specific song
+          const song = suggestions[selectedIndex];
+          if (song) {
+            router.push(`/songs/${song.vocadbId}`);
+            setShowSuggestions(false);
+          }
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        inputRef.current?.blur();
+        break;
+    }
+  }, [showSuggestions, suggestions, suggestionsTotal, selectedIndex, searchQuery, router]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +164,11 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
 
   const handleCloseSuggestions = useCallback(() => {
     setShowSuggestions(false);
+    setSelectedIndex(-1);
+  }, []);
+
+  const handleSelectIndex = useCallback((index: number) => {
+    setSelectedIndex(index);
   }, []);
 
   return (
@@ -120,11 +212,22 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
               <Search className="w-4 h-4 text-white/25" />
               <div className="flex-1 relative">
                 <Input
+                  ref={inputRef}
                   type="text"
-                  placeholder="아티스트 검색"
+                  placeholder="곡, 아티스트 검색 (로마지 지원)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="border-0 bg-transparent text-sm font-semibold text-white/25 placeholder:text-white/25 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [font-family:'Quicksand-SemiBold',Helvetica] w-full"
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => {
+                    if (searchQuery.length >= 2 && suggestions.length > 0) {
+                      setShowSuggestions(true);
+                    }
+                  }}
+                  className="border-0 bg-transparent text-sm font-semibold text-white placeholder:text-white/25 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [font-family:'Quicksand-SemiBold',Helvetica] w-full"
+                  autoComplete="off"
+                  aria-autocomplete="list"
+                  aria-controls="search-suggestions"
+                  aria-expanded={showSuggestions}
                 />
                 {showSuggestions && (
                   <SearchSuggestions
@@ -132,7 +235,9 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
                     query={searchQuery}
                     total={suggestionsTotal}
                     isLoading={isLoading}
+                    selectedIndex={selectedIndex}
                     onClose={handleCloseSuggestions}
+                    onSelectIndex={handleSelectIndex}
                   />
                 )}
               </div>

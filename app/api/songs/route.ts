@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchSongs, SortBy } from '@/lib/db';
 
-const VALID_SORT_OPTIONS: SortBy[] = ['viewCount', 'publishDate', 'title', 'artist'];
+const VALID_SORT_OPTIONS: SortBy[] = ['viewCount', 'publishDate', 'title', 'artist', 'relevance'];
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
       data: result.songs.map((song) => ({
         ...song,
         viewCount: song.viewCount?.toString(), // Convert BigInt to string
+        matchedField: song.matchedField,
+        relevanceScore: song.relevanceScore,
       })),
       pagination: {
         limit,
@@ -55,6 +57,7 @@ export async function GET(request: NextRequest) {
         sortBy,
         artistType: artistType || 'all',
       },
+      query, // Include original query for highlighting
     });
   } catch (error: any) {
     console.error('곡 검색 오류:', error);

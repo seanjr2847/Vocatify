@@ -18,6 +18,7 @@ interface SearchResultsProps {
 }
 
 const SORT_OPTIONS = [
+  { value: "relevance", label: "관련성" },
   { value: "viewCount", label: "조회수" },
   { value: "publishDate", label: "발매일" },
   { value: "title", label: "제목" },
