@@ -1,14 +1,12 @@
 name: Daily Crawlers
 
 on:
-  # Run daily at 2:00 AM, 3:00 AM UTC
   schedule:
-    - cron: '0 2 * * *'  # VocaDB crawler
-    - cron: '0 3 * * *'  # YouTube crawler
-
-  # Run weekly on Sunday at 4:00 AM UTC
-  schedule:
-    - cron: '0 4 * * 0'  # Localized titles crawler
+    # Daily crawlers (UTC time)
+    - cron: '0 2 * * *'  # VocaDB crawler - 2:00 AM UTC (11:00 AM KST)
+    - cron: '0 3 * * *'  # YouTube crawler - 3:00 AM UTC (12:00 PM KST)
+    # Weekly crawler
+    - cron: '0 4 * * 0'  # Localized titles - Sunday 4:00 AM UTC (1:00 PM KST)
 
   # Allow manual trigger
   workflow_dispatch:
