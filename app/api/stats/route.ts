@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { getStats } from '@/lib/db';
+import { bigIntToString } from '@/lib/serialize';
 
 export async function GET() {
   try {
@@ -12,7 +13,10 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      data: stats,
+      data: {
+        ...stats,
+        totalViews: bigIntToString(stats.totalViews),
+      },
     });
   } catch (error: any) {
     console.error('통계 조회 오류:', error);

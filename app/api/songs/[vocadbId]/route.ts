@@ -11,6 +11,7 @@ import {
   getRelatedSongsByArtist,
   getSongStatistics,
 } from '@/lib/db';
+import { serializeBigInt } from '@/lib/serialize';
 
 export async function GET(
   request: NextRequest,
@@ -61,13 +62,13 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: {
+      data: serializeBigInt({
         song,
         dailyViews,
         rankings,
         relatedSongs,
         statistics,
-      },
+      }),
     });
   } catch (error: any) {
     console.error('곡 상세 조회 오류:', error);

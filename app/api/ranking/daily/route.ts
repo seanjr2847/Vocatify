@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDailyRanking } from '@/lib/db';
+import { serializeBigInt } from '@/lib/serialize';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: ranking,
+      data: serializeBigInt(ranking),
       pagination: {
         limit,
         offset,
