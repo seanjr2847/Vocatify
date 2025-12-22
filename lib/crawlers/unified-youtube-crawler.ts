@@ -85,8 +85,12 @@ export class UnifiedYouTubeCrawler {
     let completed = false;
 
     try {
+      // Get total count for this mode
+      const totalSongsToProcess = await this.getTotalCountByMode();
+
       console.log(`🎬 Unified YouTube Crawler - Mode: ${this.options.mode}`);
       console.log(`   Localizations: ${this.options.updateLocalizations ? 'enabled' : 'disabled'}`);
+      console.log(`   Total songs to process: ${totalSongsToProcess.toLocaleString()}`);
 
       // Initialize or resume progress
       if (this.options.enableResume) {
@@ -145,7 +149,8 @@ export class UnifiedYouTubeCrawler {
         console.log(`   Views updated: ${batchResult.updated} songs`);
         console.log(`   Titles updated: ${batchResult.titlesUpdated} songs`);
         console.log(`   Failed: ${batchResult.failed} songs`);
-        console.log(`   Total progress: ${songsProcessed}/${this.options.maxSongsPerRun} songs\n`);
+        const percent = totalSongsToProcess > 0 ? ((songsProcessed / totalSongsToProcess) * 100).toFixed(1) : '0';
+        console.log(`   Total progress: ${songsProcessed.toLocaleString()}/${totalSongsToProcess.toLocaleString()} songs (${percent}%)\n`);
 
         // Update progress
         if (this.progressId) {
@@ -233,6 +238,49 @@ export class UnifiedYouTubeCrawler {
         completed: false,
         error: errorMessage,
       };
+    }
+  }
+
+  /**
+   * Get total count of songs to process based on mode
+   */
+  private async getTotalCountByMode(): Promise<number> {
+    switch (this.options.mode) {
+      case 'new':
+        return this.prisma.song.count({
+          where: {
+            OR: [
+              { viewCountUpdatedAt: null },
+              { viewCountUpdatedAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+            ],
+          },
+        });
+
+      case 'old':
+        return this.prisma.song.count({
+          where: {
+            OR: [
+              { viewCountUpdatedAt: null },
+              { viewCountUpdatedAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
+            ],
+          },
+        });
+
+      case 'top':
+        return this.prisma.song.count({
+          where: {
+            OR: [
+              { viewCount: { gt: 1000000 } },
+              { favoritedTimes: { gt: 100 } },
+            ],
+          },
+        });
+
+      case 'all':
+        return this.prisma.song.count();
+
+      default:
+        return 0;
     }
   }
 
