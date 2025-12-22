@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Quicksand, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { MusicPlayerProvider } from "@/lib/MusicPlayerContext";
+import { Toaster } from "sonner";
 
 const quicksand = Quicksand({
   subsets: ["latin"],
@@ -29,6 +30,7 @@ export default function RootLayout({
       <body className={`${quicksand.variable} ${notoSansKr.variable} font-sans`} style={{ fontFamily: 'var(--font-noto-sans-kr), var(--font-quicksand), sans-serif' }}>
         <MusicPlayerProvider>
           {children}
+          <Toaster richColors position="top-center" />
         </MusicPlayerProvider>
       </body>
     </html>

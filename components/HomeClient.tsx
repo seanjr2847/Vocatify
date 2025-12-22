@@ -9,6 +9,7 @@ import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { NavigationSection } from "@/components/NavigationSection";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { RankingItem, Song } from "@/lib/db";
+import { toast } from "sonner";
 
 interface SearchSong extends Song {
   matchedField?: 'title' | 'titleEnglish' | 'titleJapanese' | 'titleKorean' | 'titleRomaji' | 'artist';
@@ -16,15 +17,15 @@ interface SearchSong extends Song {
 }
 
 const navigationItems = [
-  { icon: Home, alt: "홈", active: false },
-  { icon: Music, alt: "음악 라이브러리", active: false },
-  { icon: Radio, alt: "라디오", active: false },
-  { icon: Video, alt: "비디오", active: false },
+  { icon: Home, alt: "홈", href: "/" },
+  { icon: Music, alt: "차트", href: "/charts" },
+  { icon: Radio, alt: "라디오", href: null },
+  { icon: Video, alt: "비디오", href: null },
 ];
 
 const personalItems = [
-  { icon: User, alt: "프로필" },
-  { icon: User, alt: "설정" },
+  { icon: User, alt: "프로필", href: null },
+  { icon: User, alt: "설정", href: null },
 ];
 
 interface HomeClientProps {
@@ -171,6 +172,14 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
     setSelectedIndex(index);
   }, []);
 
+  const handleNavClick = (href: string | null, alt: string) => {
+    if (href) {
+      router.push(href);
+    } else {
+      toast.info(`${alt} 기능은 준비 중입니다`);
+    }
+  };
+
   return (
     <div className="bg-[#1d2123] overflow-hidden w-full min-w-[1280px] flex flex-col min-h-screen">
       <div className="flex flex-1">
@@ -186,8 +195,10 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
                 variant="ghost"
                 size="icon"
                 className="w-[22px] h-[22px] p-0 hover:bg-transparent"
+                onClick={() => handleNavClick(item.href, item.alt)}
+                title={item.alt}
               >
-                <item.icon className="w-[22px] h-[22px] text-white/40" />
+                <item.icon className={`w-[22px] h-[22px] ${item.href ? 'text-white/60 hover:text-white' : 'text-white/40'}`} />
               </Button>
             ))}
           </nav>
@@ -199,6 +210,8 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
                 variant="ghost"
                 size="icon"
                 className="w-[22px] h-[22px] p-0 hover:bg-transparent"
+                onClick={() => handleNavClick(item.href, item.alt)}
+                title={item.alt}
               >
                 <item.icon className="w-[22px] h-[22px] text-white/40" />
               </Button>
