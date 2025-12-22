@@ -4,9 +4,8 @@ on:
   schedule:
     # Daily crawlers (UTC time)
     - cron: '0 2 * * *'  # VocaDB crawler - 2:00 AM UTC (11:00 AM KST)
-    - cron: '0 3 * * *'  # YouTube crawler - 3:00 AM UTC (12:00 PM KST)
-    # Weekly crawler
-    - cron: '0 4 * * 0'  # Localized titles - Sunday 4:00 AM UTC (1:00 PM KST)
+    - cron: '0 3 * * *'  # YouTube unified crawler - 3:00 AM UTC (12:00 PM KST)
+                          # (includes view counts + Korean titles in single API call)
 
   # Allow manual trigger
   workflow_dispatch:
@@ -18,7 +17,6 @@ on:
         options:
           - vocadb
           - youtube
-          - localized
           - all
 
 env:
@@ -54,14 +52,16 @@ jobs:
           fi
 
   youtube-crawler:
-    name: YouTube Crawler
+    name: YouTube Unified Crawler
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' && github.event.schedule == '0 3 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
 
     steps:
-      - name: Trigger YouTube Cron Endpoint
+      - name: Trigger YouTube Unified Cron Endpoint
         run: |
-          response=$(curl -L -X POST "${{ env.VERCEL_URL }}/api/cron/youtube" \
+          # Unified crawler: fetches view counts + Korean titles in single API call
+          # Uses: part=statistics,snippet,localizations
+          response=$(curl -L -X POST "${{ env.VERCEL_URL }}/api/cron/youtube?mode=new" \
             -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             -w "\n%{http_code}" \
@@ -74,31 +74,6 @@ jobs:
           echo "Response: $body"
 
           if [ "$http_code" != "200" ]; then
-            echo "YouTube crawler failed with status $http_code"
-            exit 1
-          fi
-
-  localized-titles-crawler:
-    name: Localized Titles Crawler
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && github.event.schedule == '0 4 * * 0' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'localized' || github.event.inputs.crawler == 'all'))
-
-    steps:
-      - name: Trigger Localized Titles Cron Endpoint
-        run: |
-          response=$(curl -L -X POST "${{ env.VERCEL_URL }}/api/cron/localized" \
-            -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
-
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-
-          if [ "$http_code" != "200" ]; then
-            echo "Localized titles crawler failed with status $http_code"
+            echo "YouTube unified crawler failed with status $http_code"
             exit 1
           fi

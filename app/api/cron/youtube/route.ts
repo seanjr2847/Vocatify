@@ -1,16 +1,17 @@
 /**
- * YouTube View Count Cron Job API Route
+ * Unified YouTube Cron Job API Route
  *
  * Endpoint: POST /api/cron/youtube
- * Trigger: Vercel Cron (configured in vercel.json)
+ * Trigger: Vercel Cron (configured in vercel.json) or GitHub Actions
  * Schedule: Daily at 3:00 AM UTC
  *
- * Purpose: Updates YouTube view counts for existing songs
+ * Purpose: Updates YouTube view counts AND Korean titles in single API call
+ * (Merged functionality from youtube-crawler and localized-titles-crawler)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { YouTubeCrawler, YouTubeCrawlerMode } from '@/lib/crawlers/youtube-crawler';
+import { UnifiedYouTubeCrawler, UnifiedCrawlerMode } from '@/lib/crawlers/unified-youtube-crawler';
 
 const prisma = new PrismaClient();
 
@@ -31,16 +32,18 @@ export async function POST(request: NextRequest) {
 
     // Get mode from query params (default: 'new')
     const { searchParams } = new URL(request.url);
-    const mode = (searchParams.get('mode') as YouTubeCrawlerMode) || 'new';
+    const mode = (searchParams.get('mode') as UnifiedCrawlerMode) || 'new';
+    const updateLocalizations = searchParams.get('localizations') !== 'false';
 
-    console.log(`🎬 YouTube Cron Job Started (mode: ${mode})`);
+    console.log(`🎬 Unified YouTube Cron Job Started (mode: ${mode}, localizations: ${updateLocalizations})`);
 
-    // Initialize crawler with serverless-friendly settings
-    const crawler = new YouTubeCrawler(prisma, {
-      mode,                     // Selection mode: new, old, top, all
-      batchSize: 50,            // 50 videos per API request (YouTube API max)
-      maxSongsPerRun: 500,      // Process up to 500 songs per cron run
-      enableResume: true,       // Enable progress tracking
+    // Initialize unified crawler
+    const crawler = new UnifiedYouTubeCrawler(prisma, {
+      mode,                           // Selection mode: new, old, top, all
+      batchSize: 50,                  // 50 videos per API request (YouTube API max)
+      maxSongsPerRun: 500,            // Process up to 500 songs per cron run
+      enableResume: true,             // Enable progress tracking
+      updateLocalizations,            // Also fetch Korean titles (default: true)
     });
 
     // Execute crawler
@@ -49,15 +52,17 @@ export async function POST(request: NextRequest) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
     if (result.success) {
-      console.log(`✅ YouTube Cron Job Completed in ${duration}s`);
+      console.log(`✅ Unified YouTube Cron Job Completed in ${duration}s`);
 
       return NextResponse.json({
         success: true,
-        message: 'YouTube crawler completed successfully',
+        message: 'Unified YouTube crawler completed successfully',
         data: {
           mode,
+          updateLocalizations,
           songsProcessed: result.songsProcessed,
           songsUpdated: result.songsUpdated,
+          titlesUpdated: result.titlesUpdated,
           songsFailed: result.songsFailed,
           lastOffset: result.lastOffset,
           completed: result.completed,
@@ -65,16 +70,18 @@ export async function POST(request: NextRequest) {
         },
       });
     } else {
-      console.error(`❌ YouTube Cron Job Failed: ${result.error}`);
+      console.error(`❌ Unified YouTube Cron Job Failed: ${result.error}`);
 
       return NextResponse.json({
         success: false,
-        message: 'YouTube crawler failed',
+        message: 'Unified YouTube crawler failed',
         error: result.error,
         data: {
           mode,
+          updateLocalizations,
           songsProcessed: result.songsProcessed,
           songsUpdated: result.songsUpdated,
+          titlesUpdated: result.titlesUpdated,
           songsFailed: result.songsFailed,
           lastOffset: result.lastOffset,
           duration: `${duration}s`,
@@ -86,11 +93,11 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
-    console.error('💥 YouTube Cron Job Fatal Error:', errorMessage);
+    console.error('💥 Unified YouTube Cron Job Fatal Error:', errorMessage);
 
     return NextResponse.json({
       success: false,
-      message: 'YouTube cron job failed with fatal error',
+      message: 'Unified YouTube cron job failed with fatal error',
       error: errorMessage,
       duration: `${duration}s`,
     }, { status: 500 });
@@ -103,11 +110,11 @@ export async function POST(request: NextRequest) {
 // For testing: Allow GET requests to check status
 export async function GET() {
   try {
-    const status = await YouTubeCrawler.getStatus(prisma);
+    const status = await UnifiedYouTubeCrawler.getStatus(prisma);
 
     return NextResponse.json({
       success: true,
-      crawler: 'youtube',
+      crawler: 'youtube-unified',
       status,
     });
 
