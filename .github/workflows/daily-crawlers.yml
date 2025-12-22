@@ -3,9 +3,8 @@ name: Daily Crawlers
 on:
   schedule:
     # Daily crawlers (UTC time)
-    - cron: '0 2 * * *'  # VocaDB crawler - 2:00 AM UTC (11:00 AM KST)
-    - cron: '0 3 * * *'  # YouTube unified crawler - 3:00 AM UTC (12:00 PM KST)
-                          # (includes view counts + Korean titles in single API call)
+    - cron: '0 2 * * *'   # VocaDB crawler - 2:00 AM UTC (11:00 AM KST)
+    - cron: '0 15 * * *'  # YouTube crawler - 15:00 UTC (00:00 KST, 자정)
 
   # Allow manual trigger
   workflow_dispatch:
@@ -19,12 +18,6 @@ on:
           - youtube
           - all
 
-env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-  VERCEL_URL: ${{ secrets.VERCEL_URL }}
-  CRON_SECRET: ${{ secrets.CRON_SECRET }}
-
 jobs:
   vocadb-crawler:
     name: VocaDB Crawler
@@ -33,9 +26,12 @@ jobs:
 
     steps:
       - name: Trigger VocaDB Cron Endpoint
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          response=$(curl -L -X POST "${{ env.VERCEL_URL }}/api/cron/vocadb" \
-            -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
+          response=$(curl -L -X POST "$VERCEL_URL/api/cron/vocadb" \
+            -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
             -w "\n%{http_code}" \
             -s)
@@ -52,28 +48,29 @@ jobs:
           fi
 
   youtube-crawler:
-    name: YouTube Unified Crawler
+    name: YouTube Full Update
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && github.event.schedule == '0 3 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
+    timeout-minutes: 360  # 6 hours max
+    if: github.event_name == 'schedule' && github.event.schedule == '0 15 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
 
     steps:
-      - name: Trigger YouTube Unified Cron Endpoint
-        run: |
-          # Unified crawler: fetches view counts + Korean titles in single API call
-          # Uses: part=statistics,snippet,localizations
-          response=$(curl -L -X POST "${{ env.VERCEL_URL }}/api/cron/youtube?mode=new" \
-            -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
+      - name: Install dependencies
+        run: npm ci
 
-          if [ "$http_code" != "200" ]; then
-            echo "YouTube unified crawler failed with status $http_code"
-            exit 1
-          fi
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run YouTube Full Update
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: npx tsx scripts/youtube/update-all-viewcounts.ts
