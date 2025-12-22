@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@/lib/generated/prisma';
 import { VocaDBCrawler } from '@/lib/crawlers/vocadb-crawler';
 
 const prisma = new PrismaClient();

@@ -9,7 +9,7 @@
  * - Designed for Vercel Cron jobs
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@/lib/generated/prisma';
 
 const VOCADB_API_BASE = 'https://vocadb.net/api';
 
