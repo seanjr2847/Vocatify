@@ -306,12 +306,33 @@ export class YouTubeCrawler {
 
           if (viewCountStr) {
             const viewCount = BigInt(viewCountStr);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize to start of day
 
+            // Update song view count
             await this.prisma.song.update({
               where: { vocadbId: song.vocadbId },
               data: {
                 viewCount,
                 viewCountUpdatedAt: new Date(),
+              },
+            });
+
+            // Upsert daily view count record
+            await this.prisma.dailyViewCount.upsert({
+              where: {
+                songId_recordedDate: {
+                  songId: song.vocadbId,
+                  recordedDate: today,
+                },
+              },
+              update: {
+                totalViews: viewCount,
+              },
+              create: {
+                songId: song.vocadbId,
+                recordedDate: today,
+                totalViews: viewCount,
               },
             });
 
