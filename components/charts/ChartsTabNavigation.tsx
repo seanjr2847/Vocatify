@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-export type TabType = 'total' | 'daily' | 'weekly';
+export type TabType = 'total' | 'daily' | 'weekly' | 'new';
 
 interface ChartsTabNavigationProps {
   activeTab: TabType;
@@ -14,6 +14,7 @@ export function ChartsTabNavigation({ activeTab, onChange }: ChartsTabNavigation
     { id: 'total', label: '전체 랭킹 (Total Rankings)' },
     { id: 'daily', label: '일간 트렌딩 (Daily Trending)' },
     { id: 'weekly', label: '주간 트렌딩 (Weekly Trending)' },
+    { id: 'new', label: '최신 발매 (New Releases)' },
   ];
 
   return (

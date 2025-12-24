@@ -32,6 +32,23 @@ function getYouTubeThumbnail(videoId: string): string {
   return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 }
 
+// 발매일 포맷팅 함수
+function formatPublishDate(date: Date | string | null): string {
+  if (!date) return '';
+  const d = new Date(date);
+  const now = new Date();
+  const diffTime = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return '오늘';
+  if (diffDays === 1) return '어제';
+  if (diffDays < 7) return `${diffDays}일 전`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`;
+
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export const NavigationSection = ({ topCharts, newReleases, popularSongs }: NavigationSectionProps): JSX.Element => {
   const router = useRouter();
   const { playSong, addToPlaylist } = useMusicPlayer();
@@ -154,65 +171,85 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
         </div>
       </div>
 
-      {/* 최신 발매 */}
+      {/* 최신 발매곡 차트 */}
       <div className="mt-[43px]">
-        <h2 className="font-bold-24px font-[number:var(--bold-24px-font-weight)] text-light text-[length:var(--bold-24px-font-size)] tracking-[var(--bold-24px-letter-spacing)] leading-[var(--bold-24px-line-height)] whitespace-nowrap [font-style:var(--bold-24px-font-style)] mb-[9px]">
-          최신 발매
-        </h2>
+        <div className="flex items-center justify-between mb-[15px]">
+          <h2 className="font-bold-24px font-[number:var(--bold-24px-font-weight)] text-light text-[length:var(--bold-24px-font-size)] tracking-[var(--bold-24px-letter-spacing)] leading-[var(--bold-24px-line-height)] whitespace-nowrap [font-style:var(--bold-24px-font-style)]">
+            최신 발매곡
+          </h2>
+          <button
+            onClick={() => router.push('/charts?tab=new')}
+            className="text-gray-400 hover:text-white transition-colors"
+            aria-label="최신 발매곡 전체 보기"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </div>
 
-        <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex gap-[30px] pb-4">
-            {newReleases.map((release) => (
-              <div key={release.vocadbId}
-                className="inline-flex flex-col gap-[5px] w-[153px] cursor-pointer group"
-                onClick={() => router.push(`/songs/${release.vocadbId}`)}
-              >
-                <div className="relative w-[153px] h-[153px]">
-                  <img
-                    className="w-full h-full object-cover rounded"
-                    alt={release.title}
-                    src={release.thumbUrl || getYouTubeThumbnail(release.youtubeId)}
-                  />
-                  <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                    <button
-                      className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center hover:scale-105 shadow-lg transition-all"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToPlaylist(release);
-                      }}
-                      title="재생목록에 추가"
-                    >
-                      <Plus className="w-4 h-4 text-white" />
-                    </button>
-                    <button
-                      className="w-12 h-12 rounded-full bg-[#39c5bb] flex items-center justify-center hover:scale-105 shadow-lg transition-all"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        playSong(release);
-                      }}
-                      title="재생"
-                    >
-                      <Play className="w-5 h-5 text-black fill-black ml-0.5" />
-                    </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {newReleases.slice(0, 6).map((release, idx) => (
+            <Card key={release.vocadbId}
+              className="bg-dark-alt rounded-[20px] border-0 overflow-hidden hover:bg-dark-alt/80 transition-colors cursor-pointer group"
+              onClick={() => router.push(`/songs/${release.vocadbId}`)}
+            >
+              <CardContent className="relative p-0 h-20">
+                {/* 순위 */}
+                <div className="absolute top-1/2 -translate-y-1/2 left-4 w-6 text-center">
+                  <span className="font-bold text-lg text-[#39c5bb]">{idx + 1}</span>
+                </div>
+
+                <img
+                  className="absolute top-[10px] left-[50px] w-[60px] h-[60px] object-cover rounded"
+                  alt={release.title}
+                  src={release.thumbUrl || getYouTubeThumbnail(release.youtubeId)}
+                />
+
+                <div className="absolute top-[14px] left-[120px] right-[100px]">
+                  <div className="font-regular-17px font-[number:var(--regular-17px-font-weight)] text-white text-[length:var(--regular-17px-font-size)] truncate">
+                    {release.title}
+                  </div>
+                  <div className="font-regular-12px text-[#ffffff80] text-[length:var(--regular-12px-font-size)] truncate mt-0.5">
+                    {release.artist}
                   </div>
                 </div>
 
-                <div className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-white text-xs tracking-[0] leading-[normal] truncate">
-                  {release.title}
+                {/* 발매일 */}
+                <div className="absolute top-[14px] right-[17px] text-right">
+                  <div className="font-regular-12px text-[#39c5bb] text-xs">
+                    {release.publishDate ? formatPublishDate(release.publishDate) : ''}
+                  </div>
+                  <div className="font-regular-12px text-[#ffffff60] text-xs mt-1">
+                    {formatViews(release.viewCount)} 조회
+                  </div>
                 </div>
 
-                <div className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-[#ffffff80] text-xs tracking-[0] leading-[normal] truncate">
-                  {release.artist}
+                {/* 호버 버튼 */}
+                <div className="absolute top-1/2 -translate-y-1/2 right-[90px] flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                  <button
+                    className="w-[28px] h-[28px] rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center hover:scale-105 shadow-lg transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addToPlaylist(release);
+                    }}
+                    title="재생목록에 추가"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-white" />
+                  </button>
+                  <button
+                    className="w-[32px] h-[32px] rounded-full bg-[#39c5bb] flex items-center justify-center hover:scale-105 shadow-lg transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      playSong(release);
+                    }}
+                    title="재생"
+                  >
+                    <Play className="w-3.5 h-3.5 text-black fill-black ml-0.5" />
+                  </button>
                 </div>
-
-                <div className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-[#ffffff60] text-xs tracking-[0] leading-[normal]">
-                  {formatViews(release.viewCount)} 조회
-                </div>
-              </div>
-            ))}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       {/* 주간 인기곡 */}

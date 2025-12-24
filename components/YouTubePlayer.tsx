@@ -5,7 +5,7 @@ import YouTube, { YouTubeProps, YouTubeEvent } from 'react-youtube';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 
 export function YouTubePlayer() {
-  const { state, playerRef, updateDuration, updatePlayingState } = useMusicPlayer();
+  const { state, playerRef, updateDuration, updatePlayingState, playNextInQueue } = useMusicPlayer();
   const [isReady, setIsReady] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -78,11 +78,11 @@ export function YouTubePlayer() {
     } else if (playerState === 2) {
       updatePlayingState(false);
     } else if (playerState === 0) {
-      // Video ended
+      // Video ended - play next song in queue
       updatePlayingState(false);
-      console.log('Video ended');
+      playNextInQueue();
     }
-  }, [updatePlayingState, updateDuration, playerRef]);
+  }, [updatePlayingState, updateDuration, playerRef, playNextInQueue]);
 
   const onError: YouTubeProps['onError'] = useCallback((event: YouTubeEvent) => {
     console.error('YouTube Player Error:', event.data);
@@ -129,7 +129,7 @@ export function YouTubePlayer() {
         // fullscreen일 때: PlaylistLeftPanel 위치에 배치 (중앙 정렬)
         // 왼쪽 500px 컬럼 중앙 = (500 - 400) / 2 = 50px
         // 수직 중앙 = (viewport height - 플레이어 하단바 125px - 플레이어 높이 400px) / 2
-        top: isFullscreen ? 'calc((100vh - 125px - 400px) / 2)' : '-10000px',
+        top: isFullscreen ? 'calc((100vh - 125px - 400px) / 2 - 50px)' : '-10000px',
         left: isFullscreen ? '50px' : '-10000px',
         zIndex: isFullscreen ? 50 : -1,
         pointerEvents: isFullscreen ? 'auto' : 'none',

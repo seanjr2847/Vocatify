@@ -50,7 +50,22 @@
       "Bash(cmd /c \"dir /b lib\\\\generated\\\\prisma\")",
       "Bash(tsx scripts/db/test-prisma-connection.ts:*)",
       "Bash(cmd /c \"rmdir /s /q node_modules\\\\@prisma\\\\client 2>nul & npx prisma generate\")",
-      "Bash(cmd /c \"if exist vercel.json \\(echo exists\\) else \\(echo not_found\\)\")"
+      "Bash(cmd /c \"if exist vercel.json \\(echo exists\\) else \\(echo not_found\\)\")",
+      "Bash(for file in */route.ts)",
+      "Bash(do sed -i 's/const ranking = get/const ranking = await get/g' \"$file\")",
+      "Bash(done)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(timeout /t 10)",
+      "Bash(cmd /c \"timeout /t 10 >nul\")",
+      "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul || echo Dev server cleanup\")",
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm run lint)",
+      "Bash(npx prisma studio)",
+      "Bash(cmd /c \"if exist lib\\\\generated rmdir /s /q lib\\\\generated\")"
     ]
   }
 }

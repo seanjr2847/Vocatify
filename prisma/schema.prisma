@@ -79,3 +79,4 @@ model CrawlerProgress {
   @@index([crawlerType, status])
   @@map("crawler_progress")
 }
+

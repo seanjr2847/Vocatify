@@ -219,12 +219,12 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
 }
 
 /**
- * 신곡 랭킹 조회 (30일 이내, 500만 조회수 이하, 보컬로이드만)
+ * 신곡 랭킹 조회 (발매일 최신순, 보컬로이드만)
  */
 export async function getNewSongsRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
   const songs = await prisma.$queryRaw<RankingItem[]>`
     SELECT
-      ROW_NUMBER() OVER (ORDER BY view_count DESC) as rank,
+      ROW_NUMBER() OVER (ORDER BY publish_date DESC) as rank,
       vocadb_id as "vocadbId",
       title,
       title_english as "titleEnglish",
@@ -247,11 +247,9 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
       crawled_at as "crawledAt",
       default_language as "defaultLanguage"
     FROM songs
-    WHERE publish_date >= CURRENT_DATE - INTERVAL '30 days'
-      AND view_count IS NOT NULL
-      AND view_count <= 5000000
+    WHERE publish_date IS NOT NULL
       AND artist_type = 'Vocaloid'
-    ORDER BY view_count DESC
+    ORDER BY publish_date DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
 

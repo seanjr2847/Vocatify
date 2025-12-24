@@ -15,6 +15,10 @@ interface PlayerState {
   activeTab: 'queue' | 'suggested' | 'lyrics' | 'credits';
   playlist: Song[]; // 재생목록
   playlistSource: string; // "PLAYING FROM:" 표시용
+  // Radio mode
+  isRadioMode: boolean;
+  radioTags: string[]; // 라디오 태그 목록
+  radioPlayedIds: number[]; // 이미 재생된 곡 ID들
 }
 
 interface MusicPlayerContextValue {
@@ -29,10 +33,15 @@ interface MusicPlayerContextValue {
   setActiveTab: (tab: 'queue' | 'suggested' | 'lyrics' | 'credits') => void;
   addToPlaylist: (song: Song) => void;
   removeFromPlaylist: (vocadbId: number) => void;
+  reorderPlaylist: (oldIndex: number, newIndex: number) => void;
   clearPlaylist: () => void;
   updateDuration: (duration: number) => void;
   updatePlayingState: (isPlaying: boolean) => void;
   playerRef: React.MutableRefObject<any>;
+  // Radio mode
+  startRadio: (songId: number) => Promise<void>;
+  stopRadio: () => void;
+  playNextInQueue: () => void;
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextValue | undefined>(undefined);
@@ -49,6 +58,10 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     activeTab: 'queue', // 기본 탭: Play queue
     playlist: [],
     playlistSource: 'Queue', // 기본 소스
+    // Radio mode
+    isRadioMode: false,
+    radioTags: [],
+    radioPlayedIds: [],
   });
 
   const playerRef = useRef<any>(null);
@@ -173,6 +186,15 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     }));
   }, []);
 
+  const reorderPlaylist = useCallback((oldIndex: number, newIndex: number) => {
+    setState(prev => {
+      const newPlaylist = [...prev.playlist];
+      const [movedItem] = newPlaylist.splice(oldIndex, 1);
+      newPlaylist.splice(newIndex, 0, movedItem);
+      return { ...prev, playlist: newPlaylist };
+    });
+  }, []);
+
   const clearPlaylist = useCallback(() => {
     setState(prev => ({ ...prev, playlist: [] }));
   }, []);
@@ -184,6 +206,134 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   const updatePlayingState = useCallback((isPlaying: boolean) => {
     setState(prev => ({ ...prev, isPlaying }));
   }, []);
+
+  // Radio mode functions
+  const startRadio = useCallback(async (songId: number) => {
+    try {
+      const response = await fetch(`/api/radio/start?songId=${songId}`);
+      const data = await response.json();
+
+      if (!data.success) {
+        console.error('Failed to start radio:', data.error);
+        return;
+      }
+
+      const { seedSong, tags, playlist } = data;
+
+      // Convert API response to Song type
+      const convertToSong = (s: any): Song => ({
+        vocadbId: s.vocadbId,
+        title: s.title,
+        titleEnglish: s.titleEnglish,
+        titleJapanese: s.titleJapanese,
+        titleRomaji: s.titleRomaji,
+        titleKorean: s.titleKorean,
+        artist: s.artist,
+        youtubeId: s.youtubeId,
+        youtubeUrl: s.youtubeUrl,
+        thumbUrl: s.thumbUrl,
+        favoritedTimes: 0,
+        ratingScore: 0,
+        crawledAt: new Date(),
+      });
+
+      setState(prev => ({
+        ...prev,
+        currentSong: convertToSong(seedSong),
+        playlist: playlist.map(convertToSong),
+        playlistSource: '라디오',
+        isRadioMode: true,
+        radioTags: tags,
+        radioPlayedIds: [seedSong.vocadbId],
+        isPlaying: false, // YouTube onStateChange will set to true
+        currentTime: 0,
+        viewMode: 'fullscreen',
+      }));
+
+    } catch (error) {
+      console.error('Radio start error:', error);
+    }
+  }, []);
+
+  const stopRadio = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      isRadioMode: false,
+      radioTags: [],
+      radioPlayedIds: [],
+      playlistSource: 'Queue',
+    }));
+  }, []);
+
+  const playNextInQueue = useCallback(() => {
+    setState(prev => {
+      if (prev.playlist.length === 0) {
+        // No more songs in queue
+        if (prev.isRadioMode) {
+          // Fetch more songs for radio mode (will be handled by useEffect)
+          return prev;
+        }
+        return { ...prev, isPlaying: false };
+      }
+
+      const [nextSong, ...remainingPlaylist] = prev.playlist;
+
+      return {
+        ...prev,
+        currentSong: nextSong,
+        playlist: remainingPlaylist,
+        radioPlayedIds: prev.isRadioMode
+          ? [...prev.radioPlayedIds, nextSong.vocadbId]
+          : prev.radioPlayedIds,
+        currentTime: 0,
+      };
+    });
+  }, []);
+
+  // Fetch more radio songs when queue is low
+  useEffect(() => {
+    const fetchMoreRadioSongs = async () => {
+      if (!state.isRadioMode || state.radioTags.length === 0) return;
+      if (state.playlist.length > 5) return; // Still have enough songs
+
+      try {
+        const tags = state.radioTags.join(',');
+        const excludeIds = state.radioPlayedIds.join(',');
+
+        const response = await fetch(
+          `/api/radio/next?tags=${encodeURIComponent(tags)}&excludeIds=${encodeURIComponent(excludeIds)}&limit=10`
+        );
+        const data = await response.json();
+
+        if (data.success && data.playlist.length > 0) {
+          const newSongs: Song[] = data.playlist.map((s: any) => ({
+            vocadbId: s.vocadbId,
+            title: s.title,
+            titleEnglish: s.titleEnglish,
+            titleJapanese: s.titleJapanese,
+            titleRomaji: s.titleRomaji,
+            titleKorean: s.titleKorean,
+            artist: s.artist,
+            youtubeId: s.youtubeId,
+            youtubeUrl: s.youtubeUrl,
+            thumbUrl: s.thumbUrl,
+            favoritedTimes: 0,
+            ratingScore: 0,
+            crawledAt: new Date(),
+          }));
+
+          setState(prev => ({
+            ...prev,
+            playlist: [...prev.playlist, ...newSongs],
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch more radio songs:', error);
+      }
+    };
+
+    fetchMoreRadioSongs();
+  }, [state.isRadioMode, state.playlist.length, state.radioTags, state.radioPlayedIds]);
 
   const value: MusicPlayerContextValue = {
     state,
@@ -197,10 +347,15 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     setActiveTab,
     addToPlaylist,
     removeFromPlaylist,
+    reorderPlaylist,
     clearPlaylist,
     updateDuration,
     updatePlayingState,
     playerRef,
+    // Radio mode
+    startRadio,
+    stopRadio,
+    playNextInQueue,
   };
 
   return (

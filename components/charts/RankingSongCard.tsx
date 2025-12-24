@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Plus } from 'lucide-react';
+import { Play, Plus, Radio } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import type { RankingItem } from '@/lib/db';
 
@@ -26,9 +26,25 @@ function getYouTubeThumbnail(videoId: string): string {
   return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 }
 
+function formatPublishDate(date: Date | string | null | undefined): string {
+  if (!date) return '';
+  const d = new Date(date);
+  const now = new Date();
+  const diffTime = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return '오늘 발매';
+  if (diffDays === 1) return '어제 발매';
+  if (diffDays < 7) return `${diffDays}일 전 발매`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전 발매`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전 발매`;
+
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function RankingSongCard({ song }: RankingSongCardProps) {
   const router = useRouter();
-  const { playSong, addToPlaylist } = useMusicPlayer();
+  const { playSong, addToPlaylist, startRadio } = useMusicPlayer();
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -38,6 +54,11 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
   const handleAddClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     addToPlaylist(song);
+  };
+
+  const handleRadioClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startRadio(song.vocadbId);
   };
 
   const handleCardClick = () => {
@@ -92,6 +113,12 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
                 <span className="text-[#39c5bb]">+{formatNumber(song.weeklyIncrease)} 주간</span>
               </>
             )}
+            {song.publishDate && !song.dailyIncrease && !song.weeklyIncrease && (
+              <>
+                <span>•</span>
+                <span className="text-[#39c5bb]">{formatPublishDate(song.publishDate)}</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -103,6 +130,14 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
             aria-label="재생목록에 추가"
           >
             <Plus className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleRadioClick}
+            className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-[#39c5bb] transition-colors rounded-full hover:bg-white/10"
+            aria-label="라디오 시작"
+            title="이 곡 기반 라디오"
+          >
+            <Radio className="w-5 h-5" />
           </button>
           <button
             onClick={handlePlayClick}

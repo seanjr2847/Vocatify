@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Home, Music, Radio, Search, User, Video } from "lucide-react";
@@ -41,14 +41,17 @@ interface ChartsClientProps {
   initialTotalRanking: RankingItem[];
   initialDailyRanking: RankingItem[];
   initialWeeklyRanking: RankingItem[];
+  initialNewRanking: RankingItem[];
 }
 
 export function ChartsClient({
   initialTotalRanking,
   initialDailyRanking,
   initialWeeklyRanking,
+  initialNewRanking,
 }: ChartsClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<SearchSong[]>([]);
   const [suggestionsTotal, setSuggestionsTotal] = useState(0);
@@ -59,7 +62,11 @@ export function ChartsClient({
   const searchCacheRef = useRef<Map<string, { data: SearchSong[]; total: number; timestamp: number }>>(new Map());
   const CACHE_TTL = 5 * 60 * 1000;
 
-  const [activeTab, setActiveTab] = useState<TabType>('total');
+  // Get initial tab from URL query param
+  const initialTab = (searchParams.get('tab') as TabType) || 'total';
+  const [activeTab, setActiveTab] = useState<TabType>(
+    ['total', 'daily', 'weekly', 'new'].includes(initialTab) ? initialTab : 'total'
+  );
   const [tabsData, setTabsData] = useState<Record<TabType, TabData>>({
     total: {
       data: initialTotalRanking,
@@ -77,6 +84,12 @@ export function ChartsClient({
       data: initialWeeklyRanking,
       offset: 100,
       hasMore: initialWeeklyRanking.length === 100,
+      isLoading: false,
+    },
+    new: {
+      data: initialNewRanking,
+      offset: 100,
+      hasMore: initialNewRanking.length === 100,
       isLoading: false,
     },
   });
@@ -209,6 +222,10 @@ export function ChartsClient({
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
+    // Update URL query param
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    router.replace(url.pathname + url.search, { scroll: false });
   };
 
   const loadMore = async () => {
