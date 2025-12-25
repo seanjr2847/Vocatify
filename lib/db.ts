@@ -85,7 +85,6 @@ export async function getTotalRanking(limit: number = 100, offset: number = 0): 
       default_language as "defaultLanguage"
     FROM songs
     WHERE view_count IS NOT NULL
-      AND artist_type = 'Vocaloid'
     ORDER BY view_count DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -147,7 +146,6 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
       tc.daily_increase as "dailyIncrease"
     FROM today_changes tc
     INNER JOIN songs s ON s.vocadb_id = tc.song_id
-    WHERE s.artist_type = 'Vocaloid'
     ORDER BY tc.daily_increase DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -210,7 +208,6 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
       wi.weekly_increase as "weeklyIncrease"
     FROM weekly_increases wi
     INNER JOIN songs s ON s.vocadb_id = wi.song_id
-    WHERE s.artist_type = 'Vocaloid'
     ORDER BY wi.weekly_increase DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -248,7 +245,6 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
       default_language as "defaultLanguage"
     FROM songs
     WHERE publish_date IS NOT NULL
-      AND artist_type = 'Vocaloid'
     ORDER BY publish_date DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -291,7 +287,7 @@ export async function searchSongs(
   limit: number = 20,
   offset: number = 0,
   sortBy: SortBy = 'viewCount',
-  artistType: string | null = 'Vocaloid'
+  artistType: string | null = null
 ): Promise<SearchResult> {
   const lowerQuery = query.toLowerCase();
 
@@ -455,7 +451,6 @@ export async function getStats(): Promise<{
   lastUpdate: Date | null;
 }> {
   const result = await prisma.song.aggregate({
-    where: { artistType: 'Vocaloid' },
     _count: {
       vocadbId: true,
       viewCount: true,
@@ -488,7 +483,6 @@ export async function getSongRankPositions(vocadbId: number): Promise<RankingPos
         ROW_NUMBER() OVER (ORDER BY view_count DESC) as position
       FROM songs
       WHERE view_count IS NOT NULL
-        AND artist_type = 'Vocaloid'
     )
     SELECT position FROM ranked WHERE vocadb_id = ${vocadbId}
   `;
@@ -579,7 +573,6 @@ export async function getRelatedSongsByArtist(
       artist,
       vocadbId: { not: currentVocadbId },
       viewCount: { not: null },
-      artistType: 'Vocaloid',
     },
     orderBy: {
       viewCount: 'desc',

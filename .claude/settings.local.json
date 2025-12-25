@@ -65,7 +65,8 @@
       "Bash(git push:*)",
       "Bash(npm run lint)",
       "Bash(npx prisma studio)",
-      "Bash(cmd /c \"if exist lib\\\\generated rmdir /s /q lib\\\\generated\")"
+      "Bash(cmd /c \"if exist lib\\\\generated rmdir /s /q lib\\\\generated\")",
+      "mcp__plugin_serena_serena__find_symbol"
     ]
   }
 }

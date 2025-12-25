@@ -263,12 +263,21 @@ export class VocaDBCrawler {
         const titleRomaji = names.find((n: any) => n.language === 'Romaji')?.value || null;
         const preferredTitle = titleEnglish || titleRomaji || titleJapanese || item.name;
 
-        // Extract artist type
+        // Extract artist type - check for all synthetic vocalist types
+        // VocaDB types: Vocaloid, UTAU, CeVIO, SynthesizerV, NEUTRINO, VoiSona, ACEVirtualSinger, Voicroid, etc.
+        const SYNTHETIC_VOCALIST_TYPES = [
+          'Vocaloid', 'UTAU', 'CeVIO', 'SynthesizerV', 'NEUTRINO', 'VoiSona',
+          'ACEVirtualSinger', 'Voicroid', 'OtherVoiceSynthesizer',
+        ];
         let artistType = null;
         if (item.artists && item.artists.length > 0) {
-          const vocaloid = item.artists.find((a: any) => a.artist?.artistType === 'Vocaloid');
+          // Find any synthetic vocalist (Vocaloid, UTAU, CeVIO, etc.)
+          const syntheticVocalist = item.artists.find((a: any) =>
+            SYNTHETIC_VOCALIST_TYPES.includes(a.artist?.artistType)
+          );
           const producer = item.artists.find((a: any) => a.artist?.artistType === 'Producer');
-          artistType = vocaloid?.artist?.artistType || producer?.artist?.artistType || null;
+          // Normalize all synthetic vocalist types to 'Vocaloid' for ranking consistency
+          artistType = syntheticVocalist ? 'Vocaloid' : (producer?.artist?.artistType || null);
         }
 
         // Extract tags
