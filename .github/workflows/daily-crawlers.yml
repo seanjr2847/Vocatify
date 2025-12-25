@@ -48,10 +48,15 @@ jobs:
           fi
 
   youtube-crawler:
-    name: YouTube Full Update
+    name: YouTube Update (Chunk ${{ matrix.chunk }})
     runs-on: ubuntu-latest
-    timeout-minutes: 360  # 6 hours max
+    timeout-minutes: 60  # 1 hour per chunk (optimized with Raw SQL + no delay)
     if: github.event_name == 'schedule' && github.event.schedule == '0 15 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
+
+    strategy:
+      matrix:
+        chunk: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # 10 parallel jobs
+      fail-fast: false  # Continue other chunks if one fails
 
     steps:
       - name: Checkout repository
@@ -69,8 +74,10 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Run YouTube Full Update
+      - name: Run YouTube Chunked Update
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-        run: npx tsx scripts/youtube/update-all-viewcounts.ts
+          CHUNK_INDEX: ${{ matrix.chunk }}
+          TOTAL_CHUNKS: 10
+        run: npx tsx scripts/youtube/update-chunked.ts

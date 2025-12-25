@@ -10,7 +10,7 @@
  * - Designed for daily Vercel Cron jobs
  */
 
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient, Prisma } from '../generated/prisma';
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
@@ -23,6 +23,7 @@ export interface UnifiedYouTubeCrawlerOptions {
   maxSongsPerRun?: number;          // Max songs to process (default: 500)
   enableResume?: boolean;           // Enable progress tracking (default: true)
   updateLocalizations?: boolean;    // Also update Korean titles (default: true)
+  startOffset?: number;             // Starting offset for chunked processing (default: 0)
 }
 
 export interface UnifiedYouTubeCrawlerResult {
@@ -65,6 +66,7 @@ export class UnifiedYouTubeCrawler {
       maxSongsPerRun: options.maxSongsPerRun ?? 500,
       enableResume: options.enableResume ?? true,
       updateLocalizations: options.updateLocalizations ?? true,
+      startOffset: options.startOffset ?? 0,
     };
 
     if (!YOUTUBE_API_KEY) {
@@ -90,7 +92,9 @@ export class UnifiedYouTubeCrawler {
 
       console.log(`🎬 Unified YouTube Crawler - Mode: ${this.options.mode}`);
       console.log(`   Localizations: ${this.options.updateLocalizations ? 'enabled' : 'disabled'}`);
-      console.log(`   Total songs to process: ${totalSongsToProcess.toLocaleString()}`);
+      console.log(`   Start offset: ${this.options.startOffset.toLocaleString()}`);
+      console.log(`   Max songs: ${this.options.maxSongsPerRun.toLocaleString()}`);
+      console.log(`   Total songs in mode: ${totalSongsToProcess.toLocaleString()}`);
 
       // Initialize or resume progress
       if (this.options.enableResume) {
@@ -118,6 +122,7 @@ export class UnifiedYouTubeCrawler {
                 batchSize: this.options.batchSize,
                 maxSongsPerRun: this.options.maxSongsPerRun,
                 updateLocalizations: this.options.updateLocalizations,
+                startOffset: this.options.startOffset,
               },
             },
           });
@@ -177,9 +182,7 @@ export class UnifiedYouTubeCrawler {
         }
 
         currentOffset += this.options.batchSize;
-
-        // Small delay to avoid API rate limits
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Note: No delay needed - YouTube API has daily quota limits, not rate limits
       }
 
       // Mark as completed
@@ -286,8 +289,13 @@ export class UnifiedYouTubeCrawler {
 
   /**
    * Get songs based on mode
+   * @param offset - Local offset within current run
+   * @param limit - Number of songs to fetch
    */
   private async getSongsByMode(offset: number, limit: number) {
+    // Apply startOffset for chunked processing (Matrix strategy)
+    const actualOffset = this.options.startOffset + offset;
+
     switch (this.options.mode) {
       case 'new':
         // Songs added in the last 30 days or never updated
@@ -299,7 +307,7 @@ export class UnifiedYouTubeCrawler {
             ],
           },
           orderBy: { crawledAt: 'desc' },
-          skip: offset,
+          skip: actualOffset,
           take: limit,
         });
 
@@ -313,7 +321,7 @@ export class UnifiedYouTubeCrawler {
             ],
           },
           orderBy: { viewCountUpdatedAt: 'asc' },
-          skip: offset,
+          skip: actualOffset,
           take: limit,
         });
 
@@ -327,7 +335,7 @@ export class UnifiedYouTubeCrawler {
             ],
           },
           orderBy: { viewCount: 'desc' },
-          skip: offset,
+          skip: actualOffset,
           take: limit,
         });
 
@@ -335,7 +343,7 @@ export class UnifiedYouTubeCrawler {
         // All songs ordered by last update
         return this.prisma.song.findMany({
           orderBy: { viewCountUpdatedAt: 'asc' },
-          skip: offset,
+          skip: actualOffset,
           take: limit,
         });
 
@@ -346,6 +354,7 @@ export class UnifiedYouTubeCrawler {
 
   /**
    * Process a batch of songs - fetch view counts AND Korean titles in single API call
+   * Uses $transaction for batch DB updates (50곡 = 1 트랜잭션)
    */
   private async processBatch(songs: { vocadbId: number; youtubeId: string; titleKorean: string | null }[]): Promise<{
     processed: number;
@@ -358,8 +367,13 @@ export class UnifiedYouTubeCrawler {
     let titlesUpdated = 0;
     let failed = 0;
 
-    // Extract YouTube IDs
-    const youtubeIds = songs.map(s => s.youtubeId);
+    // Extract YouTube IDs (filter out null/undefined)
+    const validSongs = songs.filter(s => s.youtubeId);
+    const youtubeIds = validSongs.map(s => s.youtubeId);
+
+    if (youtubeIds.length === 0) {
+      return { processed: songs.length, updated: 0, titlesUpdated: 0, failed: songs.length };
+    }
 
     try {
       // UNIFIED API CALL: statistics + snippet + localizations
@@ -405,54 +419,88 @@ export class UnifiedYouTubeCrawler {
         videoDataMap.set(item.id, videoData);
       }
 
-      // Update songs with unified data
-      for (const song of songs) {
-        try {
-          const videoData = videoDataMap.get(song.youtubeId);
+      // Prepare batch updates
+      const updateOperations: Array<{
+        vocadbId: number;
+        viewCount: bigint;
+        titleKorean?: string;
+      }> = [];
 
-          if (videoData?.viewCount !== undefined) {
-            // Build update data
-            const updateData: {
-              viewCount: bigint;
-              viewCountUpdatedAt: Date;
-              titleKorean?: string;
-            } = {
-              viewCount: videoData.viewCount,
-              viewCountUpdatedAt: new Date(),
-            };
+      for (const song of validSongs) {
+        const videoData = videoDataMap.get(song.youtubeId);
 
-            // Only update Korean title if:
-            // 1. We have a Korean title from YouTube
-            // 2. The song doesn't already have a Korean title
-            if (videoData.koreanTitle && !song.titleKorean) {
-              updateData.titleKorean = videoData.koreanTitle;
-              titlesUpdated++;
-            }
+        if (videoData?.viewCount !== undefined) {
+          const updateItem: { vocadbId: number; viewCount: bigint; titleKorean?: string } = {
+            vocadbId: song.vocadbId,
+            viewCount: videoData.viewCount,
+          };
 
-            await this.prisma.song.update({
-              where: { vocadbId: song.vocadbId },
-              data: updateData,
-            });
-
-            updated++;
-          } else {
-            // Video not found or private
-            failed++;
+          // Only update Korean title if song doesn't already have one
+          if (videoData.koreanTitle && !song.titleKorean) {
+            updateItem.titleKorean = videoData.koreanTitle;
+            titlesUpdated++;
           }
 
-          processed++;
-
-        } catch (error) {
-          console.error(`⚠️  Error updating song ${song.vocadbId}:`, error);
+          updateOperations.push(updateItem);
+          updated++;
+        } else {
           failed++;
-          processed++;
         }
+        processed++;
+      }
+
+      // Execute batch updates using Raw SQL (50곡 = 2 SQL 쿼리)
+      if (updateOperations.length > 0) {
+        const now = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const vocadbIds = updateOperations.map(op => op.vocadbId);
+
+        // 1. Batch UPDATE songs using CASE WHEN (1 query for all songs)
+        const viewCountCases = updateOperations
+          .map(op => `WHEN ${op.vocadbId} THEN ${op.viewCount}`)
+          .join(' ');
+
+        await this.prisma.$executeRawUnsafe(`
+          UPDATE songs SET
+            view_count = CASE vocadb_id ${viewCountCases} END,
+            view_count_updated_at = $1
+          WHERE vocadb_id IN (${vocadbIds.join(',')})
+        `, now);
+
+        // 2. Update Korean titles separately (only for songs that need it)
+        const titleUpdates = updateOperations.filter(op => op.titleKorean);
+        if (titleUpdates.length > 0) {
+          await Promise.all(
+            titleUpdates.map(op =>
+              this.prisma.song.update({
+                where: { vocadbId: op.vocadbId },
+                data: { titleKorean: op.titleKorean },
+              })
+            )
+          );
+        }
+
+        // 3. Batch UPSERT daily view counts using INSERT ON CONFLICT
+        const dailyValues = updateOperations
+          .map(op => `(${op.vocadbId}, '${today.toISOString().split('T')[0]}', ${op.viewCount})`)
+          .join(',');
+
+        await this.prisma.$executeRawUnsafe(`
+          INSERT INTO daily_view_counts (song_id, recorded_date, total_views)
+          VALUES ${dailyValues}
+          ON CONFLICT (song_id, recorded_date)
+          DO UPDATE SET total_views = EXCLUDED.total_views
+        `);
       }
 
     } catch (error) {
-      console.error(`❌ Error fetching YouTube data:`, error);
+      console.error(`❌ Error processing batch:`, error);
       failed = songs.length;
       processed = songs.length;
+      updated = 0;
+      titlesUpdated = 0;
     }
 
     return { processed, updated, titlesUpdated, failed };
