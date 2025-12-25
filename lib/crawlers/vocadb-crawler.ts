@@ -286,6 +286,16 @@ export class VocaDBCrawler {
           .map((t: any) => t.tag?.name || t.name)
           .filter((t: string) => t);
 
+        // Filter: Skip songs with excluded tags
+        const EXCLUDED_TAGS = ['human singers', 'out of scope (cover unifier)'];
+        const hasExcludedTag = tags.some((tag: string) =>
+          EXCLUDED_TAGS.some(excluded => tag.toLowerCase() === excluded.toLowerCase())
+        );
+        if (hasExcludedTag) {
+          skipped++;
+          continue;
+        }
+
         // Thumbnail
         const thumbUrl = item.mainPicture?.urlThumb || item.thumbUrl || null;
 
