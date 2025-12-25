@@ -24,6 +24,8 @@ export interface UnifiedYouTubeCrawlerOptions {
   enableResume?: boolean;           // Enable progress tracking (default: true)
   updateLocalizations?: boolean;    // Also update Korean titles (default: true)
   startOffset?: number;             // Starting offset for chunked processing (default: 0)
+  minVocadbId?: number;             // Min vocadbId for ID-range chunking (inclusive)
+  maxVocadbId?: number;             // Max vocadbId for ID-range chunking (inclusive)
 }
 
 export interface UnifiedYouTubeCrawlerResult {
@@ -55,7 +57,10 @@ interface YouTubeVideoItem {
 
 export class UnifiedYouTubeCrawler {
   private prisma: PrismaClient;
-  private options: Required<UnifiedYouTubeCrawlerOptions>;
+  private options: Required<Omit<UnifiedYouTubeCrawlerOptions, 'minVocadbId' | 'maxVocadbId'>> & {
+    minVocadbId?: number;
+    maxVocadbId?: number;
+  };
   private progressId?: string;
 
   constructor(prisma: PrismaClient, options: UnifiedYouTubeCrawlerOptions = {}) {
@@ -67,6 +72,8 @@ export class UnifiedYouTubeCrawler {
       enableResume: options.enableResume ?? true,
       updateLocalizations: options.updateLocalizations ?? true,
       startOffset: options.startOffset ?? 0,
+      minVocadbId: options.minVocadbId,
+      maxVocadbId: options.maxVocadbId,
     };
 
     if (!YOUTUBE_API_KEY) {
@@ -84,7 +91,11 @@ export class UnifiedYouTubeCrawler {
     let titlesUpdated = 0;
     let songsFailed = 0;
     let currentOffset = 0;
+    let lastCursorId: number | undefined = undefined; // For keyset pagination in ID-range mode
     let completed = false;
+
+    // Determine if we're using ID-range mode (keyset pagination)
+    const useIdRangeMode = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;
 
     try {
       // Get total count for this mode
@@ -92,7 +103,11 @@ export class UnifiedYouTubeCrawler {
 
       console.log(`🎬 Unified YouTube Crawler - Mode: ${this.options.mode}`);
       console.log(`   Localizations: ${this.options.updateLocalizations ? 'enabled' : 'disabled'}`);
-      console.log(`   Start offset: ${this.options.startOffset.toLocaleString()}`);
+      if (this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined) {
+        console.log(`   ID Range: ${this.options.minVocadbId} - ${this.options.maxVocadbId}`);
+      } else {
+        console.log(`   Start offset: ${this.options.startOffset.toLocaleString()}`);
+      }
       console.log(`   Max songs: ${this.options.maxSongsPerRun.toLocaleString()}`);
       console.log(`   Total songs in mode: ${totalSongsToProcess.toLocaleString()}`);
 
@@ -134,7 +149,13 @@ export class UnifiedYouTubeCrawler {
       // Crawl loop
       while (songsProcessed < this.options.maxSongsPerRun) {
         // Get songs based on mode
-        const songs = await this.getSongsByMode(currentOffset, this.options.batchSize);
+        // In ID-range mode, use keyset pagination (cursorId) instead of offset
+        let songs: Awaited<ReturnType<typeof this.getSongsByMode>>;
+        if (useIdRangeMode) {
+          songs = await this.getSongsByIdRange(this.options.batchSize, lastCursorId);
+        } else {
+          songs = await this.getSongsByMode(currentOffset, this.options.batchSize);
+        }
 
         if (songs.length === 0) {
           console.log(`✅ No more songs to process`);
@@ -142,7 +163,15 @@ export class UnifiedYouTubeCrawler {
           break;
         }
 
-        console.log(`📥 Processing batch: ${songs.length} songs (offset ${currentOffset})...`);
+        // Update cursor for keyset pagination
+        if (useIdRangeMode && songs.length > 0) {
+          lastCursorId = songs[songs.length - 1].vocadbId;
+        }
+
+        const progressInfo = useIdRangeMode
+          ? `cursor > ${lastCursorId ?? this.options.minVocadbId}`
+          : `offset ${currentOffset}`;
+        console.log(`📥 Processing batch: ${songs.length} songs (${progressInfo})...`);
 
         // Process batch with unified API call
         const batchResult = await this.processBatch(songs);
@@ -289,25 +318,35 @@ export class UnifiedYouTubeCrawler {
 
   /**
    * Get songs based on mode
-   * @param offset - Local offset within current run
+   * @param offset - Local offset within current run (used only when ID range not set)
    * @param limit - Number of songs to fetch
    */
   private async getSongsByMode(offset: number, limit: number) {
-    // Apply startOffset for chunked processing (Matrix strategy)
-    const actualOffset = this.options.startOffset + offset;
+    // Use ID-range based filtering if minVocadbId/maxVocadbId are set (efficient for large datasets)
+    const useIdRange = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;
+
+    // Build ID range filter
+    const idRangeFilter = useIdRange
+      ? { vocadbId: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
+      : {};
+
+    // For ID-range mode, use local offset only (no startOffset needed)
+    // For offset mode, apply startOffset
+    const skipValue = useIdRange ? offset : this.options.startOffset + offset;
 
     switch (this.options.mode) {
       case 'new':
         // Songs added in the last 30 days or never updated
         return this.prisma.song.findMany({
           where: {
+            ...idRangeFilter,
             OR: [
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
             ],
           },
-          orderBy: { crawledAt: 'desc' },
-          skip: actualOffset,
+          orderBy: { vocadbId: 'asc' },  // Use vocadbId for consistent ordering with ID range
+          skip: skipValue,
           take: limit,
         });
 
@@ -315,13 +354,14 @@ export class UnifiedYouTubeCrawler {
         // Songs not updated in the last 90 days
         return this.prisma.song.findMany({
           where: {
+            ...idRangeFilter,
             OR: [
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
             ],
           },
-          orderBy: { viewCountUpdatedAt: 'asc' },
-          skip: actualOffset,
+          orderBy: { vocadbId: 'asc' },
+          skip: skipValue,
           take: limit,
         });
 
@@ -329,27 +369,56 @@ export class UnifiedYouTubeCrawler {
         // Top songs by view count or favorites
         return this.prisma.song.findMany({
           where: {
+            ...idRangeFilter,
             OR: [
               { viewCount: { gt: 1000000 } },
               { favoritedTimes: { gt: 100 } },
             ],
           },
-          orderBy: { viewCount: 'desc' },
-          skip: actualOffset,
+          orderBy: { vocadbId: 'asc' },
+          skip: skipValue,
           take: limit,
         });
 
       case 'all':
-        // All songs ordered by last update
+        // All songs - use vocadbId ordering for efficient ID-range queries
         return this.prisma.song.findMany({
-          orderBy: { viewCountUpdatedAt: 'asc' },
-          skip: actualOffset,
+          where: idRangeFilter,
+          orderBy: { vocadbId: 'asc' },
+          skip: skipValue,
           take: limit,
         });
 
       default:
         throw new Error(`Unknown mode: ${this.options.mode}`);
     }
+  }
+
+  /**
+   * Get songs using keyset pagination (cursor-based) for ID-range mode
+   * This avoids PostgreSQL "out of memory" errors that occur with large OFFSET values
+   *
+   * @param limit - Number of songs to fetch
+   * @param cursorId - Last processed vocadbId (fetch songs with vocadbId > cursorId)
+   */
+  private async getSongsByIdRange(limit: number, cursorId?: number) {
+    const minId = this.options.minVocadbId!;
+    const maxId = this.options.maxVocadbId!;
+
+    // Build the WHERE clause for keyset pagination
+    // vocadbId must be > cursor (if set) AND within the ID range
+    const startId = cursorId !== undefined ? cursorId + 1 : minId;
+
+    return this.prisma.song.findMany({
+      where: {
+        vocadbId: {
+          gte: startId,
+          lte: maxId,
+        },
+      },
+      orderBy: { vocadbId: 'asc' },
+      take: limit,
+    });
   }
 
   /**

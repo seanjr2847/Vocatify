@@ -4,11 +4,14 @@
  * Processes a specific chunk of songs based on CHUNK_INDEX and TOTAL_CHUNKS
  * environment variables. Designed for parallel execution across multiple jobs.
  *
+ * Uses ID-range based chunking (minVocadbId/maxVocadbId) instead of OFFSET
+ * to avoid PostgreSQL "out of memory" errors with large OFFSET values.
+ *
  * Usage: npx tsx scripts/youtube/update-chunked.ts
  *
  * Environment Variables:
  *   CHUNK_INDEX  - Current chunk index (0-based, default: 0)
- *   TOTAL_CHUNKS - Total number of chunks (default: 5)
+ *   TOTAL_CHUNKS - Total number of chunks (default: 10)
  *   DATABASE_URL - PostgreSQL connection string
  *   YOUTUBE_API_KEY - YouTube Data API v3 key
  */
@@ -23,36 +26,51 @@ async function main() {
   const totalChunks = parseInt(process.env.TOTAL_CHUNKS || '10', 10);
 
   console.log('='.repeat(60));
-  console.log('🎬 YouTube Chunked Update - GitHub Actions Matrix');
+  console.log('🎬 YouTube Chunked Update - GitHub Actions Matrix (ID-Range Mode)');
   console.log(`📦 Chunk: ${chunkIndex + 1}/${totalChunks}`);
   console.log('='.repeat(60));
 
-  // Get total song count
-  const totalSongs = await prisma.song.count();
-  const songsPerChunk = Math.ceil(totalSongs / totalChunks);
+  // Get min and max vocadbId for ID-range based chunking
+  // This avoids PostgreSQL "out of memory" errors with large OFFSET values
+  const idRange = await prisma.song.aggregate({
+    _min: { vocadbId: true },
+    _max: { vocadbId: true },
+  });
 
-  // Calculate this chunk's range
-  const startOffset = chunkIndex * songsPerChunk;
-  const maxSongs = Math.min(songsPerChunk, totalSongs - startOffset);
+  const globalMinId = idRange._min.vocadbId ?? 0;
+  const globalMaxId = idRange._max.vocadbId ?? 0;
+  const totalIdRange = globalMaxId - globalMinId + 1;
+  const idsPerChunk = Math.ceil(totalIdRange / totalChunks);
 
-  console.log(`\n📊 Chunk Configuration:`);
-  console.log(`   Total songs in DB: ${totalSongs.toLocaleString()}`);
-  console.log(`   Songs per chunk: ${songsPerChunk.toLocaleString()}`);
-  console.log(`   This chunk range: ${startOffset.toLocaleString()} - ${(startOffset + maxSongs).toLocaleString()}`);
-  console.log(`   Max songs to process: ${maxSongs.toLocaleString()}\n`);
+  // Calculate this chunk's ID range (inclusive bounds)
+  const minVocadbId = globalMinId + (chunkIndex * idsPerChunk);
+  const maxVocadbId = Math.min(globalMinId + ((chunkIndex + 1) * idsPerChunk) - 1, globalMaxId);
 
-  if (maxSongs <= 0) {
-    console.log('⚠️  No songs to process for this chunk (offset exceeds total)');
+  // Count songs in this ID range
+  const songsInRange = await prisma.song.count({
+    where: {
+      vocadbId: { gte: minVocadbId, lte: maxVocadbId },
+    },
+  });
+
+  console.log(`\n📊 Chunk Configuration (ID-Range Mode):`);
+  console.log(`   Global ID range: ${globalMinId.toLocaleString()} - ${globalMaxId.toLocaleString()}`);
+  console.log(`   This chunk ID range: ${minVocadbId.toLocaleString()} - ${maxVocadbId.toLocaleString()}`);
+  console.log(`   Songs in this range: ${songsInRange.toLocaleString()}\n`);
+
+  if (songsInRange <= 0) {
+    console.log('⚠️  No songs to process for this chunk (empty ID range)');
     return { success: true, songsProcessed: 0 };
   }
 
   const crawler = new UnifiedYouTubeCrawler(prisma, {
     mode: 'all',
     batchSize: 50,
-    maxSongsPerRun: maxSongs,
+    maxSongsPerRun: songsInRange, // Process all songs in this ID range
     enableResume: false, // Fresh run for each chunk
     updateLocalizations: true,
-    startOffset,
+    minVocadbId, // Use ID-range based filtering (no OFFSET)
+    maxVocadbId,
   });
 
   const result = await crawler.crawl();
