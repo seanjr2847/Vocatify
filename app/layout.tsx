@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Quicksand, Noto_Sans_KR } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { MusicPlayerProvider } from "@/lib/MusicPlayerContext";
 import { Toaster } from "sonner";
@@ -32,6 +33,7 @@ export default function RootLayout({
           {children}
           <Toaster richColors position="top-center" />
         </MusicPlayerProvider>
+        <Analytics />
       </body>
     </html>
   );

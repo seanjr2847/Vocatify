@@ -33,6 +33,7 @@
     "@radix-ui/react-scroll-area": "^1.0.5",
     "@radix-ui/react-slot": "^1.0.2",
     "@types/youtube": "^0.1.2",
+    "@vercel/analytics": "^1.6.1",
     "better-sqlite3": "^12.5.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
