@@ -143,7 +143,7 @@ export function SearchResults({
       ) : (
         <div className="space-y-2">
           {initialResults.map((song) => {
-            const displayTitle = song.titleKorean || song.titleEnglish || song.titleJapanese || song.title;
+            const displayTitle = song.titleKorean || song.titleEnglish || song.titleJapanese || song.defaultName;
             const viewCount = typeof song.viewCount === 'bigint'
               ? song.viewCount.toString()
               : song.viewCount || '0';
@@ -184,7 +184,7 @@ export function SearchResults({
                     {displayTitle}
                   </h3>
                   <div className="flex items-center gap-3 text-sm text-gray-400">
-                    <span className="truncate">{song.artist}</span>
+                    <span className="truncate">{song.artistString}</span>
                     {publishDate && (
                       <>
                         <span className="text-gray-600">•</span>

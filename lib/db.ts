@@ -29,6 +29,9 @@ export interface RankingSong {
   ratingScore: number;
 }
 
+// Alias for backward compatibility
+export type Song = RankingSong;
+
 export interface RankingItem extends RankingSong {
   rank: number;
   dailyIncrease?: bigint;
@@ -82,7 +85,7 @@ export interface DailyViewCount {
 }
 
 export interface SearchSong extends RankingSong {
-  matchedField?: string;
+  matchedField?: 'title' | 'titleEnglish' | 'titleJapanese' | 'titleKorean' | 'titleRomaji' | 'artist';
   relevanceScore?: number;
 }
 

@@ -72,7 +72,8 @@
       "Bash(set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=진행해)",
       "Bash(npx prisma db push:*)",
       "Bash(cmd /c \"set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes && npx prisma db push --force-reset\")",
-      "Bash(npx cross-env PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes npx prisma db push --force-reset)"
+      "Bash(npx cross-env PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes npx prisma db push --force-reset)",
+      "Bash(gh run list:*)"
     ]
   }
 }

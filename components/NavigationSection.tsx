@@ -70,11 +70,11 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
 
               <div className="absolute top-[137px] left-[45px] flex flex-col gap-1.5 z-10">
                 <h2 className="font-bold-35px font-[number:var(--bold-35px-font-weight)] text-white text-[length:var(--bold-35px-font-size)] tracking-[var(--bold-35px-letter-spacing)] leading-[var(--bold-35px-line-height)] whitespace-nowrap [font-style:var(--bold-35px-font-style)]">
-                  {topSong ? topSong.title : '보컬로이드 히트곡'}
+                  {topSong ? (topSong.titleKorean ?? topSong.titleEnglish ?? topSong.defaultName) : '보컬로이드 히트곡'}
                 </h2>
 
                 <p className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-white text-sm tracking-[0] leading-[16.8px] max-w-[300px]">
-                  {topCharts.slice(0, 3).map(song => song.title).join(', ')}
+                  {topCharts.slice(0, 3).map(song => song.titleKorean ?? song.titleEnglish ?? song.defaultName).join(', ')}
                   {topCharts.length > 3 && ', 그 외 다수'}
                 </p>
               </div>
@@ -126,16 +126,16 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                 <CardContent className="relative p-0 h-24">
                   <img
                     className="absolute top-[17px] left-[17px] w-[63px] h-[63px] object-cover rounded"
-                    alt={chart.title}
-                    src={chart.thumbUrl || getYouTubeThumbnail(chart.youtubeId)}
+                    alt={chart.titleKorean ?? chart.titleEnglish ?? chart.defaultName}
+                    src={chart.thumbUrl || (chart.youtubeId ? getYouTubeThumbnail(chart.youtubeId) : '')}
                   />
 
                   <div className="absolute top-[17px] left-[94px] font-regular-17px font-[number:var(--regular-17px-font-weight)] text-white text-[length:var(--regular-17px-font-size)] tracking-[var(--regular-17px-letter-spacing)] leading-[var(--regular-17px-line-height)] max-w-[250px] truncate [font-style:var(--regular-17px-font-style)]">
-                    {chart.title}
+                    {chart.titleKorean ?? chart.titleEnglish ?? chart.defaultName}
                   </div>
 
                   <div className="absolute top-[41px] left-[94px] font-regular-12px font-[number:var(--regular-12px-font-weight)] text-[#ffffff80] text-[length:var(--regular-12px-font-size)] tracking-[var(--regular-12px-letter-spacing)] leading-[var(--regular-12px-line-height)] whitespace-nowrap [font-style:var(--regular-12px-font-style)]">
-                    {chart.artist}
+                    {chart.artistString}
                   </div>
 
                   <div className="absolute top-[30px] right-[17px] flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
@@ -200,16 +200,16 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
 
                 <img
                   className="absolute top-[10px] left-[50px] w-[60px] h-[60px] object-cover rounded"
-                  alt={release.title}
-                  src={release.thumbUrl || getYouTubeThumbnail(release.youtubeId)}
+                  alt={release.titleKorean ?? release.titleEnglish ?? release.defaultName}
+                  src={release.thumbUrl || (release.youtubeId ? getYouTubeThumbnail(release.youtubeId) : '')}
                 />
 
                 <div className="absolute top-[14px] left-[120px] right-[100px]">
                   <div className="font-regular-17px font-[number:var(--regular-17px-font-weight)] text-white text-[length:var(--regular-17px-font-size)] truncate">
-                    {release.title}
+                    {release.titleKorean ?? release.titleEnglish ?? release.defaultName}
                   </div>
                   <div className="font-regular-12px text-[#ffffff80] text-[length:var(--regular-12px-font-size)] truncate mt-0.5">
-                    {release.artist}
+                    {release.artistString}
                   </div>
                 </div>
 
@@ -268,8 +268,8 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                 <div className="relative w-[153px] h-[153px]">
                   <img
                     className="w-full h-full object-cover rounded"
-                    alt={item.title}
-                    src={item.thumbUrl || getYouTubeThumbnail(item.youtubeId)}
+                    alt={item.titleKorean ?? item.titleEnglish ?? item.defaultName}
+                    src={item.thumbUrl || (item.youtubeId ? getYouTubeThumbnail(item.youtubeId) : '')}
                   />
                   <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
                     <button
@@ -296,11 +296,11 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                 </div>
 
                 <div className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-white text-xs tracking-[0] leading-[normal] truncate">
-                  {item.title}
+                  {item.titleKorean ?? item.titleEnglish ?? item.defaultName}
                 </div>
 
                 <div className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-[#ffffff80] text-xs tracking-[0] leading-[normal] truncate">
-                  {item.artist}
+                  {item.artistString}
                 </div>
 
                 <div className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-[#ffffff60] text-xs tracking-[0] leading-[normal]">

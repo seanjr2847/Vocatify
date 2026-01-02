@@ -116,7 +116,7 @@ export default async function SongDetailPage({
               {song.thumbUrl ? (
                 <img
                   src={song.thumbUrl}
-                  alt={song.title}
+                  alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
                   className="w-[232px] h-[232px] rounded-lg shadow-2xl object-cover"
                 />
               ) : (
@@ -128,18 +128,18 @@ export default async function SongDetailPage({
             <div className="flex-1 pb-2">
               <p className="text-sm font-semibold mb-2">곡</p>
               <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight">
-                {song.title}
+                {song.titleKorean ?? song.titleEnglish ?? song.defaultName}
               </h1>
 
               <div className="flex items-center gap-3 text-sm">
                 {song.thumbUrl && (
                   <img
                     src={song.thumbUrl}
-                    alt={song.artist}
+                    alt={song.artistString}
                     className="w-6 h-6 rounded-full object-cover"
                   />
                 )}
-                <span className="font-bold hover:underline cursor-pointer">{song.artist}</span>
+                <span className="font-bold hover:underline cursor-pointer">{song.artistString}</span>
                 {song.publishDate && (
                   <>
                     <span>•</span>
@@ -285,7 +285,7 @@ export default async function SongDetailPage({
         {relatedSongs && relatedSongs.length > 0 && (
           <div className="mb-8">
             <h3 className="text-lg font-bold mb-3">같은 아티스트의 다른 곡</h3>
-            <RelatedSongsCarousel songs={relatedSongs} title={song.artist} />
+            <RelatedSongsCarousel songs={relatedSongs} title={song.artistString} />
           </div>
         )}
 

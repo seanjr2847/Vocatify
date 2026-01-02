@@ -10,13 +10,8 @@ import { ChartsTabNavigation, type TabType } from "@/components/charts/ChartsTab
 import { RankingSongCard } from "@/components/charts/RankingSongCard";
 import { LoadMoreButton } from "@/components/charts/LoadMoreButton";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
-import type { RankingItem, Song } from "@/lib/db";
+import type { RankingItem, SearchSong } from "@/lib/db";
 import { toast } from "sonner";
-
-interface SearchSong extends Song {
-  matchedField?: 'title' | 'titleEnglish' | 'titleJapanese' | 'titleKorean' | 'titleRomaji' | 'artist';
-  relevanceScore?: number;
-}
 
 const navigationItems = [
   { icon: Home, alt: "홈", href: "/" },

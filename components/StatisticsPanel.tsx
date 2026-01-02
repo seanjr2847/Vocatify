@@ -1,48 +1,53 @@
-import { TrendingUp, Calendar, BarChart3 } from 'lucide-react';
-
-interface SongStatistics {
-  dailyAverage: number;
-  weeklyAverage: number;
-  monthlyAverage: number;
-  totalDays: number;
-}
+import { TrendingUp, Calendar, BarChart3, Award } from 'lucide-react';
+import type { SongStatistics } from '@/lib/db';
 
 interface StatisticsPanelProps {
   statistics: SongStatistics;
 }
 
-function formatNumber(num: number): string {
-  if (num >= 1_000_000_000) {
-    return `${(num / 1_000_000_000).toFixed(1)}B`;
+function formatNumber(num: bigint | number | null): string {
+  if (!num) return '0';
+  const n = typeof num === 'bigint' ? Number(num) : num;
+  if (n >= 1_000_000_000) {
+    return `${(n / 1_000_000_000).toFixed(1)}B`;
   }
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1)}M`;
   }
-  if (num >= 1_000) {
-    return `${(num / 1_000).toFixed(1)}K`;
+  if (n >= 1_000) {
+    return `${(n / 1_000).toFixed(1)}K`;
   }
-  return Math.round(num).toLocaleString();
+  return Math.round(n).toLocaleString();
+}
+
+function formatDate(date: Date | null): string {
+  if (!date) return 'N/A';
+  return new Date(date).toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 export function StatisticsPanel({ statistics }: StatisticsPanelProps) {
   const stats = [
     {
       label: '일 평균',
-      value: statistics.dailyAverage,
+      value: statistics.avgDailyViews,
       period: 'per day',
       icon: TrendingUp,
     },
     {
-      label: '주 평균',
-      value: statistics.weeklyAverage,
-      period: 'per week',
+      label: '이번 주',
+      value: statistics.viewsThisWeek,
+      period: 'this week',
       icon: Calendar,
     },
     {
-      label: '월 평균',
-      value: statistics.monthlyAverage,
-      period: 'per month',
-      icon: BarChart3,
+      label: '최고 일일 증가',
+      value: statistics.peakDailyIncrease,
+      period: formatDate(statistics.peakDate),
+      icon: Award,
     },
   ];
 
@@ -50,7 +55,7 @@ export function StatisticsPanel({ statistics }: StatisticsPanelProps) {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {stats.map((stat) => {
         const Icon = stat.icon;
-        const hasValue = stat.value > 0;
+        const hasValue = stat.value != null && (typeof stat.value === 'bigint' ? stat.value > BigInt(0) : stat.value > 0);
 
         return (
           <div

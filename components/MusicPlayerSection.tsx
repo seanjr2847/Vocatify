@@ -53,23 +53,23 @@ export const MusicPlayerSection = (): JSX.Element => {
             {state.currentSong?.thumbUrl ? (
               <img
                 src={state.currentSong.thumbUrl}
-                alt={state.currentSong.title}
+                alt={state.currentSong.titleKorean ?? state.currentSong.titleEnglish ?? state.currentSong.defaultName}
                 className="w-full h-full object-cover"
               />
             ) : state.currentSong?.youtubeId ? (
               <img
                 src={getYouTubeThumbnail(state.currentSong.youtubeId)}
-                alt={state.currentSong.title}
+                alt={state.currentSong.titleKorean ?? state.currentSong.titleEnglish ?? state.currentSong.defaultName}
                 className="w-full h-full object-cover"
               />
             ) : null}
           </div>
           <div className="flex flex-col min-w-0">
             <span className="font-bold text-white text-[14px] leading-[17px] whitespace-nowrap truncate">
-              {state.currentSong?.title || '곡을 선택하세요'}
+              {state.currentSong?.titleKorean ?? state.currentSong?.titleEnglish ?? state.currentSong?.defaultName ?? '곡을 선택하세요'}
             </span>
             <span className="font-bold text-[#ffffff70] text-[10px] leading-[12px] whitespace-nowrap truncate">
-              {state.currentSong?.artist || ''}
+              {state.currentSong?.artistString || ''}
             </span>
           </div>
         </div>

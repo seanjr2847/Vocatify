@@ -223,18 +223,21 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       // Convert API response to Song type
       const convertToSong = (s: any): Song => ({
         vocadbId: s.vocadbId,
-        title: s.title,
-        titleEnglish: s.titleEnglish,
-        titleJapanese: s.titleJapanese,
-        titleRomaji: s.titleRomaji,
-        titleKorean: s.titleKorean,
-        artist: s.artist,
-        youtubeId: s.youtubeId,
-        youtubeUrl: s.youtubeUrl,
-        thumbUrl: s.thumbUrl,
-        favoritedTimes: 0,
-        ratingScore: 0,
-        crawledAt: new Date(),
+        defaultName: s.defaultName || s.title || '',
+        titleEnglish: s.titleEnglish || null,
+        titleJapanese: s.titleJapanese || null,
+        titleRomaji: s.titleRomaji || null,
+        titleKorean: s.titleKorean || null,
+        artistString: s.artistString || s.artist || '',
+        youtubeId: s.youtubeId || null,
+        youtubeUrl: s.youtubeUrl || null,
+        thumbUrl: s.thumbUrl || null,
+        favoritedTimes: s.favoritedTimes || 0,
+        ratingScore: s.ratingScore || 0,
+        publishDate: s.publishDate || null,
+        songType: s.songType || null,
+        viewCount: s.viewCount || null,
+        viewCountUpdatedAt: s.viewCountUpdatedAt || null,
       });
 
       setState(prev => ({

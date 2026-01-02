@@ -2,7 +2,7 @@ import { ExternalLink, Music, Video } from 'lucide-react';
 
 interface ExternalLinksProps {
   vocadbId: number;
-  youtubeUrl: string;
+  youtubeUrl: string | null;
 }
 
 export function ExternalLinks({ vocadbId, youtubeUrl }: ExternalLinksProps) {
@@ -16,8 +16,8 @@ export function ExternalLinks({ vocadbId, youtubeUrl }: ExternalLinksProps) {
     {
       label: 'YouTube',
       icon: Video,
-      url: youtubeUrl,
-      available: true,
+      url: youtubeUrl || '#',
+      available: !!youtubeUrl,
     },
     {
       label: 'NicoNico',

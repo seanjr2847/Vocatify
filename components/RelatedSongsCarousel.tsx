@@ -52,7 +52,7 @@ export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps
               {song.thumbUrl ? (
                 <img
                   src={song.thumbUrl}
-                  alt={song.title}
+                  alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -76,9 +76,9 @@ export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps
             {/* Song Info */}
             <div className="p-3">
               <h4 className="text-sm font-semibold text-white line-clamp-2 mb-1 min-h-[40px]">
-                {song.title}
+                {song.titleKorean ?? song.titleEnglish ?? song.defaultName}
               </h4>
-              <p className="text-xs text-gray-400 mb-2 truncate">{song.artist}</p>
+              <p className="text-xs text-gray-400 mb-2 truncate">{song.artistString}</p>
               {song.viewCount && (
                 <div className="flex items-center gap-1 text-xs text-gray-500">
                   <Eye className="w-3 h-3" />

@@ -1,6 +1,11 @@
 /**
  * Full VocaDB Crawl Script
- * Optimized batch processing - ~594 songs/min
+ *
+ * Purpose: One-time full crawl of all VocaDB songs (initial DB setup)
+ * Expected: ~270K songs, ~8 hours
+ * Processing rate: ~594 songs/min
+ *
+ * Usage: npx tsx scripts/vocadb-full-crawl.ts
  */
 
 import { PrismaClient } from '../lib/generated/prisma';
@@ -19,9 +24,9 @@ async function main() {
     // Full crawl settings
     const crawler = new VocaDBCrawler(prisma, {
       batchSize: 100,           // VocaDB API limit
-      maxSongsPerRun: 1000000,  // 100만곡까지
+      maxSongsPerRun: 1000000,  // 100만곡까지 (27만곡 전체 커버)
       startOffset: 0,
-      enableResume: true,
+      enableResume: true,       // Progress tracking for resumption
     });
 
     const startTime = Date.now();

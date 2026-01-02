@@ -118,7 +118,7 @@ export function SearchSuggestions({
         <>
           <div className="max-h-80 overflow-y-auto">
             {suggestions.map((song, index) => {
-              const displayTitle = song.titleKorean || song.titleEnglish || song.titleJapanese || song.title;
+              const displayTitle = song.titleKorean || song.titleEnglish || song.titleJapanese || song.defaultName;
               const viewCount = typeof song.viewCount === 'bigint'
                 ? song.viewCount.toString()
                 : song.viewCount || '0';
@@ -170,9 +170,9 @@ export function SearchSuggestions({
                     <div className="flex items-center gap-2">
                       <p className="text-xs text-gray-400 truncate">
                         {shouldHighlightArtist ? (
-                          <HighlightedText text={song.artist} query={query} />
+                          <HighlightedText text={song.artistString} query={query} />
                         ) : (
-                          song.artist
+                          song.artistString
                         )}
                       </p>
                       {matchedFieldLabel && song.matchedField !== 'titleKorean' && song.matchedField !== 'title' && (

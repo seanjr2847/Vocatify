@@ -65,7 +65,7 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
     router.push(`/songs/${song.vocadbId}`);
   };
 
-  const thumbnailUrl = song.thumbUrl || getYouTubeThumbnail(song.youtubeId);
+  const thumbnailUrl = song.thumbUrl || (song.youtubeId ? getYouTubeThumbnail(song.youtubeId) : '');
   const isTopThree = song.rank <= 3;
 
   return (
@@ -87,7 +87,7 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
         <div className="relative w-16 h-16 flex-shrink-0">
           <img
             src={thumbnailUrl}
-            alt={song.title}
+            alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
             className="w-full h-full object-cover rounded-lg"
             loading="lazy"
           />
@@ -95,8 +95,8 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
 
         {/* Song Info */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-white font-semibold truncate">{song.title}</h3>
-          <p className="text-gray-400 text-sm truncate">{song.artist}</p>
+          <h3 className="text-white font-semibold truncate">{song.titleKorean ?? song.titleEnglish ?? song.defaultName}</h3>
+          <p className="text-gray-400 text-sm truncate">{song.artistString}</p>
           <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
             {song.viewCount && (
               <span>{formatNumber(song.viewCount)} 조회</span>
