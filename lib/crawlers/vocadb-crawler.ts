@@ -1,7 +1,8 @@
 /**
- * VocaDB PostgreSQL Chunked Crawler
+ * VocaDB PostgreSQL Chunked Crawler - v2
  *
  * Features:
+ * - Full relational schema with separate tables for names, artists, pvs, tags, lyrics
  * - PostgreSQL with Prisma ORM
  * - CrawlerProgress tracking for resumption
  * - Configurable chunk sizes for serverless execution
@@ -10,15 +11,34 @@
  */
 
 import { PrismaClient } from '@/lib/generated/prisma';
+import {
+  batchUpsertSongs,
+  batchUpsertSongNames,
+  batchUpsertArtists,
+  batchUpsertSongArtists,
+  batchUpsertPVs,
+  batchUpsertTags,
+  batchUpsertSongTags,
+  batchReplaceLyrics,
+} from './batch-upsert';
 
 const VOCADB_API_BASE = 'https://vocadb.net/api';
 
+// Excluded tags - songs with these tags will be skipped
+const EXCLUDED_TAGS = ['human singers', 'out of scope (cover unifier)'];
+
+// Synthetic vocalist types that qualify as "Vocaloid" for ranking
+const SYNTHETIC_VOCALIST_TYPES = [
+  'Vocaloid', 'UTAU', 'CeVIO', 'SynthesizerV', 'NEUTRINO', 'VoiSona',
+  'ACEVirtualSinger', 'Voicroid', 'OtherVoiceSynthesizer',
+];
+
 export interface VocaDBCrawlerOptions {
-  batchSize?: number;           // Number of songs per API request (default: 100)
-  maxSongsPerRun?: number;      // Max songs to process in one execution (default: 1000)
-  startOffset?: number;         // Starting offset (default: 0 or resume from last)
-  songTypes?: string;           // Song types to crawl (default: 'Original')
-  enableResume?: boolean;       // Enable progress tracking for resume (default: true)
+  batchSize?: number;
+  maxSongsPerRun?: number;
+  startOffset?: number;
+  songTypes?: string;
+  enableResume?: boolean;
 }
 
 export interface VocaDBCrawlerResult {
@@ -47,9 +67,6 @@ export class VocaDBCrawler {
     };
   }
 
-  /**
-   * Execute VocaDB crawling with progress tracking
-   */
   async crawl(): Promise<VocaDBCrawlerResult> {
     const startTime = Date.now();
     let songsProcessed = 0;
@@ -63,19 +80,14 @@ export class VocaDBCrawler {
       // Initialize or resume progress
       if (this.options.enableResume) {
         const existingProgress = await this.prisma.crawlerProgress.findFirst({
-          where: {
-            crawlerType: 'vocadb',
-            status: 'running',
-          },
+          where: { crawlerType: 'vocadb', status: 'running' },
         });
 
         if (existingProgress) {
-          // Resume from last offset
           this.progressId = existingProgress.id;
           currentOffset = existingProgress.lastOffset;
           console.log(`🔄 Resuming VocaDB crawler from offset ${currentOffset}`);
         } else {
-          // Create new progress entry
           const progress = await this.prisma.crawlerProgress.create({
             data: {
               crawlerType: 'vocadb',
@@ -97,7 +109,8 @@ export class VocaDBCrawler {
 
       // Crawl loop
       while (songsProcessed < this.options.maxSongsPerRun) {
-        const fields = 'Names,Artists,PVs,Tags,ThumbUrl,MainPicture';
+        // Request all fields including Lyrics
+        const fields = 'Names,Artists,PVs,Tags,Lyrics,ThumbUrl,MainPicture';
         const url = `${VOCADB_API_BASE}/songs?start=${currentOffset}&maxResults=${this.options.batchSize}&fields=${fields}&songTypes=${this.options.songTypes}&sort=AdditionDate`;
 
         console.log(`📥 Fetching batch at offset ${currentOffset}...`);
@@ -132,7 +145,6 @@ export class VocaDBCrawler {
 
           console.log(`   Received: ${items.length} songs`);
 
-          // Process batch
           const batchResult = await this.processBatch(items);
           songsProcessed += batchResult.processed;
           songsInserted += batchResult.inserted;
@@ -141,24 +153,18 @@ export class VocaDBCrawler {
           console.log(`   Processed: ${batchResult.processed} songs (${batchResult.inserted} inserted, ${batchResult.skipped} skipped)`);
           console.log(`   Total progress: ${songsProcessed}/${this.options.maxSongsPerRun} songs\n`);
 
-          // Update progress
           if (this.progressId) {
             await this.prisma.crawlerProgress.update({
               where: { id: this.progressId },
-              data: {
-                lastOffset: currentOffset,
-                totalProcessed: songsProcessed,
-              },
+              data: { lastOffset: currentOffset, totalProcessed: songsProcessed },
             });
           }
 
-          // Check if we've reached the limit
           if (songsProcessed >= this.options.maxSongsPerRun) {
             console.log(`✅ Reached max songs limit (${this.options.maxSongsPerRun})`);
             break;
           }
 
-          // Check if API returned fewer results than requested
           if (items.length < this.options.batchSize) {
             console.log(`✅ Received fewer results than requested - end of data`);
             completed = true;
@@ -166,8 +172,6 @@ export class VocaDBCrawler {
           }
 
           currentOffset += this.options.batchSize;
-
-          // Small delay to avoid overwhelming the API
           await new Promise(resolve => setTimeout(resolve, 500));
 
         } catch (error) {
@@ -176,7 +180,6 @@ export class VocaDBCrawler {
         }
       }
 
-      // Mark as completed
       if (this.progressId) {
         await this.prisma.crawlerProgress.update({
           where: { id: this.progressId },
@@ -197,209 +200,246 @@ export class VocaDBCrawler {
       console.log(`   Last offset: ${currentOffset}`);
       console.log(`   Fully completed: ${completed ? 'Yes' : 'No'}\n`);
 
-      return {
-        success: true,
-        songsProcessed,
-        songsInserted,
-        songsSkipped,
-        lastOffset: currentOffset,
-        completed,
-      };
+      return { success: true, songsProcessed, songsInserted, songsSkipped, lastOffset: currentOffset, completed };
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`💥 Crawler failed:`, errorMessage);
 
-      // Mark as failed
       if (this.progressId) {
         await this.prisma.crawlerProgress.update({
           where: { id: this.progressId },
-          data: {
-            status: 'failed',
-            completedAt: new Date(),
-            errorMessage,
-          },
+          data: { status: 'failed', completedAt: new Date(), errorMessage },
         });
       }
 
-      return {
-        success: false,
-        songsProcessed,
-        songsInserted,
-        songsSkipped,
-        lastOffset: currentOffset,
-        completed: false,
-        error: errorMessage,
-      };
+      return { success: false, songsProcessed, songsInserted, songsSkipped, lastOffset: currentOffset, completed: false, error: errorMessage };
     }
   }
 
   /**
-   * Process a batch of songs from VocaDB API
+   * Process entire batch using bulk SQL operations
+   * Much faster than individual upserts
    */
   private async processBatch(items: any[]): Promise<{ processed: number; inserted: number; skipped: number }> {
-    let processed = 0;
-    let inserted = 0;
+    // 1. Filter valid items first
+    const validItems: any[] = [];
     let skipped = 0;
 
     for (const item of items) {
-      try {
-        // Filter: Must have YouTube PV
-        if (!item.pvs || item.pvs.length === 0) {
-          skipped++;
-          continue;
-        }
+      // Filter: Must have at least one PV
+      if (!item.pvs || item.pvs.length === 0) {
+        skipped++;
+        continue;
+      }
 
-        const youtube = item.pvs.find((pv: any) => pv.service === 'Youtube');
-        if (!youtube || !youtube.pvId) {
-          skipped++;
-          continue;
-        }
+      // Check for excluded tags
+      const allTags = (item.tags || [])
+        .map((t: any) => t.tag?.name || t.name)
+        .filter((t: string) => t);
 
-        // Extract multilingual titles
-        const names = item.names || [];
-        const titleEnglish = names.find((n: any) => n.language === 'English')?.value || null;
-        const titleJapanese = names.find((n: any) => n.language === 'Japanese')?.value || null;
-        const titleRomaji = names.find((n: any) => n.language === 'Romaji')?.value || null;
-        const preferredTitle = titleEnglish || titleRomaji || titleJapanese || item.name;
+      const hasExcludedTag = allTags.some((tag: string) =>
+        EXCLUDED_TAGS.some(excluded => tag.toLowerCase() === excluded.toLowerCase())
+      );
 
-        // Extract artist type - check for all synthetic vocalist types
-        // VocaDB types: Vocaloid, UTAU, CeVIO, SynthesizerV, NEUTRINO, VoiSona, ACEVirtualSinger, Voicroid, etc.
-        const SYNTHETIC_VOCALIST_TYPES = [
-          'Vocaloid', 'UTAU', 'CeVIO', 'SynthesizerV', 'NEUTRINO', 'VoiSona',
-          'ACEVirtualSinger', 'Voicroid', 'OtherVoiceSynthesizer',
-        ];
-        let artistType = null;
-        if (item.artists && item.artists.length > 0) {
-          // Find any synthetic vocalist (Vocaloid, UTAU, CeVIO, etc.)
-          const syntheticVocalist = item.artists.find((a: any) =>
-            SYNTHETIC_VOCALIST_TYPES.includes(a.artist?.artistType)
-          );
-          const producer = item.artists.find((a: any) => a.artist?.artistType === 'Producer');
-          // Normalize all synthetic vocalist types to 'Vocaloid' for ranking consistency
-          artistType = syntheticVocalist ? 'Vocaloid' : (producer?.artist?.artistType || null);
-        }
+      if (hasExcludedTag) {
+        skipped++;
+        continue;
+      }
 
-        // Extract tags
-        const tags = (item.tags || [])
-          .slice(0, 10)
-          .map((t: any) => t.tag?.name || t.name)
-          .filter((t: string) => t);
+      validItems.push(item);
+    }
 
-        // Filter: Skip songs with excluded tags
-        const EXCLUDED_TAGS = ['human singers', 'out of scope (cover unifier)'];
-        const hasExcludedTag = tags.some((tag: string) =>
-          EXCLUDED_TAGS.some(excluded => tag.toLowerCase() === excluded.toLowerCase())
-        );
-        if (hasExcludedTag) {
-          skipped++;
-          continue;
-        }
+    if (validItems.length === 0) {
+      return { processed: items.length, inserted: 0, skipped };
+    }
 
-        // Thumbnail
+    try {
+      // 2. Collect all data for batch operations
+      const songs: Parameters<typeof batchUpsertSongs>[1] = [];
+      const allNames: Parameters<typeof batchUpsertSongNames>[1] = [];
+      const allArtists: Parameters<typeof batchUpsertArtists>[1] = [];
+      const allSongArtists: Parameters<typeof batchUpsertSongArtists>[1] = [];
+      const allPVs: Parameters<typeof batchUpsertPVs>[1] = [];
+      const allTags: Parameters<typeof batchUpsertTags>[1] = [];
+      const allSongTags: Parameters<typeof batchUpsertSongTags>[1] = [];
+      const allLyrics: Parameters<typeof batchReplaceLyrics>[2] = [];
+      const songIdsWithLyrics: number[] = [];
+
+      for (const item of validItems) {
+        // Song data
         const thumbUrl = item.mainPicture?.urlThumb || item.thumbUrl || null;
+        const thumbUrlSmall = item.mainPicture?.urlSmallThumb || null;
 
-        // Parse publish date
         let publishDate = null;
         if (item.publishDate) {
           try {
             publishDate = new Date(item.publishDate);
-            if (isNaN(publishDate.getTime())) {
-              publishDate = null;
-            }
+            if (isNaN(publishDate.getTime())) publishDate = null;
           } catch {
             publishDate = null;
           }
         }
 
-        // Insert or update song
-        await this.prisma.song.upsert({
-          where: { vocadbId: item.id },
-          update: {
-            title: preferredTitle,
-            titleEnglish,
-            titleJapanese,
-            titleRomaji,
-            artist: item.artistString,
-            artistType,
-            youtubeId: youtube.pvId,
-            youtubeUrl: `https://www.youtube.com/watch?v=${youtube.pvId}`,
-            thumbUrl,
-            favoritedTimes: item.favoritedTimes || 0,
-            ratingScore: item.ratingScore || 0,
-            tags: JSON.stringify(tags),
-            publishDate,
-            songType: item.songType || null,
-            crawledAt: new Date(),
-          },
-          create: {
-            vocadbId: item.id,
-            title: preferredTitle,
-            titleEnglish,
-            titleJapanese,
-            titleRomaji,
-            artist: item.artistString,
-            artistType,
-            youtubeId: youtube.pvId,
-            youtubeUrl: `https://www.youtube.com/watch?v=${youtube.pvId}`,
-            thumbUrl,
-            favoritedTimes: item.favoritedTimes || 0,
-            ratingScore: item.ratingScore || 0,
-            tags: JSON.stringify(tags),
-            publishDate,
-            songType: item.songType || null,
-            crawledAt: new Date(),
-          },
+        let createDate = null;
+        if (item.createDate) {
+          try {
+            createDate = new Date(item.createDate);
+            if (isNaN(createDate.getTime())) createDate = null;
+          } catch {
+            createDate = null;
+          }
+        }
+
+        songs.push({
+          vocadbId: item.id,
+          defaultName: item.name,
+          songType: item.songType || null,
+          publishDate,
+          createDate,
+          lengthSeconds: item.lengthSeconds || null,
+          favoritedTimes: item.favoritedTimes || 0,
+          ratingScore: item.ratingScore || 0,
+          thumbUrl,
+          thumbUrlSmall,
         });
 
-        inserted++;
-        processed++;
+        // Song names
+        for (const name of item.names || []) {
+          if (name.value && name.language) {
+            allNames.push({
+              songId: item.id,
+              language: name.language,
+              value: name.value,
+            });
+          }
+        }
 
-      } catch (error) {
-        console.error(`⚠️  Error processing song ${item.id}:`, error);
-        skipped++;
+        // Artists
+        for (const artistEntry of item.artists || []) {
+          const artist = artistEntry.artist;
+          if (!artist?.id) continue;
+
+          allArtists.push({
+            vocadbId: artist.id,
+            name: artist.name,
+            artistType: artist.artistType || 'Unknown',
+            thumbUrl: artist.mainPicture?.urlThumb || null,
+          });
+
+          allSongArtists.push({
+            songId: item.id,
+            artistId: artist.id,
+            categories: artistEntry.categories || '',
+            roles: artistEntry.roles || null,
+            isSupport: artistEntry.isSupport || false,
+            name: artistEntry.name || null,
+          });
+        }
+
+        // PVs
+        for (const pv of item.pvs || []) {
+          if (!pv.pvId || !pv.service) continue;
+
+          allPVs.push({
+            songId: item.id,
+            pvId: pv.pvId,
+            service: pv.service,
+            pvType: pv.pvType || 'Original',
+            name: pv.name || null,
+            url: pv.url || `https://www.youtube.com/watch?v=${pv.pvId}`,
+            thumbUrl: pv.thumbUrl || null,
+            disabled: pv.disabled || false,
+          });
+        }
+
+        // Tags
+        for (const tagEntry of item.tags || []) {
+          const tag = tagEntry.tag;
+          if (!tag?.id || !tag?.name) continue;
+
+          allTags.push({
+            vocadbId: tag.id,
+            name: tag.name,
+            categoryName: tag.categoryName || null,
+          });
+
+          allSongTags.push({
+            songId: item.id,
+            tagId: tag.id,
+            count: tagEntry.count || 0,
+          });
+        }
+
+        // Lyrics
+        const itemLyrics = (item.lyrics || []).filter((l: any) => l.translationType);
+        if (itemLyrics.length > 0) {
+          songIdsWithLyrics.push(item.id);
+          for (const lyric of itemLyrics) {
+            allLyrics.push({
+              songId: item.id,
+              translationType: lyric.translationType,
+              cultureCode: lyric.cultureCode || null,
+              source: lyric.source || null,
+              url: lyric.url || null,
+              value: lyric.value || null,
+            });
+          }
+        }
       }
-    }
 
-    return { processed, inserted, skipped };
+      // 3. Execute batch operations in optimal order
+      // First: Songs (parent table)
+      await batchUpsertSongs(this.prisma, songs);
+
+      // Second: Master tables (Artists, Tags) - no dependencies
+      await Promise.all([
+        batchUpsertArtists(this.prisma, allArtists),
+        batchUpsertTags(this.prisma, allTags),
+      ]);
+
+      // Third: All relation tables in parallel
+      await Promise.all([
+        batchUpsertSongNames(this.prisma, allNames),
+        batchUpsertSongArtists(this.prisma, allSongArtists),
+        batchUpsertPVs(this.prisma, allPVs),
+        batchUpsertSongTags(this.prisma, allSongTags),
+        batchReplaceLyrics(this.prisma, songIdsWithLyrics, allLyrics),
+      ]);
+
+      return {
+        processed: items.length,
+        inserted: validItems.length,
+        skipped,
+      };
+
+    } catch (error) {
+      console.error(`⚠️  Batch processing error:`, error);
+      // On batch error, return partial results
+      return {
+        processed: items.length,
+        inserted: 0,
+        skipped: items.length,
+      };
+    }
   }
 
-  /**
-   * Reset failed or stuck crawler progress
-   */
   static async resetProgress(prisma: PrismaClient): Promise<void> {
     await prisma.crawlerProgress.updateMany({
-      where: {
-        crawlerType: 'vocadb',
-        status: 'running',
-      },
-      data: {
-        status: 'failed',
-        completedAt: new Date(),
-        errorMessage: 'Manually reset',
-      },
+      where: { crawlerType: 'vocadb', status: 'running' },
+      data: { status: 'failed', completedAt: new Date(), errorMessage: 'Manually reset' },
     });
     console.log('✅ VocaDB crawler progress reset');
   }
 
-  /**
-   * Get current crawler status
-   */
   static async getStatus(prisma: PrismaClient): Promise<any> {
     const latestProgress = await prisma.crawlerProgress.findFirst({
-      where: {
-        crawlerType: 'vocadb',
-      },
-      orderBy: {
-        startedAt: 'desc',
-      },
+      where: { crawlerType: 'vocadb' },
+      orderBy: { startedAt: 'desc' },
     });
 
     if (!latestProgress) {
-      return {
-        status: 'never_run',
-        message: 'No crawler progress found',
-      };
+      return { status: 'never_run', message: 'No crawler progress found' };
     }
 
     return {

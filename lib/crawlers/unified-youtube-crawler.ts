@@ -1,16 +1,20 @@
 /**
- * Unified YouTube Crawler
+ * Unified YouTube Crawler v2 (New Schema)
+ *
+ * Updated for new relational schema:
+ * - YouTube IDs stored in PV table (not Song)
+ * - View counts stored in PV table
+ * - DailyViewCount references PV.id (not songId)
+ * - Korean titles stored in SongName table
  *
  * Features:
  * - Single API call for both view counts AND Korean titles
  * - Uses: part=statistics,snippet,localizations
- * - Reduces API quota usage by 50%
  * - CrawlerProgress tracking for resumption
  * - Smart selection modes (new, old, top, all)
- * - Designed for daily Vercel Cron jobs
  */
 
-import { PrismaClient, Prisma } from '../generated/prisma';
+import { PrismaClient } from '../generated/prisma';
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
@@ -18,14 +22,12 @@ const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 export type UnifiedCrawlerMode = 'new' | 'old' | 'top' | 'all';
 
 export interface UnifiedYouTubeCrawlerOptions {
-  mode?: UnifiedCrawlerMode;       // Selection mode (default: 'new')
-  batchSize?: number;               // Songs per batch (default: 50, max 50 for YouTube API)
-  maxSongsPerRun?: number;          // Max songs to process (default: 500)
-  enableResume?: boolean;           // Enable progress tracking (default: true)
-  updateLocalizations?: boolean;    // Also update Korean titles (default: true)
-  startOffset?: number;             // Starting offset for chunked processing (default: 0)
-  minVocadbId?: number;             // Min vocadbId for ID-range chunking (inclusive)
-  maxVocadbId?: number;             // Max vocadbId for ID-range chunking (inclusive)
+  mode?: UnifiedCrawlerMode;
+  batchSize?: number;
+  maxSongsPerRun?: number;
+  enableResume?: boolean;
+  updateLocalizations?: boolean;
+  startOffset?: number;
 }
 
 export interface UnifiedYouTubeCrawlerResult {
@@ -55,25 +57,28 @@ interface YouTubeVideoItem {
   };
 }
 
+interface PVWithSong {
+  id: number;
+  songId: number;
+  pvId: string;
+  viewCount: bigint | null;
+  viewCountUpdatedAt: Date | null;
+}
+
 export class UnifiedYouTubeCrawler {
   private prisma: PrismaClient;
-  private options: Required<Omit<UnifiedYouTubeCrawlerOptions, 'minVocadbId' | 'maxVocadbId'>> & {
-    minVocadbId?: number;
-    maxVocadbId?: number;
-  };
+  private options: Required<UnifiedYouTubeCrawlerOptions>;
   private progressId?: string;
 
   constructor(prisma: PrismaClient, options: UnifiedYouTubeCrawlerOptions = {}) {
     this.prisma = prisma;
     this.options = {
       mode: options.mode ?? 'new',
-      batchSize: Math.min(options.batchSize ?? 50, 50), // YouTube API max 50
+      batchSize: Math.min(options.batchSize ?? 50, 50),
       maxSongsPerRun: options.maxSongsPerRun ?? 500,
       enableResume: options.enableResume ?? true,
       updateLocalizations: options.updateLocalizations ?? true,
       startOffset: options.startOffset ?? 0,
-      minVocadbId: options.minVocadbId,
-      maxVocadbId: options.maxVocadbId,
     };
 
     if (!YOUTUBE_API_KEY) {
@@ -81,43 +86,28 @@ export class UnifiedYouTubeCrawler {
     }
   }
 
-  /**
-   * Execute unified YouTube crawler with progress tracking
-   */
   async crawl(): Promise<UnifiedYouTubeCrawlerResult> {
     const startTime = Date.now();
     let songsProcessed = 0;
     let songsUpdated = 0;
     let titlesUpdated = 0;
     let songsFailed = 0;
-    let currentOffset = 0;
-    let lastCursorId: number | undefined = undefined; // For keyset pagination in ID-range mode
+    let currentOffset = this.options.startOffset;
     let completed = false;
 
-    // Determine if we're using ID-range mode (keyset pagination)
-    const useIdRangeMode = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;
-
     try {
-      // Get total count for this mode
-      const totalSongsToProcess = await this.getTotalCountByMode();
+      const totalPVsToProcess = await this.getTotalCountByMode();
 
-      console.log(`🎬 Unified YouTube Crawler - Mode: ${this.options.mode}`);
+      console.log(`🎬 Unified YouTube Crawler v2 - Mode: ${this.options.mode}`);
       console.log(`   Localizations: ${this.options.updateLocalizations ? 'enabled' : 'disabled'}`);
-      if (this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined) {
-        console.log(`   ID Range: ${this.options.minVocadbId} - ${this.options.maxVocadbId}`);
-      } else {
-        console.log(`   Start offset: ${this.options.startOffset.toLocaleString()}`);
-      }
-      console.log(`   Max songs: ${this.options.maxSongsPerRun.toLocaleString()}`);
-      console.log(`   Total songs in mode: ${totalSongsToProcess.toLocaleString()}`);
+      console.log(`   Start offset: ${currentOffset.toLocaleString()}`);
+      console.log(`   Max PVs: ${this.options.maxSongsPerRun.toLocaleString()}`);
+      console.log(`   Total PVs in mode: ${totalPVsToProcess.toLocaleString()}`);
 
       // Initialize or resume progress
       if (this.options.enableResume) {
         const existingProgress = await this.prisma.crawlerProgress.findFirst({
-          where: {
-            crawlerType: 'youtube-unified',
-            status: 'running',
-          },
+          where: { crawlerType: 'youtube-unified', status: 'running' },
         });
 
         if (existingProgress) {
@@ -130,14 +120,13 @@ export class UnifiedYouTubeCrawler {
               crawlerType: 'youtube-unified',
               status: 'running',
               startedAt: new Date(),
-              lastOffset: 0,
+              lastOffset: currentOffset,
               totalProcessed: 0,
               metadata: {
                 mode: this.options.mode,
                 batchSize: this.options.batchSize,
                 maxSongsPerRun: this.options.maxSongsPerRun,
                 updateLocalizations: this.options.updateLocalizations,
-                startOffset: this.options.startOffset,
               },
             },
           });
@@ -148,73 +137,49 @@ export class UnifiedYouTubeCrawler {
 
       // Crawl loop
       while (songsProcessed < this.options.maxSongsPerRun) {
-        // Get songs based on mode
-        // In ID-range mode, use keyset pagination (cursorId) instead of offset
-        let songs: Awaited<ReturnType<typeof this.getSongsByMode>>;
-        if (useIdRangeMode) {
-          songs = await this.getSongsByIdRange(this.options.batchSize, lastCursorId);
-        } else {
-          songs = await this.getSongsByMode(currentOffset, this.options.batchSize);
-        }
+        const pvs = await this.getPVsByMode(currentOffset, this.options.batchSize);
 
-        if (songs.length === 0) {
-          console.log(`✅ No more songs to process`);
+        if (pvs.length === 0) {
+          console.log(`✅ No more PVs to process`);
           completed = true;
           break;
         }
 
-        // Update cursor for keyset pagination
-        if (useIdRangeMode && songs.length > 0) {
-          lastCursorId = songs[songs.length - 1].vocadbId;
-        }
+        console.log(`📥 Processing batch: ${pvs.length} PVs (offset ${currentOffset})...`);
 
-        const progressInfo = useIdRangeMode
-          ? `cursor > ${lastCursorId ?? this.options.minVocadbId}`
-          : `offset ${currentOffset}`;
-        console.log(`📥 Processing batch: ${songs.length} songs (${progressInfo})...`);
-
-        // Process batch with unified API call
-        const batchResult = await this.processBatch(songs);
+        const batchResult = await this.processBatch(pvs);
         songsProcessed += batchResult.processed;
         songsUpdated += batchResult.updated;
         titlesUpdated += batchResult.titlesUpdated;
         songsFailed += batchResult.failed;
 
-        console.log(`   Views updated: ${batchResult.updated} songs`);
+        console.log(`   Views updated: ${batchResult.updated} PVs`);
         console.log(`   Titles updated: ${batchResult.titlesUpdated} songs`);
-        console.log(`   Failed: ${batchResult.failed} songs`);
-        const percent = totalSongsToProcess > 0 ? ((songsProcessed / totalSongsToProcess) * 100).toFixed(1) : '0';
-        console.log(`   Total progress: ${songsProcessed.toLocaleString()}/${totalSongsToProcess.toLocaleString()} songs (${percent}%)\n`);
+        console.log(`   Failed: ${batchResult.failed} PVs`);
+        const percent = totalPVsToProcess > 0 ? ((songsProcessed / totalPVsToProcess) * 100).toFixed(1) : '0';
+        console.log(`   Total progress: ${songsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
 
-        // Update progress
         if (this.progressId) {
           await this.prisma.crawlerProgress.update({
             where: { id: this.progressId },
-            data: {
-              lastOffset: currentOffset,
-              totalProcessed: songsProcessed,
-            },
+            data: { lastOffset: currentOffset, totalProcessed: songsProcessed },
           });
         }
 
-        // Check if we've reached the limit
         if (songsProcessed >= this.options.maxSongsPerRun) {
-          console.log(`✅ Reached max songs limit (${this.options.maxSongsPerRun})`);
+          console.log(`✅ Reached max PVs limit (${this.options.maxSongsPerRun})`);
           break;
         }
 
-        // Check if we got fewer results than requested
-        if (songs.length < this.options.batchSize) {
-          console.log(`✅ Processed all available songs`);
+        if (pvs.length < this.options.batchSize) {
+          console.log(`✅ Processed all available PVs`);
           completed = true;
           break;
         }
 
         currentOffset += this.options.batchSize;
-        // Note: No delay needed - YouTube API has daily quota limits, not rate limits
       }
 
-      // Mark as completed
       if (this.progressId) {
         await this.prisma.crawlerProgress.update({
           where: { id: this.progressId },
@@ -229,10 +194,10 @@ export class UnifiedYouTubeCrawler {
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`\n✅ Unified YouTube crawler completed in ${duration}s`);
-      console.log(`   Songs processed: ${songsProcessed}`);
+      console.log(`   PVs processed: ${songsProcessed}`);
       console.log(`   Views updated: ${songsUpdated}`);
       console.log(`   Titles updated: ${titlesUpdated}`);
-      console.log(`   Songs failed: ${songsFailed}`);
+      console.log(`   PVs failed: ${songsFailed}`);
       console.log(`   Fully completed: ${completed ? 'Yes' : 'No'}\n`);
 
       return {
@@ -252,11 +217,7 @@ export class UnifiedYouTubeCrawler {
       if (this.progressId) {
         await this.prisma.crawlerProgress.update({
           where: { id: this.progressId },
-          data: {
-            status: 'failed',
-            completedAt: new Date(),
-            errorMessage,
-          },
+          data: { status: 'failed', completedAt: new Date(), errorMessage },
         });
       }
 
@@ -273,14 +234,14 @@ export class UnifiedYouTubeCrawler {
     }
   }
 
-  /**
-   * Get total count of songs to process based on mode
-   */
   private async getTotalCountByMode(): Promise<number> {
+    const baseWhere = { service: 'Youtube' };
+
     switch (this.options.mode) {
       case 'new':
-        return this.prisma.song.count({
+        return this.prisma.pV.count({
           where: {
+            ...baseWhere,
             OR: [
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
@@ -289,8 +250,9 @@ export class UnifiedYouTubeCrawler {
         });
 
       case 'old':
-        return this.prisma.song.count({
+        return this.prisma.pV.count({
           where: {
+            ...baseWhere,
             OR: [
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
@@ -299,93 +261,79 @@ export class UnifiedYouTubeCrawler {
         });
 
       case 'top':
-        return this.prisma.song.count({
+        return this.prisma.pV.count({
           where: {
+            ...baseWhere,
             OR: [
               { viewCount: { gt: 1000000 } },
-              { favoritedTimes: { gt: 100 } },
+              { song: { favoritedTimes: { gt: 100 } } },
             ],
           },
         });
 
       case 'all':
-        return this.prisma.song.count();
+        return this.prisma.pV.count({ where: baseWhere });
 
       default:
         return 0;
     }
   }
 
-  /**
-   * Get songs based on mode
-   * @param offset - Local offset within current run (used only when ID range not set)
-   * @param limit - Number of songs to fetch
-   */
-  private async getSongsByMode(offset: number, limit: number) {
-    // Use ID-range based filtering if minVocadbId/maxVocadbId are set (efficient for large datasets)
-    const useIdRange = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;
-
-    // Build ID range filter
-    const idRangeFilter = useIdRange
-      ? { vocadbId: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
-      : {};
-
-    // For ID-range mode, use local offset only (no startOffset needed)
-    // For offset mode, apply startOffset
-    const skipValue = useIdRange ? offset : this.options.startOffset + offset;
+  private async getPVsByMode(offset: number, limit: number): Promise<PVWithSong[]> {
+    const baseWhere = { service: 'Youtube' };
 
     switch (this.options.mode) {
       case 'new':
-        // Songs added in the last 30 days or never updated
-        return this.prisma.song.findMany({
+        return this.prisma.pV.findMany({
           where: {
-            ...idRangeFilter,
+            ...baseWhere,
             OR: [
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
             ],
           },
-          orderBy: { vocadbId: 'asc' },  // Use vocadbId for consistent ordering with ID range
-          skip: skipValue,
+          select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
+          orderBy: { id: 'asc' },
+          skip: offset,
           take: limit,
         });
 
       case 'old':
-        // Songs not updated in the last 90 days
-        return this.prisma.song.findMany({
+        return this.prisma.pV.findMany({
           where: {
-            ...idRangeFilter,
+            ...baseWhere,
             OR: [
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
             ],
           },
-          orderBy: { vocadbId: 'asc' },
-          skip: skipValue,
+          select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
+          orderBy: { id: 'asc' },
+          skip: offset,
           take: limit,
         });
 
       case 'top':
-        // Top songs by view count or favorites
-        return this.prisma.song.findMany({
+        return this.prisma.pV.findMany({
           where: {
-            ...idRangeFilter,
+            ...baseWhere,
             OR: [
               { viewCount: { gt: 1000000 } },
-              { favoritedTimes: { gt: 100 } },
+              { song: { favoritedTimes: { gt: 100 } } },
             ],
           },
-          orderBy: { vocadbId: 'asc' },
-          skip: skipValue,
+          select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
+          orderBy: { viewCount: 'desc' },
+          skip: offset,
           take: limit,
         });
 
       case 'all':
-        // All songs - use vocadbId ordering for efficient ID-range queries
-        return this.prisma.song.findMany({
-          where: idRangeFilter,
-          orderBy: { vocadbId: 'asc' },
-          skip: skipValue,
+        return this.prisma.pV.findMany({
+          where: baseWhere,
+          select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
+          orderBy: { id: 'asc' },
+          skip: offset,
           take: limit,
         });
 
@@ -394,38 +342,7 @@ export class UnifiedYouTubeCrawler {
     }
   }
 
-  /**
-   * Get songs using keyset pagination (cursor-based) for ID-range mode
-   * This avoids PostgreSQL "out of memory" errors that occur with large OFFSET values
-   *
-   * @param limit - Number of songs to fetch
-   * @param cursorId - Last processed vocadbId (fetch songs with vocadbId > cursorId)
-   */
-  private async getSongsByIdRange(limit: number, cursorId?: number) {
-    const minId = this.options.minVocadbId!;
-    const maxId = this.options.maxVocadbId!;
-
-    // Build the WHERE clause for keyset pagination
-    // vocadbId must be > cursor (if set) AND within the ID range
-    const startId = cursorId !== undefined ? cursorId + 1 : minId;
-
-    return this.prisma.song.findMany({
-      where: {
-        vocadbId: {
-          gte: startId,
-          lte: maxId,
-        },
-      },
-      orderBy: { vocadbId: 'asc' },
-      take: limit,
-    });
-  }
-
-  /**
-   * Process a batch of songs - fetch view counts AND Korean titles in single API call
-   * Uses $transaction for batch DB updates (50곡 = 1 트랜잭션)
-   */
-  private async processBatch(songs: { vocadbId: number; youtubeId: string; titleKorean: string | null }[]): Promise<{
+  private async processBatch(pvs: PVWithSong[]): Promise<{
     processed: number;
     updated: number;
     titlesUpdated: number;
@@ -436,16 +353,14 @@ export class UnifiedYouTubeCrawler {
     let titlesUpdated = 0;
     let failed = 0;
 
-    // Extract YouTube IDs (filter out null/undefined)
-    const validSongs = songs.filter(s => s.youtubeId);
-    const youtubeIds = validSongs.map(s => s.youtubeId);
+    const youtubeIds = pvs.map(pv => pv.pvId);
 
     if (youtubeIds.length === 0) {
-      return { processed: songs.length, updated: 0, titlesUpdated: 0, failed: songs.length };
+      return { processed: 0, updated: 0, titlesUpdated: 0, failed: 0 };
     }
 
     try {
-      // UNIFIED API CALL: statistics + snippet + localizations
+      // Unified API call
       const parts = this.options.updateLocalizations
         ? 'statistics,snippet,localizations'
         : 'statistics';
@@ -460,21 +375,16 @@ export class UnifiedYouTubeCrawler {
       const data = await response.json();
       const items: YouTubeVideoItem[] = data.items || [];
 
-      // Create maps for quick lookup
-      const videoDataMap = new Map<string, {
-        viewCount?: bigint;
-        koreanTitle?: string;
-      }>();
+      // Create map for quick lookup
+      const videoDataMap = new Map<string, { viewCount?: bigint; koreanTitle?: string }>();
 
       for (const item of items) {
         const videoData: { viewCount?: bigint; koreanTitle?: string } = {};
 
-        // Extract view count
         if (item.statistics?.viewCount) {
           videoData.viewCount = BigInt(item.statistics.viewCount);
         }
 
-        // Extract Korean title (if enabled)
         if (this.options.updateLocalizations) {
           if (item.localizations?.ko?.title) {
             videoData.koreanTitle = item.localizations.ko.title;
@@ -488,29 +398,58 @@ export class UnifiedYouTubeCrawler {
         videoDataMap.set(item.id, videoData);
       }
 
-      // Prepare batch updates
-      const updateOperations: Array<{
-        vocadbId: number;
-        viewCount: bigint;
-        titleKorean?: string;
-      }> = [];
+      const now = new Date();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      for (const song of validSongs) {
-        const videoData = videoDataMap.get(song.youtubeId);
+      // Process each PV
+      for (const pv of pvs) {
+        const videoData = videoDataMap.get(pv.pvId);
 
         if (videoData?.viewCount !== undefined) {
-          const updateItem: { vocadbId: number; viewCount: bigint; titleKorean?: string } = {
-            vocadbId: song.vocadbId,
-            viewCount: videoData.viewCount,
-          };
+          // Update PV view count
+          await this.prisma.pV.update({
+            where: { id: pv.id },
+            data: {
+              viewCount: videoData.viewCount,
+              viewCountUpdatedAt: now,
+            },
+          });
 
-          // Only update Korean title if song doesn't already have one
-          if (videoData.koreanTitle && !song.titleKorean) {
-            updateItem.titleKorean = videoData.koreanTitle;
-            titlesUpdated++;
+          // Upsert DailyViewCount (using pv.id, not songId)
+          await this.prisma.dailyViewCount.upsert({
+            where: {
+              pvId_recordedDate: {
+                pvId: pv.id,
+                recordedDate: today,
+              },
+            },
+            update: { totalViews: videoData.viewCount },
+            create: {
+              pvId: pv.id,
+              recordedDate: today,
+              totalViews: videoData.viewCount,
+            },
+          });
+
+          // Update Korean title in SongName table if found
+          if (videoData.koreanTitle) {
+            const existingKoreanName = await this.prisma.songName.findFirst({
+              where: { songId: pv.songId, language: 'Korean' },
+            });
+
+            if (!existingKoreanName) {
+              await this.prisma.songName.create({
+                data: {
+                  songId: pv.songId,
+                  language: 'Korean',
+                  value: videoData.koreanTitle,
+                },
+              });
+              titlesUpdated++;
+            }
           }
 
-          updateOperations.push(updateItem);
           updated++;
         } else {
           failed++;
@@ -518,56 +457,10 @@ export class UnifiedYouTubeCrawler {
         processed++;
       }
 
-      // Execute batch updates using Raw SQL (50곡 = 2 SQL 쿼리)
-      if (updateOperations.length > 0) {
-        const now = new Date();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const vocadbIds = updateOperations.map(op => op.vocadbId);
-
-        // 1. Batch UPDATE songs using CASE WHEN (1 query for all songs)
-        const viewCountCases = updateOperations
-          .map(op => `WHEN ${op.vocadbId} THEN ${op.viewCount}`)
-          .join(' ');
-
-        await this.prisma.$executeRawUnsafe(`
-          UPDATE songs SET
-            view_count = CASE vocadb_id ${viewCountCases} END,
-            view_count_updated_at = $1
-          WHERE vocadb_id IN (${vocadbIds.join(',')})
-        `, now);
-
-        // 2. Update Korean titles separately (only for songs that need it)
-        const titleUpdates = updateOperations.filter(op => op.titleKorean);
-        if (titleUpdates.length > 0) {
-          await Promise.all(
-            titleUpdates.map(op =>
-              this.prisma.song.update({
-                where: { vocadbId: op.vocadbId },
-                data: { titleKorean: op.titleKorean },
-              })
-            )
-          );
-        }
-
-        // 3. Batch UPSERT daily view counts using INSERT ON CONFLICT
-        const dailyValues = updateOperations
-          .map(op => `(${op.vocadbId}, '${today.toISOString().split('T')[0]}', ${op.viewCount})`)
-          .join(',');
-
-        await this.prisma.$executeRawUnsafe(`
-          INSERT INTO daily_view_counts (song_id, recorded_date, total_views)
-          VALUES ${dailyValues}
-          ON CONFLICT (song_id, recorded_date)
-          DO UPDATE SET total_views = EXCLUDED.total_views
-        `);
-      }
-
     } catch (error) {
       console.error(`❌ Error processing batch:`, error);
-      failed = songs.length;
-      processed = songs.length;
+      failed = pvs.length;
+      processed = pvs.length;
       updated = 0;
       titlesUpdated = 0;
     }
@@ -575,27 +468,14 @@ export class UnifiedYouTubeCrawler {
     return { processed, updated, titlesUpdated, failed };
   }
 
-  /**
-   * Reset failed or stuck crawler progress
-   */
   static async resetProgress(prisma: PrismaClient): Promise<void> {
     await prisma.crawlerProgress.updateMany({
-      where: {
-        crawlerType: 'youtube-unified',
-        status: 'running',
-      },
-      data: {
-        status: 'failed',
-        completedAt: new Date(),
-        errorMessage: 'Manually reset',
-      },
+      where: { crawlerType: 'youtube-unified', status: 'running' },
+      data: { status: 'failed', completedAt: new Date(), errorMessage: 'Manually reset' },
     });
     console.log('✅ Unified YouTube crawler progress reset');
   }
 
-  /**
-   * Get current crawler status
-   */
   static async getStatus(prisma: PrismaClient): Promise<{
     status: string;
     startedAt?: Date;
@@ -607,19 +487,12 @@ export class UnifiedYouTubeCrawler {
     message?: string;
   }> {
     const latestProgress = await prisma.crawlerProgress.findFirst({
-      where: {
-        crawlerType: 'youtube-unified',
-      },
-      orderBy: {
-        startedAt: 'desc',
-      },
+      where: { crawlerType: 'youtube-unified' },
+      orderBy: { startedAt: 'desc' },
     });
 
     if (!latestProgress) {
-      return {
-        status: 'never_run',
-        message: 'No crawler progress found',
-      };
+      return { status: 'never_run', message: 'No crawler progress found' };
     }
 
     return {

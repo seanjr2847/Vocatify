@@ -43,6 +43,10 @@ export async function GET(
       );
     }
 
+    // Get first non-support artist ID for related songs
+    const primaryArtist = song.artists.find(a => !a.isSupport);
+    const primaryArtistId = primaryArtist?.id ?? null;
+
     // 병렬로 추가 데이터 조회
     const [dailyViews, rankings, relatedSongs, statistics] = await Promise.all([
       Promise.resolve(getDailyViewCounts(vocadbId, 30)),
@@ -50,10 +54,12 @@ export async function GET(
         console.error('Rankings fetch failed:', error);
         return { total: null, daily: null, weekly: null };
       }),
-      Promise.resolve(getRelatedSongsByArtist(song.artist, vocadbId, 6)).catch((error) => {
-        console.error('Related songs fetch failed:', error);
-        return [];
-      }),
+      primaryArtistId
+        ? Promise.resolve(getRelatedSongsByArtist(primaryArtistId, vocadbId, 6)).catch((error) => {
+            console.error('Related songs fetch failed:', error);
+            return [];
+          })
+        : Promise.resolve([]),
       Promise.resolve(getSongStatistics(vocadbId)).catch((error) => {
         console.error('Statistics fetch failed:', error);
         return null;
