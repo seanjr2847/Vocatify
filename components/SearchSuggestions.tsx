@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Song } from "@/lib/db";
 import { highlightMatch, getMatchedFieldLabel } from "@/lib/search-utils";
+import { getDisplayTitle } from "@/lib/utils/format-utils";
 
 interface SearchSong extends Song {
   matchedField?: 'title' | 'titleEnglish' | 'titleJapanese' | 'titleKorean' | 'titleRomaji' | 'artist';
@@ -118,7 +119,7 @@ export function SearchSuggestions({
         <>
           <div className="max-h-80 overflow-y-auto">
             {suggestions.map((song, index) => {
-              const displayTitle = song.titleKorean || song.titleEnglish || song.titleJapanese || song.defaultName;
+              const displayTitle = getDisplayTitle(song);
               const viewCount = typeof song.viewCount === 'bigint'
                 ? song.viewCount.toString()
                 : song.viewCount || '0';

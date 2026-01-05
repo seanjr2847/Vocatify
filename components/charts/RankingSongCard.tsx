@@ -5,21 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Play, Plus, Radio } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import type { RankingItem } from '@/lib/db';
+import { formatNumber, getDisplayTitle } from '@/lib/utils/format-utils';
 
 interface RankingSongCardProps {
   song: RankingItem;
-}
-
-function formatNumber(num: number | bigint | null | undefined): string {
-  if (!num) return '0';
-  const n = typeof num === 'bigint' ? Number(num) : num;
-  if (n >= 1_000_000) {
-    return `${(n / 1_000_000).toFixed(1)}M`;
-  }
-  if (n >= 1_000) {
-    return `${(n / 1_000).toFixed(1)}K`;
-  }
-  return n.toString();
 }
 
 function getYouTubeThumbnail(videoId: string): string {
@@ -87,7 +76,7 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
         <div className="relative w-16 h-16 flex-shrink-0">
           <img
             src={thumbnailUrl}
-            alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
+            alt={getDisplayTitle(song)}
             className="w-full h-full object-cover rounded-lg"
             loading="lazy"
           />
@@ -95,7 +84,7 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
 
         {/* Song Info */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-white font-semibold truncate">{song.titleKorean ?? song.titleEnglish ?? song.defaultName}</h3>
+          <h3 className="text-white font-semibold truncate">{getDisplayTitle(song)}</h3>
           <p className="text-gray-400 text-sm truncate">{song.artistString}</p>
           <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
             {song.viewCount && (

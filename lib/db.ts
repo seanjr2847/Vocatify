@@ -205,7 +205,7 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
       WHERE LOWER(t.name) IN ('human singers', 'out of scope (cover unifier)')
     ),
     song_views AS (
-      SELECT song_id, SUM(view_count) as total_view_count
+      SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
     )
@@ -227,6 +227,7 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
       (SELECT url FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeUrl",
       s.thumb_url as "thumbUrl",
       sv.total_view_count as "viewCount",
+      sv.last_updated as "viewCountUpdatedAt",
       s.publish_date as "publishDate",
       s.song_type as "songType",
       s.favorited_times as "favoritedTimes",
@@ -240,7 +241,10 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
     LIMIT ${limit} OFFSET ${offset}
   `;
 
-  return songs;
+  return songs.map((song, idx) => ({
+    ...song,
+    rank: offset + idx + 1,
+  }));
 }
 
 /**
@@ -282,7 +286,7 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
       WHERE LOWER(t.name) IN ('human singers', 'out of scope (cover unifier)')
     ),
     song_views AS (
-      SELECT song_id, SUM(view_count) as total_view_count
+      SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
     )
@@ -304,6 +308,7 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
       (SELECT url FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeUrl",
       s.thumb_url as "thumbUrl",
       sv.total_view_count as "viewCount",
+      sv.last_updated as "viewCountUpdatedAt",
       s.publish_date as "publishDate",
       s.song_type as "songType",
       s.favorited_times as "favoritedTimes",
@@ -317,7 +322,10 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
     LIMIT ${limit} OFFSET ${offset}
   `;
 
-  return songs;
+  return songs.map((song, idx) => ({
+    ...song,
+    rank: offset + idx + 1,
+  }));
 }
 
 /**

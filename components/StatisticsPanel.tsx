@@ -1,32 +1,9 @@
 import { TrendingUp, Calendar, BarChart3, Award } from 'lucide-react';
 import type { SongStatistics } from '@/lib/db';
+import { formatNumber, formatDate } from '@/lib/utils/format-utils';
 
 interface StatisticsPanelProps {
   statistics: SongStatistics;
-}
-
-function formatNumber(num: bigint | number | null): string {
-  if (!num) return '0';
-  const n = typeof num === 'bigint' ? Number(num) : num;
-  if (n >= 1_000_000_000) {
-    return `${(n / 1_000_000_000).toFixed(1)}B`;
-  }
-  if (n >= 1_000_000) {
-    return `${(n / 1_000_000).toFixed(1)}M`;
-  }
-  if (n >= 1_000) {
-    return `${(n / 1_000).toFixed(1)}K`;
-  }
-  return Math.round(n).toLocaleString();
-}
-
-function formatDate(date: Date | null): string {
-  if (!date) return 'N/A';
-  return new Date(date).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
 }
 
 export function StatisticsPanel({ statistics }: StatisticsPanelProps) {

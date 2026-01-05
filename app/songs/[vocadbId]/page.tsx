@@ -15,6 +15,7 @@ import { ExternalLinks } from '@/components/ExternalLinks';
 import { StatisticsPanel } from '@/components/StatisticsPanel';
 import { RelatedSongsCarousel } from '@/components/RelatedSongsCarousel';
 import type { Song, DailyViewCount, RankingPositions, SongStatistics } from '@/lib/db';
+import { formatNumber, formatDate, getDisplayTitle } from '@/lib/utils/format-utils';
 
 interface ApiResponse {
   success: boolean;
@@ -44,35 +45,6 @@ async function getSongData(vocadbId: string): Promise<ApiResponse> {
   }
 
   return res.json();
-}
-
-function formatNumber(num: number | bigint | null | undefined): string {
-  if (!num) return '0';
-  const n = typeof num === 'bigint' ? Number(num) : num;
-  if (n >= 1_000_000_000) {
-    return `${(n / 1_000_000_000).toFixed(1)}B`;
-  }
-  if (n >= 1_000_000) {
-    return `${(n / 1_000_000).toFixed(1)}M`;
-  }
-  if (n >= 1_000) {
-    return `${(n / 1_000).toFixed(1)}K`;
-  }
-  return n.toString();
-}
-
-function formatDate(dateInput?: string | Date | null): string {
-  if (!dateInput) return 'N/A';
-  try {
-    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  } catch {
-    return 'N/A';
-  }
 }
 
 export default async function SongDetailPage({

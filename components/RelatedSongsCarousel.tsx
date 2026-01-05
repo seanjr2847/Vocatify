@@ -4,25 +4,11 @@ import Link from 'next/link';
 import { Play, Eye } from 'lucide-react';
 import { useState } from 'react';
 import type { Song } from '@/lib/db';
+import { formatNumber, getDisplayTitle } from '@/lib/utils/format-utils';
 
 interface RelatedSongsCarouselProps {
   songs: Song[];
   title: string;
-}
-
-function formatNumber(num: number | bigint | null | undefined): string {
-  if (!num) return '0';
-  const n = typeof num === 'bigint' ? Number(num) : num;
-  if (n >= 1_000_000_000) {
-    return `${(n / 1_000_000_000).toFixed(1)}B`;
-  }
-  if (n >= 1_000_000) {
-    return `${(n / 1_000_000).toFixed(1)}M`;
-  }
-  if (n >= 1_000) {
-    return `${(n / 1_000).toFixed(1)}K`;
-  }
-  return n.toLocaleString();
 }
 
 export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps) {
@@ -52,7 +38,7 @@ export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps
               {song.thumbUrl ? (
                 <img
                   src={song.thumbUrl}
-                  alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
+                  alt={getDisplayTitle(song)}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -76,7 +62,7 @@ export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps
             {/* Song Info */}
             <div className="p-3">
               <h4 className="text-sm font-semibold text-white line-clamp-2 mb-1 min-h-[40px]">
-                {song.titleKorean ?? song.titleEnglish ?? song.defaultName}
+                {getDisplayTitle(song)}
               </h4>
               <p className="text-xs text-gray-400 mb-2 truncate">{song.artistString}</p>
               {song.viewCount && (

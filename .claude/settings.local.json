@@ -73,7 +73,27 @@
       "Bash(npx prisma db push:*)",
       "Bash(cmd /c \"set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes && npx prisma db push --force-reset\")",
       "Bash(npx cross-env PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=yes npx prisma db push --force-reset)",
-      "Bash(gh run list:*)"
+      "Bash(gh run list:*)",
+      "Bash(wc:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(set PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=ㅇㅇ 진행해)",
+      "Bash(npx cross-env:*)",
+      "Bash(npm run crawl:postgres:*)",
+      "Bash(timeout:*)",
+      "Bash(bash crawl-loop.sh:*)",
+      "Bash(npx prisma studio --help:*)",
+      "Bash(pkill:*)",
+      "Bash(xargs kill:*)",
+      "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul || echo Processes cleaned\")",
+      "Bash(cmd /c \"timeout /t 15 >nul\")",
+      "Bash(cmd /c \"timeout /t 30 >nul\")",
+      "Bash(cmd /c \"taskkill /F /IM node.exe 2>nul || echo Cleaned\")",
+      "Bash(cmd /c \"timeout /t 20 >nul\")",
+      "Bash(cmd /c \"timeout /t 40 >nul\")",
+      "Bash(cmd /c \"tail -100 C:\\\\Users\\\\user\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Projects-Vocatify\\\\tasks\\\\bd276c7.output\")",
+      "Bash(cmd /c \"timeout /t 60 >nul\")",
+      "Bash(CHUNK_INDEX=0 TOTAL_CHUNKS=10 npx tsx:*)"
     ]
   }
 }

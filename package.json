@@ -13,6 +13,7 @@
     "crawl:quick": "tsx scripts/crawler/sqlite-crawler.ts 100 1000",
     "crawl:full": "tsx scripts/crawler/sqlite-crawler.ts 100 10000",
     "crawl:unlimited": "tsx scripts/crawler/sqlite-crawler.ts 100",
+    "crawl:postgres": "node scripts/crawl-vocadb-full.js",
     "youtube:new": "tsx scripts/youtube/update-viewcounts.ts new",
     "youtube:old": "tsx scripts/youtube/update-viewcounts.ts old",
     "youtube:all": "tsx scripts/youtube/update-viewcounts.ts all",

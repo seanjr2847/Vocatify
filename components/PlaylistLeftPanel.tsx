@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
+import { getDisplayTitle } from '@/lib/utils/format-utils';
 
 export function PlaylistLeftPanel() {
   const { state } = useMusicPlayer();
@@ -19,7 +20,7 @@ export function PlaylistLeftPanel() {
 
       {/* 곡 정보 */}
       <h1 className="text-4xl font-bold text-white text-center mb-2">
-        {state.currentSong?.titleKorean ?? state.currentSong?.titleEnglish ?? state.currentSong?.defaultName ?? '곡을 선택하세요'}
+        {state.currentSong ? getDisplayTitle(state.currentSong) : '곡을 선택하세요'}
       </h1>
       <p className="text-xl text-gray-400 text-center">
         {state.currentSong?.artistString || ''}

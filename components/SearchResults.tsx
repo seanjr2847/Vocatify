@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Song } from "@/lib/db";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getDisplayTitle } from "@/lib/utils/format-utils";
 
 interface SearchResultsProps {
   initialResults: Song[];
@@ -143,7 +144,7 @@ export function SearchResults({
       ) : (
         <div className="space-y-2">
           {initialResults.map((song) => {
-            const displayTitle = song.titleKorean || song.titleEnglish || song.titleJapanese || song.defaultName;
+            const displayTitle = getDisplayTitle(song);
             const viewCount = typeof song.viewCount === 'bigint'
               ? song.viewCount.toString()
               : song.viewCount || '0';

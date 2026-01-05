@@ -7,24 +7,12 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { RankingItem } from "@/lib/db";
 import { useMusicPlayer } from "@/lib/MusicPlayerContext";
+import { formatNumber as formatViews, getDisplayTitle } from "@/lib/utils/format-utils";
 
 interface NavigationSectionProps {
   topCharts: RankingItem[];
   newReleases: RankingItem[];
   popularSongs: RankingItem[];
-}
-
-// 조회수 포맷팅 함수
-function formatViews(views: number | bigint | null | undefined): string {
-  if (!views) return "0";
-  const n = typeof views === 'bigint' ? Number(views) : views;
-  if (n >= 1000000) {
-    return `${(n / 1000000).toFixed(1)}M`;
-  }
-  if (n >= 1000) {
-    return `${(n / 1000).toFixed(1)}K`;
-  }
-  return n.toString();
 }
 
 // YouTube 썸네일 URL 생성

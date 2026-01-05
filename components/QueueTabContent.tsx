@@ -21,6 +21,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Song } from '@/lib/db';
+import { getDisplayTitle } from '@/lib/utils/format-utils';
 
 // YouTube 썸네일 URL 생성
 function getYouTubeThumbnail(videoId: string): string {
@@ -77,11 +78,11 @@ function SortableSongItem({
       >
         <img
           src={song.thumbUrl || (song.youtubeId ? getYouTubeThumbnail(song.youtubeId) : '')}
-          alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
+          alt={getDisplayTitle(song)}
           className="w-12 h-12 rounded object-cover"
         />
         <div className="flex-1 min-w-0">
-          <p className="text-white text-sm font-medium truncate">{song.titleKorean ?? song.titleEnglish ?? song.defaultName}</p>
+          <p className="text-white text-sm font-medium truncate">{getDisplayTitle(song)}</p>
           <p className="text-gray-400 text-xs truncate">{song.artistString}</p>
         </div>
       </div>
@@ -135,11 +136,11 @@ export function QueueTabContent() {
           <div className="flex items-center gap-4 p-4 rounded-lg bg-[#39c5bb15] border border-[#39c5bb30]">
             <img
               src={state.currentSong.thumbUrl || (state.currentSong.youtubeId ? getYouTubeThumbnail(state.currentSong.youtubeId) : '')}
-              alt={state.currentSong.titleKorean ?? state.currentSong.titleEnglish ?? state.currentSong.defaultName}
+              alt={getDisplayTitle(state.currentSong)}
               className="w-16 h-16 rounded object-cover"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-white font-medium truncate">{state.currentSong.titleKorean ?? state.currentSong.titleEnglish ?? state.currentSong.defaultName}</p>
+              <p className="text-white font-medium truncate">{getDisplayTitle(state.currentSong)}</p>
               <p className="text-gray-400 text-sm truncate">{state.currentSong.artistString}</p>
             </div>
           </div>

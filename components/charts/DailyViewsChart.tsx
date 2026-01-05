@@ -2,23 +2,10 @@
 
 import { ResponsiveLine } from '@nivo/line';
 import type { DailyViewCount } from '@/lib/db';
+import { formatNumber } from '@/lib/utils/format-utils';
 
 interface DailyViewsChartProps {
   data: DailyViewCount[];
-}
-
-function formatNumber(num: number | bigint): string {
-  const n = typeof num === 'bigint' ? Number(num) : num;
-  if (n >= 1_000_000_000) {
-    return `${(n / 1_000_000_000).toFixed(1)}B`;
-  }
-  if (n >= 1_000_000) {
-    return `${(n / 1_000_000).toFixed(1)}M`;
-  }
-  if (n >= 1_000) {
-    return `${(n / 1_000).toFixed(1)}K`;
-  }
-  return n.toString();
 }
 
 export function DailyViewsChart({ data }: DailyViewsChartProps) {
