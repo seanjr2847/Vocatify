@@ -71,7 +71,10 @@ interface PVWithSong {
 
 export class UnifiedYouTubeCrawler {
   private prisma: PrismaClient;
-  private options: Required<UnifiedYouTubeCrawlerOptions>;
+  private options: Omit<Required<UnifiedYouTubeCrawlerOptions>, 'minVocadbId' | 'maxVocadbId'> & {
+    minVocadbId?: number;
+    maxVocadbId?: number;
+  };
   private progressId?: string;
 
   constructor(prisma: PrismaClient, options: UnifiedYouTubeCrawlerOptions = {}) {
