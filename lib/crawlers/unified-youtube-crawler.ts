@@ -28,6 +28,10 @@ export interface UnifiedYouTubeCrawlerOptions {
   enableResume?: boolean;
   updateLocalizations?: boolean;
   startOffset?: number;
+
+  // ID-range based chunking (for parallel execution without duplicate processing)
+  minVocadbId?: number;  // Minimum vocadbId (inclusive)
+  maxVocadbId?: number;  // Maximum vocadbId (inclusive)
 }
 
 export interface UnifiedYouTubeCrawlerResult {
@@ -72,6 +76,20 @@ export class UnifiedYouTubeCrawler {
 
   constructor(prisma: PrismaClient, options: UnifiedYouTubeCrawlerOptions = {}) {
     this.prisma = prisma;
+
+    // Validate ID range parameters
+    if (options.minVocadbId !== undefined && options.maxVocadbId === undefined) {
+      throw new Error('maxVocadbId must be provided when minVocadbId is set');
+    }
+    if (options.maxVocadbId !== undefined && options.minVocadbId === undefined) {
+      throw new Error('minVocadbId must be provided when maxVocadbId is set');
+    }
+    if (options.minVocadbId !== undefined && options.maxVocadbId !== undefined) {
+      if (options.minVocadbId > options.maxVocadbId) {
+        throw new Error('minVocadbId cannot be greater than maxVocadbId');
+      }
+    }
+
     this.options = {
       mode: options.mode ?? 'new',
       batchSize: Math.min(options.batchSize ?? 50, 50),
@@ -79,6 +97,8 @@ export class UnifiedYouTubeCrawler {
       enableResume: options.enableResume ?? true,
       updateLocalizations: options.updateLocalizations ?? true,
       startOffset: options.startOffset ?? 0,
+      minVocadbId: options.minVocadbId,
+      maxVocadbId: options.maxVocadbId,
     };
 
     if (!YOUTUBE_API_KEY) {
@@ -99,6 +119,9 @@ export class UnifiedYouTubeCrawler {
       const totalPVsToProcess = await this.getTotalCountByMode();
 
       console.log(`🎬 Unified YouTube Crawler v2 - Mode: ${this.options.mode}`);
+      console.log(`   Chunking: ${this.options.minVocadbId !== undefined
+        ? `ID-range (vocadbId ${this.options.minVocadbId}-${this.options.maxVocadbId})`
+        : 'Sequential (OFFSET-based)'}`);
       console.log(`   Localizations: ${this.options.updateLocalizations ? 'enabled' : 'disabled'}`);
       console.log(`   Start offset: ${currentOffset.toLocaleString()}`);
       console.log(`   Max PVs: ${this.options.maxSongsPerRun.toLocaleString()}`);
@@ -237,6 +260,12 @@ export class UnifiedYouTubeCrawler {
   private async getTotalCountByMode(): Promise<number> {
     const baseWhere = { service: 'Youtube' };
 
+    // ID range filter (same as getPVsByMode)
+    const useIdRange = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;
+    const songWhere = useIdRange
+      ? { vocadbId: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
+      : undefined;
+
     switch (this.options.mode) {
       case 'new':
         return this.prisma.pV.count({
@@ -246,6 +275,7 @@ export class UnifiedYouTubeCrawler {
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
             ],
+            ...(songWhere && { song: songWhere }),  // Apply ID range filter
           },
         });
 
@@ -257,6 +287,7 @@ export class UnifiedYouTubeCrawler {
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
             ],
+            ...(songWhere && { song: songWhere }),  // Apply ID range filter
           },
         });
 
@@ -268,11 +299,17 @@ export class UnifiedYouTubeCrawler {
               { viewCount: { gt: 1000000 } },
               { song: { favoritedTimes: { gt: 100 } } },
             ],
+            ...(songWhere && { song: songWhere }),  // Apply ID range filter
           },
         });
 
       case 'all':
-        return this.prisma.pV.count({ where: baseWhere });
+        return this.prisma.pV.count({
+          where: {
+            ...baseWhere,
+            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+          },
+        });
 
       default:
         return 0;
@@ -282,6 +319,12 @@ export class UnifiedYouTubeCrawler {
   private async getPVsByMode(offset: number, limit: number): Promise<PVWithSong[]> {
     const baseWhere = { service: 'Youtube' };
 
+    // ID range filter (when provided, use song relation filtering instead of OFFSET)
+    const useIdRange = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;
+    const songWhere = useIdRange
+      ? { vocadbId: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
+      : undefined;
+
     switch (this.options.mode) {
       case 'new':
         return this.prisma.pV.findMany({
@@ -291,10 +334,13 @@ export class UnifiedYouTubeCrawler {
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
             ],
+            ...(songWhere && { song: songWhere }),  // Apply ID range filter
           },
           select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
-          orderBy: { id: 'asc' },
-          skip: offset,
+          orderBy: useIdRange
+            ? [{ song: { vocadbId: 'asc' } }, { id: 'asc' }]  // Sort by vocadbId for ID-range mode
+            : { id: 'asc' },                                   // Sort by id for OFFSET mode
+          skip: useIdRange ? 0 : offset,  // Remove OFFSET when using ID-range filtering
           take: limit,
         });
 
@@ -306,10 +352,11 @@ export class UnifiedYouTubeCrawler {
               { viewCountUpdatedAt: null },
               { viewCountUpdatedAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
             ],
+            ...(songWhere && { song: songWhere }),  // Apply ID range filter
           },
           select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
-          orderBy: { id: 'asc' },
-          skip: offset,
+          orderBy: useIdRange ? [{ song: { vocadbId: 'asc' } }, { id: 'asc' }] : { id: 'asc' },
+          skip: useIdRange ? 0 : offset,
           take: limit,
         });
 
@@ -321,19 +368,23 @@ export class UnifiedYouTubeCrawler {
               { viewCount: { gt: 1000000 } },
               { song: { favoritedTimes: { gt: 100 } } },
             ],
+            ...(songWhere && { song: songWhere }),  // Apply ID range filter
           },
           select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
-          orderBy: { viewCount: 'desc' },
-          skip: offset,
+          orderBy: { viewCount: 'desc' },  // Keep viewCount ordering for 'top' mode
+          skip: useIdRange ? 0 : offset,
           take: limit,
         });
 
       case 'all':
         return this.prisma.pV.findMany({
-          where: baseWhere,
+          where: {
+            ...baseWhere,
+            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+          },
           select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
-          orderBy: { id: 'asc' },
-          skip: offset,
+          orderBy: useIdRange ? [{ song: { vocadbId: 'asc' } }, { id: 'asc' }] : { id: 'asc' },
+          skip: useIdRange ? 0 : offset,  // Remove OFFSET when using ID-range filtering
           take: limit,
         });
 
