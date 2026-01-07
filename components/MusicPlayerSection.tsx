@@ -13,13 +13,10 @@ import {
   ChevronUp,
 } from "lucide-react";
 import React from "react";
+import Image from "next/image";
 import { useMusicPlayer } from "@/lib/MusicPlayerContext";
 import { FullscreenPlaylistView } from "./FullscreenPlaylistView";
-import { getDisplayTitle } from "@/lib/utils/format-utils";
-
-function getYouTubeThumbnail(videoId: string): string {
-  return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-}
+import { getDisplayTitle, getYouTubeThumbnail } from "@/lib/utils/format-utils";
 
 export const MusicPlayerSection = (): JSX.Element => {
   const { state, togglePlay, seekTo, setVolume, toggleFullscreen } = useMusicPlayer();
@@ -47,21 +44,25 @@ export const MusicPlayerSection = (): JSX.Element => {
       {/* 전체화면 재생목록 */}
       <FullscreenPlaylistView />
 
-      <footer className="fixed bottom-0 left-0 right-0 w-full h-[125px] bg-[#1d21234c] border-t border-solid border-[#ffffff1a] shadow-[0px_-25px_100px_#0f0f0f82] backdrop-blur-[15px] backdrop-brightness-[100%] [-webkit-backdrop-filter:blur(15px)_brightness(100%)] z-50">
-        <div className="relative flex items-center justify-between h-full px-8">
-          <div className="flex items-center gap-4 flex-1">
-          <div className="w-[49px] h-[49px] bg-white/10 rounded overflow-hidden flex-shrink-0">
+      <footer className="fixed bottom-0 left-0 right-0 w-full h-[80px] md:h-[125px] bg-gradient-to-r from-[#1d2123]/90 via-[#1a1a1a]/95 to-[#1d2123]/90 border-t border-[#39c5bb]/20 shadow-[0px_-25px_100px_#0f0f0f82,0_-5px_30px_rgba(57,197,187,0.1)] backdrop-blur-[20px] backdrop-brightness-[100%] [-webkit-backdrop-filter:blur(20px)_brightness(100%)] z-50">
+        <div className="relative flex items-center justify-between h-full px-4 md:px-8">
+          <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+          <div className="relative w-[40px] h-[40px] md:w-[49px] md:h-[49px] bg-white/10 rounded-lg overflow-hidden flex-shrink-0 shadow-lg ring-1 ring-white/10">
             {state.currentSong?.thumbUrl ? (
-              <img
+              <Image
                 src={state.currentSong.thumbUrl}
                 alt={state.currentSong ? getDisplayTitle(state.currentSong) : ''}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="49px"
               />
             ) : state.currentSong?.youtubeId ? (
-              <img
+              <Image
                 src={getYouTubeThumbnail(state.currentSong.youtubeId)}
                 alt={state.currentSong ? getDisplayTitle(state.currentSong) : ''}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                sizes="49px"
               />
             ) : null}
           </div>
@@ -75,7 +76,7 @@ export const MusicPlayerSection = (): JSX.Element => {
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-4 flex-1">
+        <div className="hidden md:flex flex-col items-center gap-4 flex-1">
           <div className="flex items-center gap-6">
             <Button
               variant="ghost"
@@ -100,7 +101,7 @@ export const MusicPlayerSection = (): JSX.Element => {
               onClick={togglePlay}
               disabled={!state.currentSong}
             >
-              <div className={`w-[51px] h-[51px] rounded-full flex items-center justify-center transition-all ${state.currentSong ? 'bg-[#39c5bb] hover:scale-105' : 'bg-[#39c5bb50] cursor-not-allowed'}`}>
+              <div className={`w-[51px] h-[51px] rounded-full flex items-center justify-center transition-all duration-300 ${state.currentSong ? 'bg-[#39c5bb] hover:scale-110 shadow-[0_0_25px_rgba(57,197,187,0.5)] hover:shadow-[0_0_35px_rgba(57,197,187,0.7)]' : 'bg-[#39c5bb50] cursor-not-allowed'}`}>
                 {state.isPlaying ? (
                   <Pause className="w-[20px] h-[20px] text-black fill-black" />
                 ) : (
@@ -127,38 +128,57 @@ export const MusicPlayerSection = (): JSX.Element => {
           </div>
 
           <div
-            className="relative w-[749px] h-[12px] cursor-pointer"
+            className="relative w-full max-w-[749px] h-[12px] cursor-pointer group/progress"
             onClick={handleProgressClick}
           >
             <div className="absolute w-full h-[4px] top-[4px] left-0 bg-[#ffffff0a] rounded-[50px]" />
             <div
-              className="absolute h-[4px] top-[4px] left-0 bg-[#39c5bb] rounded-[50px] transition-all"
+              className="absolute h-[4px] top-[4px] left-0 bg-gradient-to-r from-[#39c5bb] to-[#4fd9cf] rounded-[50px] transition-all shadow-[0_0_8px_rgba(57,197,187,0.4)]"
               style={{ width: `${progress}%` }}
             />
             <div
-              className="absolute w-[12px] h-[12px] top-0 bg-[#39c5bb] rounded-full shadow-[0px_0px_8px_#000000eb] -translate-x-1/2 transition-all"
+              className="absolute w-[12px] h-[12px] top-0 bg-[#39c5bb] rounded-full shadow-[0_0_12px_rgba(57,197,187,0.6)] -translate-x-1/2 transition-all duration-200 group-hover/progress:scale-125 group-hover/progress:shadow-[0_0_18px_rgba(57,197,187,0.8)]"
               style={{ left: `${progress}%` }}
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-1 justify-end">
-          <Volume2 className="w-[18px] h-[18px] text-white" />
-          <div
-            className="relative w-[160px] h-[3px] cursor-pointer"
-            onClick={handleVolumeClick}
+        <div className="flex items-center gap-2 md:gap-3 flex-shrink-0 md:flex-1 justify-end">
+          {/* Mobile Play Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden h-auto w-auto p-0 hover:bg-transparent"
+            onClick={togglePlay}
+            disabled={!state.currentSong}
           >
-            <div className="absolute w-full h-full bg-[#ffffff1a] rounded-[42px]" />
+            <div className={`w-[40px] h-[40px] rounded-full flex items-center justify-center transition-all duration-300 ${state.currentSong ? 'bg-[#39c5bb] hover:scale-110 shadow-[0_0_20px_rgba(57,197,187,0.5)] hover:shadow-[0_0_28px_rgba(57,197,187,0.7)]' : 'bg-[#39c5bb50] cursor-not-allowed'}`}>
+              {state.isPlaying ? (
+                <Pause className="w-[16px] h-[16px] text-black fill-black" />
+              ) : (
+                <Play className="w-[16px] h-[16px] text-black fill-black ml-0.5" />
+              )}
+            </div>
+          </Button>
+
+          <div className="hidden md:flex items-center gap-3 group/volume">
+            <Volume2 className="w-[18px] h-[18px] text-white/70 group-hover/volume:text-[#39c5bb] transition-colors duration-200" />
             <div
-              className="absolute h-full bg-[#39c5bb] rounded-[42px] transition-all"
-              style={{ width: `${state.volume}%` }}
-            />
+              className="relative w-[160px] h-[3px] cursor-pointer"
+              onClick={handleVolumeClick}
+            >
+              <div className="absolute w-full h-full bg-[#ffffff1a] rounded-[42px]" />
+              <div
+                className="absolute h-full bg-gradient-to-r from-[#39c5bb] to-[#4fd9cf] rounded-[42px] transition-all shadow-[0_0_6px_rgba(57,197,187,0.3)]"
+                style={{ width: `${state.volume}%` }}
+              />
+            </div>
           </div>
 
           {/* Fullscreen Toggle Button */}
           <button
             onClick={toggleFullscreen}
-            className="ml-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white transition-colors rounded hover:bg-white/10"
+            className="ml-2 md:ml-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white transition-colors rounded hover:bg-white/10"
             aria-label={state.viewMode === 'minimized' ? "재생목록 보기" : "재생목록 숨기기"}
           >
             {state.viewMode === 'minimized' ? (

@@ -46,3 +46,34 @@ export function formatDate(date: Date | null | undefined): string {
 export function getDisplayTitle(song: Pick<Song, 'titleKorean' | 'titleEnglish' | 'titleJapanese' | 'titleRomaji' | 'defaultName'>): string {
   return song.titleKorean || song.titleEnglish || song.titleJapanese || song.titleRomaji || song.defaultName;
 }
+
+/**
+ * Generate YouTube thumbnail URL from video ID
+ * Uses mqdefault (320x180) for balanced quality and performance
+ * @example getYouTubeThumbnail('dQw4w9WgXcQ') => 'https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg'
+ */
+export function getYouTubeThumbnail(videoId: string): string {
+  return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+}
+
+/**
+ * Format publish date as relative time (Korean)
+ * @example formatPublishDate(new Date()) => '오늘'
+ * @example formatPublishDate(yesterday) => '어제'
+ * @example formatPublishDate(lastWeek) => '5일 전'
+ */
+export function formatPublishDate(date: Date | string | null | undefined): string {
+  if (!date) return '';
+  const d = new Date(date);
+  const now = new Date();
+  const diffTime = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return '오늘';
+  if (diffDays === 1) return '어제';
+  if (diffDays < 7) return `${diffDays}일 전`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`;
+
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}

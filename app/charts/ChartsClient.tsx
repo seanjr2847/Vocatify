@@ -267,9 +267,9 @@ export function ChartsClient({
   const currentTabData = tabsData[activeTab];
 
   return (
-    <div className="bg-[#1d2123] overflow-hidden w-full min-w-[1280px] flex flex-col min-h-screen">
+    <div className="bg-[#1d2123] overflow-hidden w-full flex flex-col min-h-screen">
       <div className="flex flex-1">
-        <aside className="w-[92px] flex-shrink-0 flex flex-col items-center py-6 gap-6">
+        <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6">
           <div className="w-[34px] h-[34px] flex items-center justify-center">
             {/* 로고 플레이스홀더 */}
           </div>

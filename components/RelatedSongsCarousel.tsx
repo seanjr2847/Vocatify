@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Play, Eye } from 'lucide-react';
-import { useState } from 'react';
+import { memo } from 'react';
 import type { Song } from '@/lib/db';
 import { formatNumber, getDisplayTitle } from '@/lib/utils/format-utils';
 
@@ -11,9 +12,7 @@ interface RelatedSongsCarouselProps {
   title: string;
 }
 
-export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps) {
-  const [hoveredId, setHoveredId] = useState<number | null>(null);
-
+const RelatedSongsCarouselComponent = ({ songs, title }: RelatedSongsCarouselProps) => {
   if (songs.length === 0) {
     return (
       <div className="bg-[#1a1a1a] rounded-lg p-6 text-center">
@@ -30,16 +29,16 @@ export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps
             key={song.vocadbId}
             href={`/songs/${song.vocadbId}`}
             className="flex-shrink-0 w-[200px] bg-[#1a1a1a] rounded-lg overflow-hidden hover:bg-[#2a2a2a] transition-all group"
-            onMouseEnter={() => setHoveredId(song.vocadbId)}
-            onMouseLeave={() => setHoveredId(null)}
           >
             {/* Thumbnail */}
             <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-700 to-gray-900">
               {song.thumbUrl ? (
-                <img
+                <Image
                   src={song.thumbUrl}
                   alt={getDisplayTitle(song)}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="200px"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-600">
@@ -47,12 +46,8 @@ export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps
                 </div>
               )}
 
-              {/* Play button overlay on hover */}
-              <div
-                className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${
-                  hoveredId === song.vocadbId ? 'opacity-100' : 'opacity-0'
-                }`}
-              >
+              {/* Play button overlay on hover - using group-hover instead of state */}
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="w-12 h-12 rounded-full bg-[#39c5bb] flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
                   <Play className="w-6 h-6 text-black fill-black ml-0.5" />
                 </div>
@@ -77,4 +72,7 @@ export function RelatedSongsCarousel({ songs, title }: RelatedSongsCarouselProps
       </div>
     </div>
   );
-}
+};
+
+// Memoize to prevent unnecessary re-renders
+export const RelatedSongsCarousel = memo(RelatedSongsCarouselComponent);

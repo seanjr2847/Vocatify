@@ -1,6 +1,7 @@
 "use client";
 
-import React from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import { X, GripVertical } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import {
@@ -13,7 +14,6 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
@@ -28,16 +28,18 @@ function getYouTubeThumbnail(videoId: string): string {
   return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 }
 
-// 정렬 가능한 곡 아이템 컴포넌트
-function SortableSongItem({
-  song,
-  onPlay,
-  onRemove,
-}: {
+interface SortableSongItemProps {
   song: Song;
   onPlay: () => void;
   onRemove: () => void;
-}) {
+}
+
+// 정렬 가능한 곡 아이템 컴포넌트 - Memoized
+const SortableSongItem = memo(function SortableSongItem({
+  song,
+  onPlay,
+  onRemove,
+}: SortableSongItemProps) {
   const {
     attributes,
     listeners,
@@ -47,12 +49,19 @@ function SortableSongItem({
     isDragging,
   } = useSortable({ id: song.vocadbId });
 
-  const style = {
+  const style = useMemo(() => ({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1000 : 1,
-  };
+  }), [transform, transition, isDragging]);
+
+  const handleRemove = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onRemove();
+  }, [onRemove]);
+
+  const thumbnailUrl = song.thumbUrl || (song.youtubeId ? getYouTubeThumbnail(song.youtubeId) : '/placeholder.png');
 
   return (
     <div
@@ -76,11 +85,15 @@ function SortableSongItem({
         className="flex items-center gap-4 flex-1 cursor-pointer"
         onClick={onPlay}
       >
-        <img
-          src={song.thumbUrl || (song.youtubeId ? getYouTubeThumbnail(song.youtubeId) : '')}
-          alt={getDisplayTitle(song)}
-          className="w-12 h-12 rounded object-cover"
-        />
+        <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0">
+          <Image
+            src={thumbnailUrl}
+            alt={getDisplayTitle(song)}
+            fill
+            className="object-cover"
+            sizes="48px"
+          />
+        </div>
         <div className="flex-1 min-w-0">
           <p className="text-white text-sm font-medium truncate">{getDisplayTitle(song)}</p>
           <p className="text-gray-400 text-xs truncate">{song.artistString}</p>
@@ -89,17 +102,14 @@ function SortableSongItem({
 
       {/* 삭제 버튼 */}
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
+        onClick={handleRemove}
         className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-white/10 rounded-full"
       >
         <X className="w-4 h-4 text-gray-400 hover:text-white" />
       </button>
     </div>
   );
-}
+});
 
 export function QueueTabContent() {
   const { state, playSong, removeFromPlaylist, reorderPlaylist } = useMusicPlayer();
@@ -115,7 +125,7 @@ export function QueueTabContent() {
     })
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -123,7 +133,15 @@ export function QueueTabContent() {
       const newIndex = state.playlist.findIndex((song) => song.vocadbId === over.id);
       reorderPlaylist(oldIndex, newIndex);
     }
-  };
+  }, [state.playlist, reorderPlaylist]);
+
+  const playlistIds = useMemo(
+    () => state.playlist.map((song) => song.vocadbId),
+    [state.playlist]
+  );
+
+  const currentSongThumbnail = state.currentSong?.thumbUrl ||
+    (state.currentSong?.youtubeId ? getYouTubeThumbnail(state.currentSong.youtubeId) : '/placeholder.png');
 
   return (
     <div className="p-8">
@@ -134,11 +152,15 @@ export function QueueTabContent() {
             Playing from: {state.playlistSource || 'Queue'}
           </h3>
           <div className="flex items-center gap-4 p-4 rounded-lg bg-[#39c5bb15] border border-[#39c5bb30]">
-            <img
-              src={state.currentSong.thumbUrl || (state.currentSong.youtubeId ? getYouTubeThumbnail(state.currentSong.youtubeId) : '')}
-              alt={getDisplayTitle(state.currentSong)}
-              className="w-16 h-16 rounded object-cover"
-            />
+            <div className="relative w-16 h-16 rounded overflow-hidden flex-shrink-0">
+              <Image
+                src={currentSongThumbnail}
+                alt={getDisplayTitle(state.currentSong)}
+                fill
+                className="object-cover"
+                sizes="64px"
+              />
+            </div>
             <div className="flex-1 min-w-0">
               <p className="text-white font-medium truncate">{getDisplayTitle(state.currentSong)}</p>
               <p className="text-gray-400 text-sm truncate">{state.currentSong.artistString}</p>
@@ -160,7 +182,7 @@ export function QueueTabContent() {
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={state.playlist.map((song) => song.vocadbId)}
+              items={playlistIds}
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-1">

@@ -3,11 +3,12 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Heart, Play, ChevronRight, Plus } from "lucide-react";
-import React from "react";
+import React, { memo, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { RankingItem } from "@/lib/db";
 import { useMusicPlayer } from "@/lib/MusicPlayerContext";
-import { formatNumber as formatViews, getDisplayTitle } from "@/lib/utils/format-utils";
+import { formatNumber as formatViews, getYouTubeThumbnail, formatPublishDate } from "@/lib/utils/format-utils";
 
 interface NavigationSectionProps {
   topCharts: RankingItem[];
@@ -15,33 +16,18 @@ interface NavigationSectionProps {
   popularSongs: RankingItem[];
 }
 
-// YouTube 썸네일 URL 생성
-function getYouTubeThumbnail(videoId: string): string {
-  return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-}
-
-// 발매일 포맷팅 함수
-function formatPublishDate(date: Date | string | null): string {
-  if (!date) return '';
-  const d = new Date(date);
-  const now = new Date();
-  const diffTime = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return '오늘';
-  if (diffDays === 1) return '어제';
-  if (diffDays < 7) return `${diffDays}일 전`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`;
-
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-}
-
-export const NavigationSection = ({ topCharts, newReleases, popularSongs }: NavigationSectionProps): JSX.Element => {
+const NavigationSectionComponent = ({ topCharts, newReleases, popularSongs }: NavigationSectionProps): JSX.Element => {
   const router = useRouter();
   const { playSong, addToPlaylist } = useMusicPlayer();
   const topSong = topCharts[0];
-  const totalFavorites = topCharts.reduce((sum, song) => sum + (song.favoritedTimes || 0), 0);
+
+  // Memoize computed values
+  const totalFavorites = useMemo(
+    () => topCharts.reduce((sum, song) => sum + (song.favoritedTimes || 0), 0),
+    [topCharts]
+  );
+  const topThreeCharts = useMemo(() => topCharts.slice(0, 3), [topCharts]);
+  const topSixReleases = useMemo(() => newReleases.slice(0, 6), [newReleases]);
 
   return (
     <section className="relative w-full h-auto px-6">
@@ -80,11 +66,16 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
               </div>
 
               {topSong && topSong.thumbUrl && (
-                <img
-                  className="absolute top-[-50px] right-[-50px] w-[400px] h-[500px] object-cover opacity-30"
-                  alt="추천 아티스트"
-                  src={topSong.thumbUrl}
-                />
+                <div className="absolute top-[-50px] right-[-50px] w-[400px] h-[500px] opacity-30">
+                  <Image
+                    src={topSong.thumbUrl}
+                    alt="추천 아티스트"
+                    fill
+                    className="object-cover"
+                    sizes="400px"
+                    priority
+                  />
+                </div>
               )}
             </CardContent>
           </Card>
@@ -106,29 +97,50 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
           </div>
 
           <div className="flex flex-col gap-[15px]">
-            {topCharts.slice(0, 3).map((chart) => (
+            {topThreeCharts.map((chart, idx) => (
               <Card key={chart.vocadbId}
-                className="bg-dark-alt rounded-[20px] border-0 overflow-hidden hover:bg-dark-alt/80 transition-colors cursor-pointer group"
+                className={`relative rounded-[20px] border-0 overflow-hidden cursor-pointer group transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1 ${
+                  idx === 0
+                    ? 'bg-gradient-to-r from-[#39c5bb]/20 via-[#1a1a1a] to-[#1a1a1a] shadow-[0_0_30px_rgba(57,197,187,0.15)] hover:shadow-[0_0_40px_rgba(57,197,187,0.25)]'
+                    : idx === 1
+                    ? 'bg-gradient-to-r from-[#facd66]/15 via-[#1a1a1a] to-[#1a1a1a] shadow-[0_0_20px_rgba(250,205,102,0.1)] hover:shadow-[0_0_30px_rgba(250,205,102,0.2)]'
+                    : 'bg-[#1a1a1a] hover:bg-[#222222] shadow-lg hover:shadow-xl'
+                }`}
                 onClick={() => router.push(`/songs/${chart.vocadbId}`)}
               >
                 <CardContent className="relative p-0 h-24">
-                  <img
-                    className="absolute top-[17px] left-[17px] w-[63px] h-[63px] object-cover rounded"
-                    alt={chart.titleKorean ?? chart.titleEnglish ?? chart.defaultName}
-                    src={chart.thumbUrl || (chart.youtubeId ? getYouTubeThumbnail(chart.youtubeId) : '')}
-                  />
+                  {/* 순위 배지 */}
+                  <div className={`absolute top-1/2 -translate-y-1/2 left-3 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                    idx === 0
+                      ? 'bg-[#39c5bb] text-black shadow-[0_0_15px_rgba(57,197,187,0.5)]'
+                      : idx === 1
+                      ? 'bg-[#facd66] text-black shadow-[0_0_12px_rgba(250,205,102,0.4)]'
+                      : 'bg-white/20 text-white'
+                  }`}>
+                    {idx + 1}
+                  </div>
 
-                  <div className="absolute top-[17px] left-[94px] font-regular-17px font-[number:var(--regular-17px-font-weight)] text-white text-[length:var(--regular-17px-font-size)] tracking-[var(--regular-17px-letter-spacing)] leading-[var(--regular-17px-line-height)] max-w-[250px] truncate [font-style:var(--regular-17px-font-style)]">
+                  <div className="absolute top-[17px] left-[55px] w-[63px] h-[63px] rounded-lg overflow-hidden shadow-lg group-hover:shadow-xl transition-shadow">
+                    <Image
+                      src={chart.thumbUrl || (chart.youtubeId ? getYouTubeThumbnail(chart.youtubeId) : '/placeholder.png')}
+                      alt={chart.titleKorean ?? chart.titleEnglish ?? chart.defaultName}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-110"
+                      sizes="63px"
+                    />
+                  </div>
+
+                  <div className="absolute top-[17px] left-[130px] font-regular-17px font-[number:var(--regular-17px-font-weight)] text-white text-[length:var(--regular-17px-font-size)] tracking-[var(--regular-17px-letter-spacing)] leading-[var(--regular-17px-line-height)] max-w-[220px] truncate [font-style:var(--regular-17px-font-style)]">
                     {chart.titleKorean ?? chart.titleEnglish ?? chart.defaultName}
                   </div>
 
-                  <div className="absolute top-[41px] left-[94px] font-regular-12px font-[number:var(--regular-12px-font-weight)] text-[#ffffff80] text-[length:var(--regular-12px-font-size)] tracking-[var(--regular-12px-letter-spacing)] leading-[var(--regular-12px-line-height)] whitespace-nowrap [font-style:var(--regular-12px-font-style)]">
+                  <div className="absolute top-[41px] left-[130px] font-regular-12px font-[number:var(--regular-12px-font-weight)] text-[#ffffff80] text-[length:var(--regular-12px-font-size)] tracking-[var(--regular-12px-letter-spacing)] leading-[var(--regular-12px-line-height)] whitespace-nowrap [font-style:var(--regular-12px-font-style)]">
                     {chart.artistString}
                   </div>
 
-                  <div className="absolute top-[30px] right-[17px] flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                  <div className="absolute top-[30px] right-[17px] flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
                     <button
-                      className="w-[32px] h-[32px] rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center hover:scale-105 shadow-lg transition-all"
+                      className="w-[32px] h-[32px] rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center hover:scale-110 shadow-lg transition-all duration-200 backdrop-blur-sm"
                       onClick={(e) => {
                         e.stopPropagation();
                         addToPlaylist(chart);
@@ -138,7 +150,7 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                       <Plus className="w-4 h-4 text-white" />
                     </button>
                     <button
-                      className="w-[37px] h-[37px] rounded-full bg-[#39c5bb] flex items-center justify-center hover:scale-105 shadow-lg transition-all"
+                      className="w-[37px] h-[37px] rounded-full bg-[#39c5bb] flex items-center justify-center hover:scale-110 shadow-[0_0_20px_rgba(57,197,187,0.4)] hover:shadow-[0_0_25px_rgba(57,197,187,0.6)] transition-all duration-200"
                       onClick={(e) => {
                         e.stopPropagation();
                         playSong(chart);
@@ -149,7 +161,9 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                     </button>
                   </div>
 
-                  <div className="absolute top-[63px] left-[94px] font-regular-12px font-[number:var(--regular-12px-font-weight)] text-white text-[length:var(--regular-12px-font-size)] tracking-[var(--regular-12px-letter-spacing)] leading-[var(--regular-12px-line-height)] whitespace-nowrap [font-style:var(--regular-12px-font-style)]">
+                  <div className={`absolute top-[63px] left-[130px] font-regular-12px text-[length:var(--regular-12px-font-size)] whitespace-nowrap ${
+                    idx === 0 ? 'text-[#39c5bb]' : idx === 1 ? 'text-[#facd66]' : 'text-white/70'
+                  }`}>
                     {formatViews(chart.viewCount)} 조회
                   </div>
                 </CardContent>
@@ -174,26 +188,42 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {newReleases.slice(0, 6).map((release, idx) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {topSixReleases.map((release, idx) => (
             <Card key={release.vocadbId}
-              className="bg-dark-alt rounded-[20px] border-0 overflow-hidden hover:bg-dark-alt/80 transition-colors cursor-pointer group"
+              className={`relative rounded-[20px] border-0 overflow-hidden cursor-pointer group transition-all duration-300 hover:scale-[1.02] ${
+                idx < 2
+                  ? 'bg-gradient-to-br from-[#39c5bb]/10 via-[#1a1a1a] to-[#1a1a1a] hover:shadow-[0_0_25px_rgba(57,197,187,0.15)]'
+                  : 'bg-[#1a1a1a] hover:bg-[#222222]'
+              } shadow-md hover:shadow-lg`}
               onClick={() => router.push(`/songs/${release.vocadbId}`)}
             >
               <CardContent className="relative p-0 h-20">
-                {/* 순위 */}
-                <div className="absolute top-1/2 -translate-y-1/2 left-4 w-6 text-center">
-                  <span className="font-bold text-lg text-[#39c5bb]">{idx + 1}</span>
+                {/* 순위 배지 */}
+                <div className={`absolute top-1/2 -translate-y-1/2 left-3 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
+                  idx === 0
+                    ? 'bg-gradient-to-br from-[#39c5bb] to-[#2ba39a] text-black shadow-[0_0_12px_rgba(57,197,187,0.5)]'
+                    : idx === 1
+                    ? 'bg-gradient-to-br from-[#facd66] to-[#e5b84d] text-black shadow-[0_0_10px_rgba(250,205,102,0.4)]'
+                    : idx === 2
+                    ? 'bg-gradient-to-br from-[#c0c0c0] to-[#a0a0a0] text-black'
+                    : 'bg-white/15 text-white/80'
+                }`}>
+                  {idx + 1}
                 </div>
 
-                <img
-                  className="absolute top-[10px] left-[50px] w-[60px] h-[60px] object-cover rounded"
-                  alt={release.titleKorean ?? release.titleEnglish ?? release.defaultName}
-                  src={release.thumbUrl || (release.youtubeId ? getYouTubeThumbnail(release.youtubeId) : '')}
-                />
+                <div className="absolute top-[10px] left-[48px] w-[60px] h-[60px] rounded-lg overflow-hidden shadow-md group-hover:shadow-lg transition-all duration-300">
+                  <Image
+                    src={release.thumbUrl || (release.youtubeId ? getYouTubeThumbnail(release.youtubeId) : '/placeholder.png')}
+                    alt={release.titleKorean ?? release.titleEnglish ?? release.defaultName}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-110"
+                    sizes="60px"
+                  />
+                </div>
 
-                <div className="absolute top-[14px] left-[120px] right-[100px]">
-                  <div className="font-regular-17px font-[number:var(--regular-17px-font-weight)] text-white text-[length:var(--regular-17px-font-size)] truncate">
+                <div className="absolute top-[14px] left-[118px] right-[100px]">
+                  <div className="font-regular-17px font-[number:var(--regular-17px-font-weight)] text-white text-[length:var(--regular-17px-font-size)] truncate group-hover:text-[#39c5bb] transition-colors duration-300">
                     {release.titleKorean ?? release.titleEnglish ?? release.defaultName}
                   </div>
                   <div className="font-regular-12px text-[#ffffff80] text-[length:var(--regular-12px-font-size)] truncate mt-0.5">
@@ -201,10 +231,18 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                   </div>
                 </div>
 
-                {/* 발매일 */}
+                {/* 발매일 - NEW 배지 추가 */}
                 <div className="absolute top-[14px] right-[17px] text-right">
-                  <div className="font-regular-12px text-[#39c5bb] text-xs">
-                    {release.publishDate ? formatPublishDate(release.publishDate) : ''}
+                  <div className="flex items-center gap-1.5 justify-end">
+                    {release.publishDate && (
+                      <span className={`font-regular-12px text-xs ${
+                        formatPublishDate(release.publishDate) === '오늘' || formatPublishDate(release.publishDate) === '어제'
+                          ? 'px-2 py-0.5 rounded-full bg-[#39c5bb]/20 text-[#39c5bb] font-medium'
+                          : 'text-[#39c5bb]/80'
+                      }`}>
+                        {formatPublishDate(release.publishDate)}
+                      </span>
+                    )}
                   </div>
                   <div className="font-regular-12px text-[#ffffff60] text-xs mt-1">
                     {formatViews(release.viewCount)} 조회
@@ -212,9 +250,9 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                 </div>
 
                 {/* 호버 버튼 */}
-                <div className="absolute top-1/2 -translate-y-1/2 right-[90px] flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                <div className="absolute top-1/2 -translate-y-1/2 right-[90px] flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
                   <button
-                    className="w-[28px] h-[28px] rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center hover:scale-105 shadow-lg transition-all"
+                    className="w-[28px] h-[28px] rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center hover:scale-110 shadow-lg transition-all duration-200 backdrop-blur-sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       addToPlaylist(release);
@@ -224,7 +262,7 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                     <Plus className="w-3.5 h-3.5 text-white" />
                   </button>
                   <button
-                    className="w-[32px] h-[32px] rounded-full bg-[#39c5bb] flex items-center justify-center hover:scale-105 shadow-lg transition-all"
+                    className="w-[32px] h-[32px] rounded-full bg-[#39c5bb] flex items-center justify-center hover:scale-110 shadow-[0_0_15px_rgba(57,197,187,0.4)] hover:shadow-[0_0_20px_rgba(57,197,187,0.6)] transition-all duration-200"
                     onClick={(e) => {
                       e.stopPropagation();
                       playSong(release);
@@ -248,20 +286,38 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
 
         <ScrollArea className="w-full whitespace-nowrap">
           <div className="flex gap-[30px] pb-4">
-            {popularSongs.map((item) => (
+            {popularSongs.map((item, idx) => (
               <div key={item.vocadbId}
-                className="inline-flex flex-col gap-[5px] w-[153px] cursor-pointer group"
+                className="inline-flex flex-col gap-[5px] w-[153px] cursor-pointer group transition-all duration-300 hover:-translate-y-2"
                 onClick={() => router.push(`/songs/${item.vocadbId}`)}
               >
-                <div className="relative w-[153px] h-[153px]">
-                  <img
-                    className="w-full h-full object-cover rounded"
+                <div className={`relative w-[153px] h-[153px] rounded-xl overflow-hidden transition-all duration-300 ${
+                  idx < 3
+                    ? 'shadow-[0_4px_20px_rgba(57,197,187,0.2)] group-hover:shadow-[0_8px_30px_rgba(57,197,187,0.35)]'
+                    : 'shadow-lg group-hover:shadow-xl'
+                }`}>
+                  <Image
+                    src={item.thumbUrl || (item.youtubeId ? getYouTubeThumbnail(item.youtubeId) : '/placeholder.png')}
                     alt={item.titleKorean ?? item.titleEnglish ?? item.defaultName}
-                    src={item.thumbUrl || (item.youtubeId ? getYouTubeThumbnail(item.youtubeId) : '')}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-110"
+                    sizes="153px"
                   />
-                  <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                  {/* 순위 배지 (상위 3곡) */}
+                  {idx < 3 && (
+                    <div className={`absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                      idx === 0
+                        ? 'bg-[#39c5bb] text-black shadow-[0_0_10px_rgba(57,197,187,0.6)]'
+                        : idx === 1
+                        ? 'bg-[#facd66] text-black shadow-[0_0_8px_rgba(250,205,102,0.5)]'
+                        : 'bg-white/80 text-black'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                  )}
+                  <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                     <button
-                      className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center hover:scale-105 shadow-lg transition-all"
+                      className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center hover:scale-110 shadow-lg transition-all duration-200 backdrop-blur-sm"
                       onClick={(e) => {
                         e.stopPropagation();
                         addToPlaylist(item);
@@ -271,7 +327,7 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                       <Plus className="w-4 h-4 text-white" />
                     </button>
                     <button
-                      className="w-12 h-12 rounded-full bg-[#39c5bb] flex items-center justify-center hover:scale-105 shadow-lg transition-all"
+                      className="w-12 h-12 rounded-full bg-[#39c5bb] flex items-center justify-center hover:scale-110 shadow-[0_0_20px_rgba(57,197,187,0.5)] hover:shadow-[0_0_28px_rgba(57,197,187,0.7)] transition-all duration-200"
                       onClick={(e) => {
                         e.stopPropagation();
                         playSong(item);
@@ -283,15 +339,17 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
                   </div>
                 </div>
 
-                <div className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-white text-xs tracking-[0] leading-[normal] truncate">
+                <div className="font-medium text-white text-xs truncate group-hover:text-[#39c5bb] transition-colors duration-200">
                   {item.titleKorean ?? item.titleEnglish ?? item.defaultName}
                 </div>
 
-                <div className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-[#ffffff80] text-xs tracking-[0] leading-[normal] truncate">
+                <div className="text-[#ffffff80] text-xs truncate">
                   {item.artistString}
                 </div>
 
-                <div className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-[#ffffff60] text-xs tracking-[0] leading-[normal]">
+                <div className={`text-xs ${
+                  item.weeklyIncrease ? 'text-[#39c5bb] font-medium' : 'text-[#ffffff60]'
+                }`}>
                   {item.weeklyIncrease && `+${formatViews(Number(item.weeklyIncrease))} 이번 주`}
                   {!item.weeklyIncrease && `${formatViews(item.viewCount)} 조회`}
                 </div>
@@ -305,4 +363,6 @@ export const NavigationSection = ({ topCharts, newReleases, popularSongs }: Navi
   );
 };
 
+// Memoize the component to prevent unnecessary re-renders
+export const NavigationSection = memo(NavigationSectionComponent);
 export default NavigationSection;

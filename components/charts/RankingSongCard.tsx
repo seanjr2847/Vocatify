@@ -1,60 +1,51 @@
 "use client";
 
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Play, Plus, Radio } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import type { RankingItem } from '@/lib/db';
-import { formatNumber, getDisplayTitle } from '@/lib/utils/format-utils';
+import { formatNumber, getDisplayTitle, getYouTubeThumbnail, formatPublishDate } from '@/lib/utils/format-utils';
 
 interface RankingSongCardProps {
   song: RankingItem;
 }
 
-function getYouTubeThumbnail(videoId: string): string {
-  return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+// RankingSongCard에서는 "발매" 텍스트를 붙여서 표시
+function formatPublishDateWithSuffix(date: Date | string | null | undefined): string {
+  const formatted = formatPublishDate(date);
+  if (!formatted) return '';
+  if (formatted.includes('전') || formatted === '오늘' || formatted === '어제') {
+    return formatted + ' 발매';
+  }
+  return formatted;
 }
 
-function formatPublishDate(date: Date | string | null | undefined): string {
-  if (!date) return '';
-  const d = new Date(date);
-  const now = new Date();
-  const diffTime = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return '오늘 발매';
-  if (diffDays === 1) return '어제 발매';
-  if (diffDays < 7) return `${diffDays}일 전 발매`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전 발매`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전 발매`;
-
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-}
-
-export function RankingSongCard({ song }: RankingSongCardProps) {
+const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
   const router = useRouter();
   const { playSong, addToPlaylist, startRadio } = useMusicPlayer();
 
-  const handlePlayClick = (e: React.MouseEvent) => {
+  const handlePlayClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     playSong(song);
-  };
+  }, [playSong, song]);
 
-  const handleAddClick = (e: React.MouseEvent) => {
+  const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     addToPlaylist(song);
-  };
+  }, [addToPlaylist, song]);
 
-  const handleRadioClick = (e: React.MouseEvent) => {
+  const handleRadioClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     startRadio(song.vocadbId);
-  };
+  }, [startRadio, song.vocadbId]);
 
-  const handleCardClick = () => {
+  const handleCardClick = useCallback(() => {
     router.push(`/songs/${song.vocadbId}`);
-  };
+  }, [router, song.vocadbId]);
 
-  const thumbnailUrl = song.thumbUrl || (song.youtubeId ? getYouTubeThumbnail(song.youtubeId) : '');
+  const thumbnailUrl = song.thumbUrl || (song.youtubeId ? getYouTubeThumbnail(song.youtubeId) : '/placeholder.png');
   const isTopThree = song.rank <= 3;
 
   return (
@@ -73,12 +64,13 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
         </div>
 
         {/* Thumbnail */}
-        <div className="relative w-16 h-16 flex-shrink-0">
-          <img
+        <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden">
+          <Image
             src={thumbnailUrl}
             alt={getDisplayTitle(song)}
-            className="w-full h-full object-cover rounded-lg"
-            loading="lazy"
+            fill
+            className="object-cover"
+            sizes="64px"
           />
         </div>
 
@@ -105,7 +97,7 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
             {song.publishDate && !song.dailyIncrease && !song.weeklyIncrease && (
               <>
                 <span>•</span>
-                <span className="text-[#39c5bb]">{formatPublishDate(song.publishDate)}</span>
+                <span className="text-[#39c5bb]">{formatPublishDateWithSuffix(song.publishDate)}</span>
               </>
             )}
           </div>
@@ -139,4 +131,7 @@ export function RankingSongCard({ song }: RankingSongCardProps) {
       </div>
     </div>
   );
-}
+};
+
+// Memoize to prevent unnecessary re-renders when parent updates
+export const RankingSongCard = memo(RankingSongCardComponent);
