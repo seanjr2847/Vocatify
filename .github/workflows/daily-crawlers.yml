@@ -50,7 +50,7 @@ jobs:
   youtube-crawler:
     name: YouTube Update (Chunk ${{ matrix.chunk }})
     runs-on: ubuntu-latest
-    timeout-minutes: 80  # 1시간 20분 per chunk
+    timeout-minutes: 180  # 3시간 per chunk
     if: github.event_name == 'schedule' && github.event.schedule == '0 15 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
 
     strategy:
