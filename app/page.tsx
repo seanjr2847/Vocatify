@@ -1,5 +1,6 @@
 import { HomeClient } from "@/components/HomeClient";
 import { getTotalRanking, getNewSongsRanking, getWeeklyRanking } from "@/lib/db";
+import { serializeBigInt } from "@/lib/serialize";
 
 export default async function HomePage() {
   // 서버에서 초기 데이터 로드
@@ -11,9 +12,9 @@ export default async function HomePage() {
 
   return (
     <HomeClient
-      topCharts={topCharts}
-      newReleases={newReleases}
-      popularSongs={popularSongs}
+      topCharts={serializeBigInt(topCharts)}
+      newReleases={serializeBigInt(newReleases)}
+      popularSongs={serializeBigInt(popularSongs)}
     />
   );
 }

@@ -9,10 +9,15 @@ import type { Song } from '@/lib/db';
  * Format large numbers with K, M, B suffixes
  * @example formatNumber(1500) => "1.5K"
  * @example formatNumber(2000000) => "2.0M"
+ * @example formatNumber("1500") => "1.5K" (accepts serialized strings)
  */
-export function formatNumber(num: bigint | number | null | undefined): string {
-  if (!num) return '0';
-  const n = typeof num === 'bigint' ? Number(num) : num;
+export function formatNumber(num: bigint | number | string | null | undefined): string {
+  if (!num || num === '0') return '0';
+
+  // Convert to number, handling bigint, string, and number types
+  const n = typeof num === 'bigint' ? Number(num) :
+            typeof num === 'string' ? Number(num) :
+            num;
 
   if (n >= 1_000_000_000) {
     return `${(n / 1_000_000_000).toFixed(1)}B`;

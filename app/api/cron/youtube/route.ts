@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get mode from query params (default: 'new')
+    // Get mode from query params (default: 'all')
     const { searchParams } = new URL(request.url);
-    const mode = (searchParams.get('mode') as UnifiedCrawlerMode) || 'new';
+    const mode = (searchParams.get('mode') as UnifiedCrawlerMode) || 'all';
     const updateLocalizations = searchParams.get('localizations') !== 'false';
 
     console.log(`🎬 Unified YouTube Cron Job Started (mode: ${mode}, localizations: ${updateLocalizations})`);

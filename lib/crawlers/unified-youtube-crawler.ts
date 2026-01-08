@@ -461,51 +461,57 @@ export class UnifiedYouTubeCrawler {
         const videoData = videoDataMap.get(pv.pvId);
 
         if (videoData?.viewCount !== undefined) {
-          // Update PV view count
-          await this.prisma.pV.update({
-            where: { id: pv.id },
-            data: {
-              viewCount: videoData.viewCount,
-              viewCountUpdatedAt: now,
-            },
-          });
-
-          // Upsert DailyViewCount (using pv.id, not songId)
-          await this.prisma.dailyViewCount.upsert({
-            where: {
-              pvId_recordedDate: {
-                pvId: pv.id,
-                recordedDate: today,
+          try {
+            // Update PV view count
+            await this.prisma.pV.update({
+              where: { id: pv.id },
+              data: {
+                viewCount: videoData.viewCount,
+                viewCountUpdatedAt: now,
               },
-            },
-            update: { totalViews: videoData.viewCount },
-            create: {
-              pvId: pv.id,
-              recordedDate: today,
-              totalViews: videoData.viewCount,
-            },
-          });
-
-          // Update Korean title in SongName table if found
-          if (videoData.koreanTitle) {
-            const existingKoreanName = await this.prisma.songName.findFirst({
-              where: { songId: pv.songId, language: 'Korean' },
             });
 
-            if (!existingKoreanName) {
-              await this.prisma.songName.create({
-                data: {
-                  songId: pv.songId,
-                  language: 'Korean',
-                  value: videoData.koreanTitle,
+            // Upsert DailyViewCount (using pv.id, not songId)
+            await this.prisma.dailyViewCount.upsert({
+              where: {
+                pvId_recordedDate: {
+                  pvId: pv.id,
+                  recordedDate: today,
                 },
-              });
-              titlesUpdated++;
-            }
-          }
+              },
+              update: { totalViews: videoData.viewCount },
+              create: {
+                pvId: pv.id,
+                recordedDate: today,
+                totalViews: videoData.viewCount,
+              },
+            });
 
-          updated++;
+            // Update Korean title in SongName table if found
+            if (videoData.koreanTitle) {
+              const existingKoreanName = await this.prisma.songName.findFirst({
+                where: { songId: pv.songId, language: 'Korean' },
+              });
+
+              if (!existingKoreanName) {
+                await this.prisma.songName.create({
+                  data: {
+                    songId: pv.songId,
+                    language: 'Korean',
+                    value: videoData.koreanTitle,
+                  },
+                });
+                titlesUpdated++;
+              }
+            }
+
+            updated++;  // Only increment if all DB operations succeeded
+          } catch (dbError) {
+            console.error(`❌ DB update failed for PV ${pv.pvId} (ID: ${pv.id}, songId: ${pv.songId}):`, dbError);
+            failed++;
+          }
         } else {
+          // YouTube API didn't return data (deleted/private video)
           failed++;
         }
         processed++;
