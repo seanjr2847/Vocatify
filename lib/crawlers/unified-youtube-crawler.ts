@@ -462,13 +462,17 @@ export class UnifiedYouTubeCrawler {
 
         if (videoData?.viewCount !== undefined) {
           try {
+            // Extract values to ensure TypeScript type safety
+            const viewCount = videoData.viewCount;
+            const koreanTitle = videoData.koreanTitle;
+
             // Use transaction to ensure atomicity and catch connection issues
             await this.prisma.$transaction(async (tx) => {
               // Update PV view count
               await tx.pV.update({
                 where: { id: pv.id },
                 data: {
-                  viewCount: videoData.viewCount,
+                  viewCount,
                   viewCountUpdatedAt: now,
                 },
               });
@@ -481,16 +485,16 @@ export class UnifiedYouTubeCrawler {
                     recordedDate: today,
                   },
                 },
-                update: { totalViews: videoData.viewCount },
+                update: { totalViews: viewCount },
                 create: {
                   pvId: pv.id,
                   recordedDate: today,
-                  totalViews: videoData.viewCount,
+                  totalViews: viewCount,
                 },
               });
 
               // Update Korean title in SongName table if found
-              if (videoData.koreanTitle) {
+              if (koreanTitle) {
                 const existingKoreanName = await tx.songName.findFirst({
                   where: { songId: pv.songId, language: 'Korean' },
                 });
@@ -500,7 +504,7 @@ export class UnifiedYouTubeCrawler {
                     data: {
                       songId: pv.songId,
                       language: 'Korean',
-                      value: videoData.koreanTitle,
+                      value: koreanTitle,
                     },
                   });
                   titlesUpdated++;
