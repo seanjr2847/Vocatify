@@ -462,50 +462,53 @@ export class UnifiedYouTubeCrawler {
 
         if (videoData?.viewCount !== undefined) {
           try {
-            // Update PV view count
-            await this.prisma.pV.update({
-              where: { id: pv.id },
-              data: {
-                viewCount: videoData.viewCount,
-                viewCountUpdatedAt: now,
-              },
-            });
-
-            // Upsert DailyViewCount (using pv.id, not songId)
-            await this.prisma.dailyViewCount.upsert({
-              where: {
-                pvId_recordedDate: {
-                  pvId: pv.id,
-                  recordedDate: today,
+            // Use transaction to ensure atomicity and catch connection issues
+            await this.prisma.$transaction(async (tx) => {
+              // Update PV view count
+              await tx.pV.update({
+                where: { id: pv.id },
+                data: {
+                  viewCount: videoData.viewCount,
+                  viewCountUpdatedAt: now,
                 },
-              },
-              update: { totalViews: videoData.viewCount },
-              create: {
-                pvId: pv.id,
-                recordedDate: today,
-                totalViews: videoData.viewCount,
-              },
-            });
-
-            // Update Korean title in SongName table if found
-            if (videoData.koreanTitle) {
-              const existingKoreanName = await this.prisma.songName.findFirst({
-                where: { songId: pv.songId, language: 'Korean' },
               });
 
-              if (!existingKoreanName) {
-                await this.prisma.songName.create({
-                  data: {
-                    songId: pv.songId,
-                    language: 'Korean',
-                    value: videoData.koreanTitle,
+              // Upsert DailyViewCount (using pv.id, not songId)
+              await tx.dailyViewCount.upsert({
+                where: {
+                  pvId_recordedDate: {
+                    pvId: pv.id,
+                    recordedDate: today,
                   },
-                });
-                titlesUpdated++;
-              }
-            }
+                },
+                update: { totalViews: videoData.viewCount },
+                create: {
+                  pvId: pv.id,
+                  recordedDate: today,
+                  totalViews: videoData.viewCount,
+                },
+              });
 
-            updated++;  // Only increment if all DB operations succeeded
+              // Update Korean title in SongName table if found
+              if (videoData.koreanTitle) {
+                const existingKoreanName = await tx.songName.findFirst({
+                  where: { songId: pv.songId, language: 'Korean' },
+                });
+
+                if (!existingKoreanName) {
+                  await tx.songName.create({
+                    data: {
+                      songId: pv.songId,
+                      language: 'Korean',
+                      value: videoData.koreanTitle,
+                    },
+                  });
+                  titlesUpdated++;
+                }
+              }
+            });
+
+            updated++;  // Only increment if transaction succeeded
           } catch (dbError) {
             console.error(`❌ DB update failed for PV ${pv.pvId} (ID: ${pv.id}, songId: ${pv.songId}):`, dbError);
             failed++;
