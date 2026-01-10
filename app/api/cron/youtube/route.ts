@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const crawler = new UnifiedYouTubeCrawler(prisma, {
       mode,                           // Selection mode: new, old, top, all
       batchSize: 50,                  // 50 videos per API request (YouTube API max)
-      maxSongsPerRun: 500,            // Process up to 500 songs per cron run
+      maxPVsPerRun: 500,              // Process up to 500 PVs per cron run
       enableResume: true,             // Enable progress tracking
       updateLocalizations,            // Also fetch Korean titles (default: true)
     });
@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
         data: {
           mode,
           updateLocalizations,
-          songsProcessed: result.songsProcessed,
-          songsUpdated: result.songsUpdated,
+          pvsProcessed: result.pvsProcessed,
+          pvsUpdated: result.pvsUpdated,
           titlesUpdated: result.titlesUpdated,
-          songsFailed: result.songsFailed,
+          pvsFailed: result.pvsFailed,
           lastOffset: result.lastOffset,
           completed: result.completed,
           duration: `${duration}s`,
@@ -79,10 +79,10 @@ export async function POST(request: NextRequest) {
         data: {
           mode,
           updateLocalizations,
-          songsProcessed: result.songsProcessed,
-          songsUpdated: result.songsUpdated,
+          pvsProcessed: result.pvsProcessed,
+          pvsUpdated: result.pvsUpdated,
           titlesUpdated: result.titlesUpdated,
-          songsFailed: result.songsFailed,
+          pvsFailed: result.pvsFailed,
           lastOffset: result.lastOffset,
           duration: `${duration}s`,
         },

@@ -66,7 +66,7 @@ async function main() {
   const crawler = new UnifiedYouTubeCrawler(prisma, {
     mode: 'all',
     batchSize: 50,
-    maxSongsPerRun: songsInRange, // Process all songs in this ID range
+    maxPVsPerRun: songsInRange, // Process all PVs in this ID range
     enableResume: false, // Fresh run for each chunk
     updateLocalizations: true,
     minVocadbId, // Use ID-range based filtering (no OFFSET)
@@ -78,10 +78,10 @@ async function main() {
   console.log('\n' + '='.repeat(60));
   if (result.success) {
     console.log(`✅ Chunk ${chunkIndex + 1}/${totalChunks} - Complete`);
-    console.log(`   Processed: ${result.songsProcessed.toLocaleString()} songs`);
-    console.log(`   Updated: ${result.songsUpdated.toLocaleString()} songs`);
+    console.log(`   Processed: ${result.pvsProcessed.toLocaleString()} PVs`);
+    console.log(`   Updated: ${result.pvsUpdated.toLocaleString()} PVs`);
     console.log(`   Titles: ${result.titlesUpdated.toLocaleString()} updated`);
-    console.log(`   Failed: ${result.songsFailed.toLocaleString()} songs`);
+    console.log(`   Failed: ${result.pvsFailed.toLocaleString()} PVs`);
   } else {
     console.log(`❌ Chunk ${chunkIndex + 1}/${totalChunks} - Failed`);
     console.log(`   Error: ${result.error}`);

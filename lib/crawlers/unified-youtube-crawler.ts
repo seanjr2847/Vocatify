@@ -24,7 +24,7 @@ export type UnifiedCrawlerMode = 'new' | 'old' | 'top' | 'all';
 export interface UnifiedYouTubeCrawlerOptions {
   mode?: UnifiedCrawlerMode;
   batchSize?: number;
-  maxSongsPerRun?: number;
+  maxPVsPerRun?: number;
   enableResume?: boolean;
   updateLocalizations?: boolean;
   startOffset?: number;
@@ -36,10 +36,10 @@ export interface UnifiedYouTubeCrawlerOptions {
 
 export interface UnifiedYouTubeCrawlerResult {
   success: boolean;
-  songsProcessed: number;
-  songsUpdated: number;
+  pvsProcessed: number;
+  pvsUpdated: number;
   titlesUpdated: number;
-  songsFailed: number;
+  pvsFailed: number;
   lastOffset: number;
   completed: boolean;
   error?: string;
@@ -96,7 +96,7 @@ export class UnifiedYouTubeCrawler {
     this.options = {
       mode: options.mode ?? 'new',
       batchSize: Math.min(options.batchSize ?? 50, 50),
-      maxSongsPerRun: options.maxSongsPerRun ?? 500,
+      maxPVsPerRun: options.maxPVsPerRun ?? 500,
       enableResume: options.enableResume ?? true,
       updateLocalizations: options.updateLocalizations ?? true,
       startOffset: options.startOffset ?? 0,
@@ -111,23 +111,28 @@ export class UnifiedYouTubeCrawler {
 
   async crawl(): Promise<UnifiedYouTubeCrawlerResult> {
     const startTime = Date.now();
-    let songsProcessed = 0;
-    let songsUpdated = 0;
+    let pvsProcessed = 0;
+    let pvsUpdated = 0;
     let titlesUpdated = 0;
-    let songsFailed = 0;
+    let pvsFailed = 0;
     let currentOffset = this.options.startOffset;
+    let lastProcessedPvId = 0; // For ID-range mode cursor
     let completed = false;
+
+    // Determine if using ID-range mode
+    const useIdRange = this.options.minVocadbId !== undefined &&
+                       this.options.maxVocadbId !== undefined;
 
     try {
       const totalPVsToProcess = await this.getTotalCountByMode();
 
       console.log(`🎬 Unified YouTube Crawler v2 - Mode: ${this.options.mode}`);
-      console.log(`   Chunking: ${this.options.minVocadbId !== undefined
+      console.log(`   Chunking: ${useIdRange
         ? `ID-range (vocadbId ${this.options.minVocadbId}-${this.options.maxVocadbId})`
         : 'Sequential (OFFSET-based)'}`);
       console.log(`   Localizations: ${this.options.updateLocalizations ? 'enabled' : 'disabled'}`);
       console.log(`   Start offset: ${currentOffset.toLocaleString()}`);
-      console.log(`   Max PVs: ${this.options.maxSongsPerRun.toLocaleString()}`);
+      console.log(`   Max PVs per run: ${this.options.maxPVsPerRun.toLocaleString()}`);
       console.log(`   Total PVs in mode: ${totalPVsToProcess.toLocaleString()}`);
 
       // Initialize or resume progress
@@ -151,7 +156,7 @@ export class UnifiedYouTubeCrawler {
               metadata: {
                 mode: this.options.mode,
                 batchSize: this.options.batchSize,
-                maxSongsPerRun: this.options.maxSongsPerRun,
+                maxPVsPerRun: this.options.maxPVsPerRun,
                 updateLocalizations: this.options.updateLocalizations,
               },
             },
@@ -162,8 +167,8 @@ export class UnifiedYouTubeCrawler {
       }
 
       // Crawl loop
-      while (songsProcessed < this.options.maxSongsPerRun) {
-        const pvs = await this.getPVsByMode(currentOffset, this.options.batchSize);
+      while (pvsProcessed < this.options.maxPVsPerRun) {
+        const pvs = await this.getPVsByMode(currentOffset, this.options.batchSize, lastProcessedPvId);
 
         if (pvs.length === 0) {
           console.log(`✅ No more PVs to process`);
@@ -171,29 +176,36 @@ export class UnifiedYouTubeCrawler {
           break;
         }
 
-        console.log(`📥 Processing batch: ${pvs.length} PVs (offset ${currentOffset})...`);
+        console.log(`📥 Processing batch: ${pvs.length} PVs (${useIdRange ? `after PV ID ${lastProcessedPvId}` : `offset ${currentOffset}`})...`);
 
         const batchResult = await this.processBatch(pvs);
-        songsProcessed += batchResult.processed;
-        songsUpdated += batchResult.updated;
+        pvsProcessed += batchResult.processed;
+        pvsUpdated += batchResult.updated;
         titlesUpdated += batchResult.titlesUpdated;
-        songsFailed += batchResult.failed;
+        pvsFailed += batchResult.failed;
 
         console.log(`   Views updated: ${batchResult.updated} PVs`);
         console.log(`   Titles updated: ${batchResult.titlesUpdated} songs`);
         console.log(`   Failed: ${batchResult.failed} PVs`);
-        const percent = totalPVsToProcess > 0 ? ((songsProcessed / totalPVsToProcess) * 100).toFixed(1) : '0';
-        console.log(`   Total progress: ${songsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
+        const percent = totalPVsToProcess > 0 ? ((pvsProcessed / totalPVsToProcess) * 100).toFixed(1) : '0';
+        console.log(`   Total progress: ${pvsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
 
         if (this.progressId) {
+          const updateData: any = { totalProcessed: pvsProcessed };
+
+          // Only update offset in OFFSET mode
+          if (!useIdRange) {
+            updateData.lastOffset = currentOffset;
+          }
+
           await this.prisma.crawlerProgress.update({
             where: { id: this.progressId },
-            data: { lastOffset: currentOffset, totalProcessed: songsProcessed },
+            data: updateData,
           });
         }
 
-        if (songsProcessed >= this.options.maxSongsPerRun) {
-          console.log(`✅ Reached max PVs limit (${this.options.maxSongsPerRun})`);
+        if (pvsProcessed >= this.options.maxPVsPerRun) {
+          console.log(`✅ Reached max PVs limit (${this.options.maxPVsPerRun})`);
           break;
         }
 
@@ -203,7 +215,15 @@ export class UnifiedYouTubeCrawler {
           break;
         }
 
-        currentOffset += this.options.batchSize;
+        // Update cursor for next batch
+        if (useIdRange) {
+          // ID-range mode: update lastProcessedPvId to skip already-processed PVs
+          const maxPvId = Math.max(...pvs.map(pv => pv.id));
+          lastProcessedPvId = maxPvId;
+        } else {
+          // OFFSET mode: increment offset
+          currentOffset += this.options.batchSize;
+        }
       }
 
       if (this.progressId) {
@@ -213,25 +233,25 @@ export class UnifiedYouTubeCrawler {
             status: completed ? 'completed' : 'running',
             completedAt: completed ? new Date() : null,
             lastOffset: currentOffset,
-            totalProcessed: songsProcessed,
+            totalProcessed: pvsProcessed,
           },
         });
       }
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`\n✅ Unified YouTube crawler completed in ${duration}s`);
-      console.log(`   PVs processed: ${songsProcessed}`);
-      console.log(`   Views updated: ${songsUpdated}`);
-      console.log(`   Titles updated: ${titlesUpdated}`);
-      console.log(`   PVs failed: ${songsFailed}`);
+      console.log(`   PVs processed: ${pvsProcessed}`);
+      console.log(`   Views updated: ${pvsUpdated} PVs`);
+      console.log(`   Titles updated: ${titlesUpdated} songs`);
+      console.log(`   PVs failed: ${pvsFailed}`);
       console.log(`   Fully completed: ${completed ? 'Yes' : 'No'}\n`);
 
       return {
         success: true,
-        songsProcessed,
-        songsUpdated,
+        pvsProcessed,
+        pvsUpdated,
         titlesUpdated,
-        songsFailed,
+        pvsFailed,
         lastOffset: currentOffset,
         completed,
       };
@@ -249,10 +269,10 @@ export class UnifiedYouTubeCrawler {
 
       return {
         success: false,
-        songsProcessed,
-        songsUpdated,
+        pvsProcessed,
+        pvsUpdated,
         titlesUpdated,
-        songsFailed,
+        pvsFailed,
         lastOffset: currentOffset,
         completed: false,
         error: errorMessage,
@@ -319,14 +339,19 @@ export class UnifiedYouTubeCrawler {
     }
   }
 
-  private async getPVsByMode(offset: number, limit: number): Promise<PVWithSong[]> {
-    const baseWhere = { service: 'Youtube' };
+  private async getPVsByMode(offset: number, limit: number, lastProcessedPvId = 0): Promise<PVWithSong[]> {
+    const baseWhere: any = { service: 'Youtube' };
 
     // ID range filter (when provided, use song relation filtering instead of OFFSET)
     const useIdRange = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;
     const songWhere = useIdRange
       ? { vocadbId: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
       : undefined;
+
+    // Cursor-based pagination for ID-range mode
+    if (useIdRange && lastProcessedPvId > 0) {
+      baseWhere.id = { gt: lastProcessedPvId };
+    }
 
     switch (this.options.mode) {
       case 'new':
@@ -340,9 +365,7 @@ export class UnifiedYouTubeCrawler {
             ...(songWhere && { song: songWhere }),  // Apply ID range filter
           },
           select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
-          orderBy: useIdRange
-            ? [{ song: { vocadbId: 'asc' } }, { id: 'asc' }]  // Sort by vocadbId for ID-range mode
-            : { id: 'asc' },                                   // Sort by id for OFFSET mode
+          orderBy: { id: 'asc' },  // Always sort by ID for cursor-based pagination
           skip: useIdRange ? 0 : offset,  // Remove OFFSET when using ID-range filtering
           take: limit,
         });
@@ -358,7 +381,7 @@ export class UnifiedYouTubeCrawler {
             ...(songWhere && { song: songWhere }),  // Apply ID range filter
           },
           select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
-          orderBy: useIdRange ? [{ song: { vocadbId: 'asc' } }, { id: 'asc' }] : { id: 'asc' },
+          orderBy: { id: 'asc' },  // Always sort by ID for cursor-based pagination
           skip: useIdRange ? 0 : offset,
           take: limit,
         });
@@ -386,7 +409,7 @@ export class UnifiedYouTubeCrawler {
             ...(songWhere && { song: songWhere }),  // Apply ID range filter
           },
           select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
-          orderBy: useIdRange ? [{ song: { vocadbId: 'asc' } }, { id: 'asc' }] : { id: 'asc' },
+          orderBy: { id: 'asc' },  // Always sort by ID for cursor-based pagination
           skip: useIdRange ? 0 : offset,  // Remove OFFSET when using ID-range filtering
           take: limit,
         });
@@ -466,6 +489,9 @@ export class UnifiedYouTubeCrawler {
             const viewCount = videoData.viewCount;
             const koreanTitle = videoData.koreanTitle;
 
+            // Flag to track if title was created (set outside transaction)
+            let titleWasCreated = false;
+
             // Use transaction to ensure atomicity and catch connection issues
             await this.prisma.$transaction(async (tx) => {
               // Update PV view count
@@ -507,12 +533,17 @@ export class UnifiedYouTubeCrawler {
                       value: koreanTitle,
                     },
                   });
-                  titlesUpdated++;
+                  titleWasCreated = true;  // Set flag inside transaction
                 }
               }
             });
 
-            updated++;  // Only increment if transaction succeeded
+            // Transaction succeeded - increment counters OUTSIDE transaction
+            updated++;
+
+            if (titleWasCreated) {
+              titlesUpdated++;
+            }
           } catch (dbError) {
             console.error(`❌ DB update failed for PV ${pv.pvId} (ID: ${pv.id}, songId: ${pv.songId}):`, dbError);
             failed++;
@@ -525,11 +556,8 @@ export class UnifiedYouTubeCrawler {
       }
 
     } catch (error) {
-      console.error(`❌ Error processing batch:`, error);
-      failed = pvs.length;
-      processed = pvs.length;
-      updated = 0;
-      titlesUpdated = 0;
+      console.error(`❌ API error processing batch:`, error);
+      // Don't modify counters - individual PV loop already handled counting
     }
 
     return { processed, updated, titlesUpdated, failed };
