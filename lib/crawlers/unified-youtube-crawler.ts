@@ -476,6 +476,8 @@ export class UnifiedYouTubeCrawler {
       }
 
       const now = new Date();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
       // Parallel execution for speed (Promise.all)
       // Each PV gets its own small transaction to avoid timeout issues
@@ -499,8 +501,21 @@ export class UnifiedYouTubeCrawler {
               data: { viewCount, viewCountUpdatedAt: now },
             });
 
-            // DailyViewCount disabled for performance (40-50% speed improvement)
-            // Ranking system uses viewCount in PV table, daily tracking not critical
+            // Upsert DailyViewCount for time-series tracking
+            await tx.dailyViewCount.upsert({
+              where: {
+                pvId_recordedDate: {
+                  pvId: pv.id,
+                  recordedDate: today,
+                },
+              },
+              update: { totalViews: viewCount },
+              create: {
+                pvId: pv.id,
+                recordedDate: today,
+                totalViews: viewCount,
+              },
+            });
 
             // Update Korean title in SongName table if found
             if (koreanTitle) {
