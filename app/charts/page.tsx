@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { Metadata } from 'next';
 import { getTotalRanking, getDailyRanking, getWeeklyRanking, getNewSongsRanking } from '@/lib/db';
+import { serializeBigInt } from '@/lib/serialize';
 import { ChartsClient } from './ChartsClient';
 
 export const metadata: Metadata = {
@@ -20,10 +21,10 @@ export default async function ChartsPage() {
   return (
     <Suspense fallback={<div className="bg-[#1d2123] min-h-screen flex items-center justify-center"><span className="text-white">로딩 중...</span></div>}>
       <ChartsClient
-        initialTotalRanking={totalRanking}
-        initialDailyRanking={dailyRanking}
-        initialWeeklyRanking={weeklyRanking}
-        initialNewRanking={newRanking}
+        initialTotalRanking={serializeBigInt(totalRanking)}
+        initialDailyRanking={serializeBigInt(dailyRanking)}
+        initialWeeklyRanking={serializeBigInt(weeklyRanking)}
+        initialNewRanking={serializeBigInt(newRanking)}
       />
     </Suspense>
   );

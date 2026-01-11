@@ -15,6 +15,7 @@
  */
 
 import { PrismaClient } from '../generated/prisma';
+import pLimit from 'p-limit';
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
@@ -479,9 +480,12 @@ export class UnifiedYouTubeCrawler {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Parallel execution for speed (Promise.all)
-      // Each PV gets its own small transaction to avoid timeout issues
-      const updatePromises = pvs.map(async (pv) => {
+      // Limited concurrency to avoid connection pool exhaustion
+      // With 10 parallel chunks, limit to 5 concurrent transactions per chunk
+      // (10 chunks × 5 concurrent = 50 total, within connection pool limits)
+      const limit = pLimit(5);
+      const updatePromises = pvs.map((pv) =>
+        limit(async () => {
         const videoData = videoDataMap.get(pv.pvId);
 
         if (videoData?.viewCount === undefined) {
@@ -493,53 +497,62 @@ export class UnifiedYouTubeCrawler {
           const koreanTitle = videoData.koreanTitle;
           let titleWasCreated = false;
 
-          // Individual transaction per PV (avoids timeout, maintains atomicity per PV)
-          await this.prisma.$transaction(async (tx) => {
-            // Update PV view count
-            await tx.pV.update({
-              where: { id: pv.id },
-              data: { viewCount, viewCountUpdatedAt: now },
-            });
+          // No transaction needed - each operation is independent and atomic
+          // This avoids connection pool exhaustion issues
 
-            // Upsert DailyViewCount for time-series tracking
-            await tx.dailyViewCount.upsert({
-              where: {
-                pvId_recordedDate: {
-                  pvId: pv.id,
-                  recordedDate: today,
-                },
-              },
-              update: { totalViews: viewCount },
-              create: {
+          // Update PV view count
+          await this.prisma.pV.update({
+            where: { id: pv.id },
+            data: { viewCount, viewCountUpdatedAt: now },
+          });
+
+          // Upsert DailyViewCount for time-series tracking
+          await this.prisma.dailyViewCount.upsert({
+            where: {
+              pvId_recordedDate: {
                 pvId: pv.id,
                 recordedDate: today,
-                totalViews: viewCount,
+              },
+            },
+            update: { totalViews: viewCount },
+            create: {
+              pvId: pv.id,
+              recordedDate: today,
+              totalViews: viewCount,
+            },
+          });
+
+          // Update Korean title in SongName table if found
+          // Use atomic UPSERT to prevent race conditions in parallel execution
+          if (koreanTitle) {
+            await this.prisma.songName.upsert({
+              where: {
+                songId_language: {  // Compound unique key
+                  songId: pv.songId,
+                  language: 'Korean',
+                },
+              },
+              update: {
+                value: koreanTitle,  // Update if title changed
+              },
+              create: {
+                songId: pv.songId,
+                language: 'Korean',
+                value: koreanTitle,
               },
             });
-
-            // Update Korean title in SongName table if found
-            if (koreanTitle) {
-              const existingKoreanName = await tx.songName.findFirst({
-                where: { songId: pv.songId, language: 'Korean' },
-              });
-
-              if (!existingKoreanName) {
-                await tx.songName.create({
-                  data: { songId: pv.songId, language: 'Korean', value: koreanTitle },
-                });
-                titleWasCreated = true;
-              }
-            }
-          });
+            titleWasCreated = true;  // True for both create and update (acceptable)
+          }
 
           return { success: true, titleCreated: titleWasCreated, pvId: pv.pvId };
         } catch (dbError) {
           console.error(`❌ DB update failed for PV ${pv.pvId} (ID: ${pv.id}, songId: ${pv.songId}):`, dbError);
           return { success: false, titleCreated: false, pvId: pv.pvId };
         }
-      });
+        })
+      );
 
-      // Execute all updates in parallel
+      // Execute with limited concurrency (max 5 concurrent transactions per chunk)
       const results = await Promise.all(updatePromises);
 
       // Count results

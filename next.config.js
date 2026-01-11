@@ -8,6 +8,11 @@ const nextConfig = {
         pathname: '/vi/**',
       },
       {
+        protocol: 'http',
+        hostname: 'nicovideo.cdn.nimg.jp',
+        pathname: '/thumbnails/**',
+      },
+      {
         protocol: 'https',
         hostname: 'nicovideo.cdn.nimg.jp',
         pathname: '/thumbnails/**',
@@ -16,6 +21,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'img.youtube.com',
         pathname: '/vi/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'static.vocadb.net',
       },
     ],
   },

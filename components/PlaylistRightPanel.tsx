@@ -4,6 +4,7 @@ import React from 'react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import { PlaylistTabs } from './PlaylistTabs';
 import { QueueTabContent } from './QueueTabContent';
+import { LyricsTabContent } from './LyricsTabContent';
 
 export function PlaylistRightPanel() {
   const { state, setActiveTab } = useMusicPlayer();
@@ -19,9 +20,7 @@ export function PlaylistRightPanel() {
         {state.activeTab === 'suggested' && (
           <div className="p-8 text-gray-400 text-center">준비 중...</div>
         )}
-        {state.activeTab === 'lyrics' && (
-          <div className="p-8 text-gray-400 text-center">준비 중...</div>
-        )}
+        {state.activeTab === 'lyrics' && <LyricsTabContent />}
         {state.activeTab === 'credits' && (
           <div className="p-8 text-gray-400 text-center">준비 중...</div>
         )}

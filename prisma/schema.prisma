@@ -61,6 +61,8 @@ model SongName {
   @@unique([songId, language])
   @@index([language])
   @@index([value])
+  // Optimization: Composite index for multi-language title aggregation
+  @@index([songId, language], name: "idx_song_names_titles")
   @@map("song_names")
 }
 
@@ -99,6 +101,7 @@ model SongArtist {
   @@unique([songId, artistId])
   @@index([artistId])
   @@index([categories])
+  @@index([songId, isSupport])
   @@map("song_artists")
 }
 
@@ -128,6 +131,10 @@ model PV {
   @@index([service])
   @@index([pvId])
   @@index([viewCount(sort: Desc)])
+  @@index([songId, service])
+  @@index([service, viewCount(sort: Desc)])
+  // Optimization: Composite index for YouTube view aggregation (getTotalRanking)
+  @@index([service, songId, viewCount(sort: Desc)], name: "idx_pvs_youtube_views")
   @@map("pvs")
 }
 
@@ -160,6 +167,8 @@ model SongTag {
 
   @@unique([songId, tagId])
   @@index([tagId])
+  // Optimization: Index for excluded tags filtering
+  @@index([tagId, songId], name: "idx_song_tags_exclusion")
   @@map("song_tags")
 }
 
@@ -195,6 +204,9 @@ model DailyViewCount {
 
   @@id([pvId, recordedDate])
   @@index([recordedDate(sort: Desc)])
+  @@index([pvId, recordedDate(sort: Desc)])
+  // Optimization: Index for recent daily changes window function queries
+  @@index([recordedDate(sort: Desc), pvId], name: "idx_daily_recent_changes")
   @@map("daily_view_counts")
 }
 

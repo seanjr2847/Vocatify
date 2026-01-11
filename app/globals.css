@@ -116,6 +116,32 @@
 
 :root {
   --animate-spin: spin 1s linear infinite;
+
+  /* Song Detail Page Design System */
+  --player-height: 150px;
+
+  /* Backgrounds */
+  --bg-primary: #121212;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #2a2a2a;
+
+  /* Text Colors */
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-tertiary: #6b7280;
+
+  /* Accent Colors */
+  --accent-primary: #39c5bb;
+  --accent-secondary: #facd66;
+
+  /* Border Colors */
+  --border-subtle: #2a2a2a;
+  --border-default: #3a3a3a;
+  --border-emphasis: #4a4a4a;
+}
+
+.pb-player-offset {
+  padding-bottom: var(--player-height);
 }
 
 .animate-fade-in {
@@ -174,6 +200,21 @@
     opacity: 1;
     transform: none;
   }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fade-up {

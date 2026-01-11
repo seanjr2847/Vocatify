@@ -93,7 +93,27 @@
       "Bash(cmd /c \"timeout /t 40 >nul\")",
       "Bash(cmd /c \"tail -100 C:\\\\Users\\\\user\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Projects-Vocatify\\\\tasks\\\\bd276c7.output\")",
       "Bash(cmd /c \"timeout /t 60 >nul\")",
-      "Bash(CHUNK_INDEX=0 TOTAL_CHUNKS=10 npx tsx:*)"
+      "Bash(CHUNK_INDEX=0 TOTAL_CHUNKS=10 npx tsx:*)",
+      "Skill(sc:improve)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "Bash(cmd /c \"del check-top-song.js\")",
+      "Bash(cmd /c \"del check-shoujo-a.js\")",
+      "Bash(cmd /c \"del test-youtube-api.js\")",
+      "Bash(cmd /c \"del check-top1.js manual-update-shoujo-a.ts\")",
+      "Bash(cmd /c \"del check-top1.js check-shoujo-a.js test-youtube-api.js manual-update-shoujo-a.ts\")",
+      "Bash(cmd /c \"if exist check-top1.js del /F check-top1.js && if exist check-shoujo-a.js del /F check-shoujo-a.js && if exist test-youtube-api.js del /F test-youtube-api.js && if exist check-top-song.js del /F check-top-song.js && if exist manual-update-shoujo-a.ts del /F manual-update-shoujo-a.ts\")",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.youtube.com)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(CHUNK_INDEX=3 TOTAL_CHUNKS=10 npx tsx:*)",
+      "Bash(git restore:*)",
+      "mcp__plugin_serena_serena__think_about_collected_information",
+      "mcp__plugin_serena_serena__search_for_pattern",
+      "mcp__plugin_serena_serena__activate_project",
+      "Bash(npm run db:check-skipped:*)",
+      "mcp__plugin_serena_serena__create_text_file"
     ]
   }
 }

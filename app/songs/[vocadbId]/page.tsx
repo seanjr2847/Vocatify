@@ -5,22 +5,36 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Calendar, Eye, Star, Tag, Play, Heart } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar, Eye, Star, Tag, Play, Heart, Clock, Trophy, TrendingUp, Globe, Share2, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { MusicPlayerSection } from '@/components/MusicPlayerSection';
-import { PlaySongButton } from '@/components/PlaySongButton';
+import { SongActionButtons } from '@/components/SongActionButtons';
 import { DailyViewsChart } from '@/components/charts/DailyViewsChart';
 import { RankingBadges } from '@/components/RankingBadges';
 import { ExternalLinks } from '@/components/ExternalLinks';
+import { InfoCard } from '@/components/InfoCard';
 import { StatisticsPanel } from '@/components/StatisticsPanel';
 import { RelatedSongsCarousel } from '@/components/RelatedSongsCarousel';
-import type { Song, DailyViewCount, RankingPositions, SongStatistics } from '@/lib/db';
-import { formatNumber, formatDate, getDisplayTitle } from '@/lib/utils/format-utils';
+import type { Song, SongDetail, DailyViewCount, RankingPositions, SongStatistics } from '@/lib/db';
+import { formatNumber, formatDate, getDisplayTitle, formatDuration } from '@/lib/utils/format-utils';
+
+// Extended song detail with computed fields for UI
+interface SongDetailExtended extends SongDetail {
+  titleKorean: string | null;
+  titleEnglish: string | null;
+  titleJapanese: string | null;
+  titleRomaji: string | null;
+  artistString: string;
+  viewCount: bigint | null;
+  viewCountUpdatedAt: Date | null;
+  youtubeId: string | null;
+  youtubeUrl: string | null;
+}
 
 interface ApiResponse {
   success: boolean;
   data?: {
-    song: Song;
+    song: SongDetailExtended;
     dailyViews: DailyViewCount[];
     rankings: RankingPositions;
     relatedSongs: Song[];
@@ -89,17 +103,17 @@ export default async function SongDetailPage({
                 <img
                   src={song.thumbUrl}
                   alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
-                  className="w-[232px] h-[232px] rounded-lg shadow-2xl object-cover"
+                  className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 rounded-lg shadow-2xl object-cover"
                 />
               ) : (
-                <div className="w-[232px] h-[232px] rounded-lg bg-gradient-to-br from-gray-700 to-gray-900 shadow-2xl" />
+                <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 rounded-lg bg-gradient-to-br from-gray-700 to-gray-900 shadow-2xl" />
               )}
             </div>
 
             {/* Song Info */}
             <div className="flex-1 pb-2">
               <p className="text-sm font-semibold mb-2">곡</p>
-              <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black mb-6 leading-tight">
                 {song.titleKorean ?? song.titleEnglish ?? song.defaultName}
               </h1>
 
@@ -131,73 +145,85 @@ export default async function SongDetailPage({
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-8 py-6 pb-[150px]">
+      <div className="max-w-7xl mx-auto px-8 py-6 pb-player-offset">
         {/* Action Buttons */}
-        <div className="flex items-center gap-4 mb-8">
-          <PlaySongButton song={song} />
+        <SongActionButtons song={song} />
 
-          <button className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-white transition-colors">
-            <Heart className="w-8 h-8" />
-          </button>
-        </div>
-
-        {/* Rankings Section */}
+        {/* Rankings Section - Enhanced */}
         {rankings && (rankings.total || rankings.daily || rankings.weekly) && (
-          <div className="mb-8">
-            <h3 className="text-lg font-bold mb-3">랭킹</h3>
+          <div className="mb-6 p-6 bg-gradient-to-r from-[#1a1a1a] to-[#252525] rounded-xl border border-gray-800 animate-fadeIn">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Trophy className="w-6 h-6 text-[#facd66]" />
+              랭킹
+            </h3>
             <RankingBadges rankings={rankings} />
           </div>
         )}
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div className="bg-[#1a1a1a] rounded-lg p-4 hover:bg-[#2a2a2a] transition-colors">
-            <div className="flex items-center gap-2 text-gray-400 text-xs mb-1">
-              <Eye className="w-4 h-4" />
-              <span>총 조회수</span>
+        {/* Stats Grid - Redesigned */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 animate-fadeIn">
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#252525] rounded-xl p-5 border border-gray-800 hover:border-gray-700 transition-all">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-gray-400 text-xs">
+                <Eye className="w-5 h-5" />
+                <span className="font-medium">총 조회수</span>
+              </div>
+              <TrendingUp className="w-5 h-5 text-[#39c5bb]" />
             </div>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold">
               {song.viewCount ? formatNumber(song.viewCount) : 'N/A'}
             </div>
+            {dailyViews.length >= 30 && (
+              <p className="text-xs text-gray-500 mt-2">
+                최근 30일 데이터 추적 중
+              </p>
+            )}
           </div>
 
           {weeklyIncrease > 0 && (
-            <div className="bg-[#1a1a1a] rounded-lg p-4 hover:bg-[#2a2a2a] transition-colors">
-              <div className="text-gray-400 text-xs mb-1">주간 증가</div>
-              <div className="text-2xl font-bold text-[#39c5bb]">
+            <div className="bg-gradient-to-br from-[#1a1a1a] to-[#252525] rounded-xl p-5 border border-gray-800 hover:border-gray-700 transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-gray-400 text-xs font-medium">주간 증가</div>
+                <TrendingUp className="w-5 h-5 text-[#39c5bb]" />
+              </div>
+              <div className="text-3xl font-bold text-[#39c5bb]">
                 +{formatNumber(weeklyIncrease)}
               </div>
+              <p className="text-xs text-gray-500 mt-2">
+                최근 7일간 증가량
+              </p>
             </div>
           )}
         </div>
 
         {/* Alternative Titles */}
         {(song.titleEnglish || song.titleJapanese || song.titleRomaji) && (
-          <div className="mb-8">
-            <h3 className="text-lg font-bold mb-3">다른 제목</h3>
-            <div className="space-y-2 text-sm text-gray-400">
+          <InfoCard title="다른 제목" icon={<Globe className="w-5 h-5" />} className="mb-6 animate-fadeIn">
+            <div className="space-y-3">
               {song.titleEnglish && (
-                <div>
-                  <span className="text-gray-500">영어:</span> {song.titleEnglish}
+                <div className="flex items-start gap-3">
+                  <span className="px-2 py-1 bg-[#2a2a2a] rounded text-xs text-gray-400 font-medium">EN</span>
+                  <span className="text-gray-300 flex-1">{song.titleEnglish}</span>
                 </div>
               )}
               {song.titleJapanese && (
-                <div>
-                  <span className="text-gray-500">일본어:</span> {song.titleJapanese}
+                <div className="flex items-start gap-3">
+                  <span className="px-2 py-1 bg-[#2a2a2a] rounded text-xs text-gray-400 font-medium">JP</span>
+                  <span className="text-gray-300 flex-1">{song.titleJapanese}</span>
                 </div>
               )}
               {song.titleRomaji && (
-                <div>
-                  <span className="text-gray-500">로마자:</span> {song.titleRomaji}
+                <div className="flex items-start gap-3">
+                  <span className="px-2 py-1 bg-[#2a2a2a] rounded text-xs text-gray-400 font-medium">RM</span>
+                  <span className="text-gray-300 flex-1">{song.titleRomaji}</span>
                 </div>
               )}
             </div>
-          </div>
+          </InfoCard>
         )}
 
         {/* Song Info */}
-        <div className="mb-8">
-          <h3 className="text-lg font-bold mb-3">곡 정보</h3>
+        <InfoCard title="곡 정보" icon={<Tag className="w-5 h-5" />} className="mb-6 animate-fadeIn">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             {song.publishDate && (
               <div className="flex items-start gap-3">
@@ -209,35 +235,52 @@ export default async function SongDetailPage({
               </div>
             )}
 
+            {song.lengthSeconds && (
+              <div className="flex items-start gap-3">
+                <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
+                <div>
+                  <div className="text-gray-400">곡 길이</div>
+                  <div className="font-semibold">{formatDuration(song.lengthSeconds)}</div>
+                </div>
+              </div>
+            )}
+
             {song.songType && (
               <div className="flex items-start gap-3">
-                <div className="w-4 h-4 mt-0.5" />
+                <Star className="w-4 h-4 text-gray-400 mt-0.5" />
                 <div>
                   <div className="text-gray-400">곡 유형</div>
                   <div className="font-semibold">{song.songType}</div>
                 </div>
               </div>
             )}
-
-            <div className="flex items-start gap-3">
-              <div className="w-4 h-4 mt-0.5" />
-              <div>
-                <div className="text-gray-400">VocaDB ID</div>
-                <div className="font-semibold">#{song.vocadbId}</div>
-              </div>
-            </div>
-
-            {song.viewCountUpdatedAt && (
-              <div className="flex items-start gap-3">
-                <div className="w-4 h-4 mt-0.5" />
-                <div>
-                  <div className="text-gray-400">마지막 업데이트</div>
-                  <div className="font-semibold">{formatDate(song.viewCountUpdatedAt)}</div>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
+        </InfoCard>
+
+        {/* Tags */}
+        {song.tags && song.tags.length > 0 && (
+          <div className="mb-6 animate-fadeIn">
+            <h3 className="text-lg font-bold mb-3">태그</h3>
+            <div className="flex flex-wrap gap-2">
+              {song.tags.map((tag) => (
+                <button
+                  key={tag.id}
+                  className="group px-4 py-2 bg-[#2a2a2a] hover:bg-[#3a3a3a] border border-gray-800 hover:border-[#39c5bb] rounded-lg text-sm transition-all"
+                  title={tag.categoryName || undefined}
+                >
+                  <span className="text-gray-300 group-hover:text-white">
+                    {tag.name}
+                  </span>
+                  {tag.count > 5 && (
+                    <span className="ml-2 text-xs text-gray-500">
+                      {tag.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* External Links */}
         <div className="mb-8">
@@ -260,23 +303,6 @@ export default async function SongDetailPage({
             <RelatedSongsCarousel songs={relatedSongs} title={song.artistString} />
           </div>
         )}
-
-        {/* Tags */}
-        {/* {song.tags && (
-          <div className="mb-8">
-            <h3 className="text-lg font-bold mb-3">태그</h3>
-            <div className="flex flex-wrap gap-2">
-              {song.tags.split(',').map((tag, index) => (
-                <span
-                  key={index}
-                  className="bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white px-3 py-1.5 rounded-full text-sm transition-colors cursor-pointer"
-                >
-                  {tag.trim()}
-                </span>
-              ))}
-            </div>
-          </div>
-        )} */}
 
         {/* View History Chart */}
         {dailyViews.length > 0 && (

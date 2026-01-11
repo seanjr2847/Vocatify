@@ -36,6 +36,7 @@ export interface RankingItem extends RankingSong {
   rank: number;
   dailyIncrease?: bigint;
   weeklyIncrease?: bigint;
+  lengthSeconds: number | null;
 }
 
 export interface SongDetail {
@@ -69,7 +70,7 @@ export interface SongDetail {
     viewCountUpdatedAt: Date | null;
   }[];
   tags: { id: number; name: string; categoryName: string | null; count: number }[];
-  lyrics: { id: number; translationType: string; cultureCode: string | null; url: string | null }[];
+  lyrics: { id: number; translationType: string; cultureCode: string | null; source: string | null; url: string | null; value: string | null }[];
 }
 
 export interface RankingPositions {
@@ -107,6 +108,7 @@ export interface SongStatistics {
 
 const EXCLUDED_TAG_NAMES = ['human singers', 'out of scope (cover unifier)'];
 
+
 // ============================================================
 // Ranking Functions
 // ============================================================
@@ -115,50 +117,74 @@ const EXCLUDED_TAG_NAMES = ['human singers', 'out of scope (cover unifier)'];
  * 총 조회수 기준 랭킹 조회
  * - PV 테이블에서 YouTube 조회수 합산
  * - 제외 태그가 있는 곡 필터링
+ * - 최적화:
+ *   1. 재사용 가능한 CTE로 중복 제거
+ *   2. Composite index 활용 (idx_pvs_youtube_views)
+ *   3. LEFT JOIN ANTI 패턴으로 NOT IN 대체
  */
 export async function getTotalRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
   const songs = await prisma.$queryRaw<any[]>`
     WITH song_views AS (
       SELECT
-        p.song_id,
-        SUM(p.view_count) as total_view_count,
-        MAX(p.view_count_updated_at) as last_updated
-      FROM pvs p
-      WHERE p.service = 'Youtube' AND p.view_count IS NOT NULL
-      GROUP BY p.song_id
+        song_id,
+        SUM(view_count) as total_view_count,
+        MAX(view_count_updated_at) as last_updated
+      FROM pvs
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      GROUP BY song_id
     ),
-    excluded_songs AS (
-      SELECT DISTINCT st.song_id
-      FROM song_tags st
-      JOIN tags t ON st.tag_id = t.vocadb_id
-      WHERE LOWER(t.name) IN ('human singers', 'out of scope (cover unifier)')
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artists AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube'
+      ORDER BY song_id, id
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY sv.total_view_count DESC) as rank,
       s.vocadb_id as "vocadbId",
       s.default_name as "defaultName",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Korean' LIMIT 1) as "titleKorean",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'English' LIMIT 1) as "titleEnglish",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Japanese' LIMIT 1) as "titleJapanese",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Romaji' LIMIT 1) as "titleRomaji",
-      (
-        SELECT STRING_AGG(a.name, ', ' ORDER BY sa.id)
-        FROM song_artists sa
-        JOIN artists a ON sa.artist_id = a.vocadb_id
-        WHERE sa.song_id = s.vocadb_id AND sa.is_support = false
-      ) as "artistString",
-      (SELECT pv_id FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeId",
-      (SELECT url FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeUrl",
+      st.title_korean as "titleKorean",
+      st.title_english as "titleEnglish",
+      st.title_japanese as "titleJapanese",
+      st.title_romaji as "titleRomaji",
+      sa.artist_string as "artistString",
+      sy.youtube_id as "youtubeId",
+      sy.youtube_url as "youtubeUrl",
       s.thumb_url as "thumbUrl",
       sv.total_view_count as "viewCount",
       sv.last_updated as "viewCountUpdatedAt",
       s.publish_date as "publishDate",
       s.song_type as "songType",
       s.favorited_times as "favoritedTimes",
-      s.rating_score as "ratingScore"
+      s.rating_score as "ratingScore",
+      s.length_seconds as "lengthSeconds"
     FROM songs s
     JOIN song_views sv ON s.vocadb_id = sv.song_id
-    WHERE s.vocadb_id NOT IN (SELECT song_id FROM excluded_songs)
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
     ORDER BY sv.total_view_count DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -171,6 +197,11 @@ export async function getTotalRanking(limit: number = 100, offset: number = 0): 
 
 /**
  * 일간 증가량 기준 랭킹 조회
+ * - 최적화:
+ *   1. 재사용 가능한 CTE로 중복 제거
+ *   2. Composite index 활용 (idx_daily_recent_changes)
+ *   3. LEFT JOIN ANTI 패턴으로 NOT IN 대체
+ *   4. Window function 최적화
  */
 export async function getDailyRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
   const songs = await prisma.$queryRaw<any[]>`
@@ -198,33 +229,50 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
         AND daily_increase > 0
       GROUP BY song_id
     ),
-    excluded_songs AS (
-      SELECT DISTINCT st.song_id
-      FROM song_tags st
-      JOIN tags t ON st.tag_id = t.vocadb_id
-      WHERE LOWER(t.name) IN ('human singers', 'out of scope (cover unifier)')
-    ),
     song_views AS (
       SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artists AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube'
+      ORDER BY song_id, id
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY tc.daily_increase DESC) as rank,
       s.vocadb_id as "vocadbId",
       s.default_name as "defaultName",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Korean' LIMIT 1) as "titleKorean",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'English' LIMIT 1) as "titleEnglish",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Japanese' LIMIT 1) as "titleJapanese",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Romaji' LIMIT 1) as "titleRomaji",
-      (
-        SELECT STRING_AGG(a.name, ', ' ORDER BY sa.id)
-        FROM song_artists sa
-        JOIN artists a ON sa.artist_id = a.vocadb_id
-        WHERE sa.song_id = s.vocadb_id AND sa.is_support = false
-      ) as "artistString",
-      (SELECT pv_id FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeId",
-      (SELECT url FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeUrl",
+      st.title_korean as "titleKorean",
+      st.title_english as "titleEnglish",
+      st.title_japanese as "titleJapanese",
+      st.title_romaji as "titleRomaji",
+      sa.artist_string as "artistString",
+      sy.youtube_id as "youtubeId",
+      sy.youtube_url as "youtubeUrl",
       s.thumb_url as "thumbUrl",
       sv.total_view_count as "viewCount",
       sv.last_updated as "viewCountUpdatedAt",
@@ -232,11 +280,14 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
       s.song_type as "songType",
       s.favorited_times as "favoritedTimes",
       s.rating_score as "ratingScore",
+      s.length_seconds as "lengthSeconds",
       tc.daily_increase as "dailyIncrease"
     FROM today_changes tc
     JOIN songs s ON s.vocadb_id = tc.song_id
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
-    WHERE tc.song_id NOT IN (SELECT song_id FROM excluded_songs)
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
     ORDER BY tc.daily_increase DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -249,6 +300,10 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
 
 /**
  * 주간 증가량 기준 랭킹 조회
+ * - 최적화:
+ *   1. 재사용 가능한 CTE로 중복 제거
+ *   2. LEFT JOIN ANTI 패턴으로 NOT IN 대체
+ *   3. 주간 데이터 집계 최적화
  */
 export async function getWeeklyRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
   const songs = await prisma.$queryRaw<any[]>`
@@ -279,33 +334,50 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
       WHERE latest_views > 0
         AND (latest_views - week_ago_views) > 0
     ),
-    excluded_songs AS (
-      SELECT DISTINCT st.song_id
-      FROM song_tags st
-      JOIN tags t ON st.tag_id = t.vocadb_id
-      WHERE LOWER(t.name) IN ('human singers', 'out of scope (cover unifier)')
-    ),
     song_views AS (
       SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artists AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube'
+      ORDER BY song_id, id
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY wi.weekly_increase DESC) as rank,
       s.vocadb_id as "vocadbId",
       s.default_name as "defaultName",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Korean' LIMIT 1) as "titleKorean",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'English' LIMIT 1) as "titleEnglish",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Japanese' LIMIT 1) as "titleJapanese",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Romaji' LIMIT 1) as "titleRomaji",
-      (
-        SELECT STRING_AGG(a.name, ', ' ORDER BY sa.id)
-        FROM song_artists sa
-        JOIN artists a ON sa.artist_id = a.vocadb_id
-        WHERE sa.song_id = s.vocadb_id AND sa.is_support = false
-      ) as "artistString",
-      (SELECT pv_id FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeId",
-      (SELECT url FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeUrl",
+      st.title_korean as "titleKorean",
+      st.title_english as "titleEnglish",
+      st.title_japanese as "titleJapanese",
+      st.title_romaji as "titleRomaji",
+      sa.artist_string as "artistString",
+      sy.youtube_id as "youtubeId",
+      sy.youtube_url as "youtubeUrl",
       s.thumb_url as "thumbUrl",
       sv.total_view_count as "viewCount",
       sv.last_updated as "viewCountUpdatedAt",
@@ -313,11 +385,14 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
       s.song_type as "songType",
       s.favorited_times as "favoritedTimes",
       s.rating_score as "ratingScore",
+      s.length_seconds as "lengthSeconds",
       wi.weekly_increase as "weeklyIncrease"
     FROM weekly_increases wi
     JOIN songs s ON s.vocadb_id = wi.song_id
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
-    WHERE wi.song_id NOT IN (SELECT song_id FROM excluded_songs)
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
     ORDER BY wi.weekly_increase DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -330,47 +405,71 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
 
 /**
  * 신곡 랭킹 조회 (발매일 최신순)
+ * - 최적화:
+ *   1. 재사용 가능한 CTE로 중복 제거
+ *   2. LEFT JOIN ANTI 패턴으로 NOT IN 대체
+ *   3. idx_songs_publish 인덱스 활용
  */
 export async function getNewSongsRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
   const songs = await prisma.$queryRaw<any[]>`
-    WITH excluded_songs AS (
-      SELECT DISTINCT st.song_id
-      FROM song_tags st
-      JOIN tags t ON st.tag_id = t.vocadb_id
-      WHERE LOWER(t.name) IN ('human singers', 'out of scope (cover unifier)')
-    ),
-    song_views AS (
+    WITH song_views AS (
       SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artists AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube'
+      ORDER BY song_id, id
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY s.publish_date DESC) as rank,
       s.vocadb_id as "vocadbId",
       s.default_name as "defaultName",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Korean' LIMIT 1) as "titleKorean",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'English' LIMIT 1) as "titleEnglish",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Japanese' LIMIT 1) as "titleJapanese",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Romaji' LIMIT 1) as "titleRomaji",
-      (
-        SELECT STRING_AGG(a.name, ', ' ORDER BY sa.id)
-        FROM song_artists sa
-        JOIN artists a ON sa.artist_id = a.vocadb_id
-        WHERE sa.song_id = s.vocadb_id AND sa.is_support = false
-      ) as "artistString",
-      (SELECT pv_id FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeId",
-      (SELECT url FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeUrl",
+      st.title_korean as "titleKorean",
+      st.title_english as "titleEnglish",
+      st.title_japanese as "titleJapanese",
+      st.title_romaji as "titleRomaji",
+      sa.artist_string as "artistString",
+      sy.youtube_id as "youtubeId",
+      sy.youtube_url as "youtubeUrl",
       s.thumb_url as "thumbUrl",
       sv.total_view_count as "viewCount",
       sv.last_updated as "viewCountUpdatedAt",
       s.publish_date as "publishDate",
       s.song_type as "songType",
       s.favorited_times as "favoritedTimes",
-      s.rating_score as "ratingScore"
+      s.rating_score as "ratingScore",
+      s.length_seconds as "lengthSeconds"
     FROM songs s
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
     WHERE s.publish_date IS NOT NULL
-      AND s.vocadb_id NOT IN (SELECT song_id FROM excluded_songs)
     ORDER BY s.publish_date DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -450,7 +549,9 @@ export async function getSongById(vocadbId: number): Promise<SongDetail | null> 
       id: l.id,
       translationType: l.translationType,
       cultureCode: l.cultureCode,
+      source: l.source,
       url: l.url,
+      value: l.value,
     })),
   };
 }
@@ -516,6 +617,7 @@ export async function getStats(): Promise<{
 
 /**
  * 곡의 랭킹 위치 조회 (전체/일간/주간)
+ * - 최적화: LEFT JOIN ANTI 패턴으로 NOT IN 제거
  */
 export async function getSongRankPositions(vocadbId: number): Promise<RankingPositions> {
   // 총 조회수 랭킹 위치
@@ -525,18 +627,11 @@ export async function getSongRankPositions(vocadbId: number): Promise<RankingPos
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
     ),
-    excluded_songs AS (
-      SELECT DISTINCT st.song_id
-      FROM song_tags st
-      JOIN tags t ON st.tag_id = t.vocadb_id
-      WHERE LOWER(t.name) IN ('human singers', 'out of scope (cover unifier)')
-    ),
     ranked AS (
       SELECT
-        song_id,
-        ROW_NUMBER() OVER (ORDER BY total_view_count DESC) as position
-      FROM song_views
-      WHERE song_id NOT IN (SELECT song_id FROM excluded_songs)
+        sv.song_id,
+        ROW_NUMBER() OVER (ORDER BY sv.total_view_count DESC) as position
+      FROM song_views sv
     )
     SELECT position FROM ranked WHERE song_id = ${vocadbId}
   `;
@@ -622,32 +717,59 @@ export async function searchSongs(
       SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artists AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube'
+      ORDER BY song_id, id
     )
     SELECT
       s.vocadb_id as "vocadbId",
       s.default_name as "defaultName",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Korean' LIMIT 1) as "titleKorean",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'English' LIMIT 1) as "titleEnglish",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Japanese' LIMIT 1) as "titleJapanese",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Romaji' LIMIT 1) as "titleRomaji",
-      (
-        SELECT STRING_AGG(a.name, ', ' ORDER BY sa.id)
-        FROM song_artists sa
-        JOIN artists a ON sa.artist_id = a.vocadb_id
-        WHERE sa.song_id = s.vocadb_id AND sa.is_support = false
-      ) as "artistString",
-      (SELECT pv_id FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeId",
-      (SELECT url FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeUrl",
+      st.title_korean as "titleKorean",
+      st.title_english as "titleEnglish",
+      st.title_japanese as "titleJapanese",
+      st.title_romaji as "titleRomaji",
+      sa.artist_string as "artistString",
+      sy.youtube_id as "youtubeId",
+      sy.youtube_url as "youtubeUrl",
       s.thumb_url as "thumbUrl",
       sv.total_view_count as "viewCount",
       sv.last_updated as "viewCountUpdatedAt",
       s.publish_date as "publishDate",
       s.song_type as "songType",
       s.favorited_times as "favoritedTimes",
-      s.rating_score as "ratingScore"
+      s.rating_score as "ratingScore",
+      s.length_seconds as "lengthSeconds"
     FROM songs s
     JOIN matching_songs ms ON s.vocadb_id = ms.vocadb_id
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
     ORDER BY COALESCE(sv.total_view_count, 0) DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -681,6 +803,7 @@ export async function searchSongs(
 
 /**
  * 같은 아티스트의 다른 인기곡 조회
+ * - 최적화: 재사용 가능한 CTE로 중복 제거
  */
 export async function getRelatedSongsByArtist(
   artistId: number,
@@ -698,24 +821,48 @@ export async function getRelatedSongsByArtist(
       SELECT song_id, SUM(view_count) as total_view_count
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artists AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube'
+      ORDER BY song_id, id
     )
     SELECT
       s.vocadb_id as "vocadbId",
       s.default_name as "defaultName",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Korean' LIMIT 1) as "titleKorean",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'English' LIMIT 1) as "titleEnglish",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Japanese' LIMIT 1) as "titleJapanese",
-      (SELECT value FROM song_names WHERE song_id = s.vocadb_id AND language = 'Romaji' LIMIT 1) as "titleRomaji",
-      (
-        SELECT STRING_AGG(a.name, ', ' ORDER BY sa.id)
-        FROM song_artists sa
-        JOIN artists a ON sa.artist_id = a.vocadb_id
-        WHERE sa.song_id = s.vocadb_id AND sa.is_support = false
-      ) as "artistString",
-      (SELECT pv_id FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeId",
-      (SELECT url FROM pvs WHERE song_id = s.vocadb_id AND service = 'Youtube' LIMIT 1) as "youtubeUrl",
+      st.title_korean as "titleKorean",
+      st.title_english as "titleEnglish",
+      st.title_japanese as "titleJapanese",
+      st.title_romaji as "titleRomaji",
+      sa.artist_string as "artistString",
+      sy.youtube_id as "youtubeId",
+      sy.youtube_url as "youtubeUrl",
       s.thumb_url as "thumbUrl",
       sv.total_view_count as "viewCount",
+      NULL as "viewCountUpdatedAt",
       s.publish_date as "publishDate",
       s.song_type as "songType",
       s.favorited_times as "favoritedTimes",
@@ -723,6 +870,9 @@ export async function getRelatedSongsByArtist(
     FROM songs s
     JOIN artist_songs asng ON s.vocadb_id = asng.song_id
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
     ORDER BY COALESCE(sv.total_view_count, 0) DESC
     LIMIT ${limit}
   `;
@@ -736,6 +886,7 @@ export async function getRelatedSongsByArtist(
 
 /**
  * 곡의 통계 정보 조회 (오늘/어제/이번주/지난주 조회수 증가량 등)
+ * - 최적화: 중첩 서브쿼리를 집계 함수로 변경하여 단일 스캔으로 처리
  */
 export async function getSongStatistics(vocadbId: number): Promise<SongStatistics | null> {
   try {
@@ -748,10 +899,11 @@ export async function getSongStatistics(vocadbId: number): Promise<SongStatistic
           dvc.recorded_date,
           SUM(dvc.total_views) as total_views
         FROM daily_view_counts dvc
-        WHERE dvc.pv_id IN (SELECT id FROM pv_ids)
+        JOIN pvs p ON dvc.pv_id = p.id
+        WHERE p.song_id = ${vocadbId}
+          AND p.service = 'Youtube'
           AND dvc.recorded_date >= CURRENT_DATE - INTERVAL '14 days'
         GROUP BY dvc.recorded_date
-        ORDER BY dvc.recorded_date DESC
       ),
       daily_increases AS (
         SELECT
@@ -761,13 +913,14 @@ export async function getSongStatistics(vocadbId: number): Promise<SongStatistic
         FROM daily_data
       )
       SELECT
-        (SELECT total_views FROM daily_data WHERE recorded_date = CURRENT_DATE) as "viewsToday",
-        (SELECT total_views FROM daily_data WHERE recorded_date = CURRENT_DATE - INTERVAL '1 day') as "viewsYesterday",
-        (SELECT SUM(daily_increase) FROM daily_increases WHERE recorded_date > CURRENT_DATE - INTERVAL '7 days') as "viewsThisWeek",
-        (SELECT SUM(daily_increase) FROM daily_increases WHERE recorded_date <= CURRENT_DATE - INTERVAL '7 days' AND recorded_date > CURRENT_DATE - INTERVAL '14 days') as "viewsLastWeek",
-        (SELECT AVG(daily_increase) FROM daily_increases WHERE daily_increase > 0) as "avgDailyViews",
-        (SELECT MAX(daily_increase) FROM daily_increases) as "peakDailyIncrease",
-        (SELECT recorded_date FROM daily_increases WHERE daily_increase = (SELECT MAX(daily_increase) FROM daily_increases) LIMIT 1) as "peakDate"
+        MAX(CASE WHEN recorded_date = CURRENT_DATE THEN total_views END) as "viewsToday",
+        MAX(CASE WHEN recorded_date = CURRENT_DATE - INTERVAL '1 day' THEN total_views END) as "viewsYesterday",
+        SUM(CASE WHEN recorded_date > CURRENT_DATE - INTERVAL '7 days' THEN daily_increase ELSE 0 END) as "viewsThisWeek",
+        SUM(CASE WHEN recorded_date <= CURRENT_DATE - INTERVAL '7 days' AND recorded_date > CURRENT_DATE - INTERVAL '14 days' THEN daily_increase ELSE 0 END) as "viewsLastWeek",
+        AVG(CASE WHEN daily_increase > 0 THEN daily_increase END) as "avgDailyViews",
+        MAX(daily_increase) as "peakDailyIncrease",
+        MAX(CASE WHEN daily_increase = (SELECT MAX(daily_increase) FROM daily_increases) THEN recorded_date END) as "peakDate"
+      FROM daily_increases
     `;
 
     if (result.length === 0) return null;

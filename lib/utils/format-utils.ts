@@ -82,3 +82,16 @@ export function formatPublishDate(date: Date | string | null | undefined): strin
 
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
+
+/**
+ * Format duration in seconds to MM:SS format
+ * @example formatDuration(225) => '3:45'
+ * @example formatDuration(60) => '1:00'
+ * @example formatDuration(null) => ''
+ */
+export function formatDuration(seconds: number | null | undefined): string {
+  if (!seconds) return '';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}

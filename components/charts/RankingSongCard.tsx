@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Play, Plus, Radio } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import type { RankingItem } from '@/lib/db';
-import { formatNumber, getDisplayTitle, getYouTubeThumbnail, formatPublishDate } from '@/lib/utils/format-utils';
+import { formatNumber, getDisplayTitle, getYouTubeThumbnail, formatPublishDate, formatDuration } from '@/lib/utils/format-utils';
 
 interface RankingSongCardProps {
   song: RankingItem;
@@ -81,6 +81,12 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
           <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
             {song.viewCount && (
               <span>{formatNumber(song.viewCount)} 조회</span>
+            )}
+            {song.lengthSeconds && (
+              <>
+                <span>•</span>
+                <span>{formatDuration(song.lengthSeconds)}</span>
+              </>
             )}
             {song.dailyIncrease && song.dailyIncrease > 0 && (
               <>

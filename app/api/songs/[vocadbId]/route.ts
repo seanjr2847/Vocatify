@@ -47,6 +47,37 @@ export async function GET(
     const primaryArtist = song.artists.find(a => !a.isSupport);
     const primaryArtistId = primaryArtist?.id ?? null;
 
+    // Compute UI-friendly fields
+    const titleKorean = song.names.find(n => n.language === 'Korean')?.value || null;
+    const titleEnglish = song.names.find(n => n.language === 'English')?.value || null;
+    const titleJapanese = song.names.find(n => n.language === 'Japanese')?.value || null;
+    const titleRomaji = song.names.find(n => n.language === 'Romaji')?.value || null;
+
+    const artistString = song.artists
+      .filter(a => !a.isSupport)
+      .map(a => a.name)
+      .join(', ');
+
+    const youtubePv = song.pvs.find(pv => pv.service === 'Youtube');
+    const viewCount = youtubePv?.viewCount || null;
+    const viewCountUpdatedAt = youtubePv?.viewCountUpdatedAt || null;
+    const youtubeId = youtubePv?.pvId || null;
+    const youtubeUrl = youtubePv?.url || null;
+
+    // Extended song with computed fields
+    const extendedSong = {
+      ...song,
+      titleKorean,
+      titleEnglish,
+      titleJapanese,
+      titleRomaji,
+      artistString,
+      viewCount,
+      viewCountUpdatedAt,
+      youtubeId,
+      youtubeUrl,
+    };
+
     // 병렬로 추가 데이터 조회
     const [dailyViews, rankings, relatedSongs, statistics] = await Promise.all([
       Promise.resolve(getDailyViewCounts(vocadbId, 30)),
@@ -66,16 +97,23 @@ export async function GET(
       }),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: serializeBigInt({
-        song,
-        dailyViews,
-        rankings,
-        relatedSongs,
-        statistics,
-      }),
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: serializeBigInt({
+          song: extendedSong,
+          dailyViews,
+          rankings,
+          relatedSongs,
+          statistics,
+        }),
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('곡 상세 조회 오류:', error);
     return NextResponse.json(

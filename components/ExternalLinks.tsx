@@ -13,41 +13,22 @@ export function ExternalLinks({ vocadbId, youtubeUrl }: ExternalLinksProps) {
       url: `https://vocadb.net/S/${vocadbId}`,
       available: true,
     },
-    {
-      label: 'YouTube',
-      icon: Video,
-      url: youtubeUrl || '#',
-      available: !!youtubeUrl,
-    },
-    {
-      label: 'NicoNico',
-      icon: Video,
-      url: '#',
-      available: false,
-    },
+    ...(youtubeUrl
+      ? [
+          {
+            label: 'YouTube',
+            icon: Video,
+            url: youtubeUrl,
+            available: true,
+          },
+        ]
+      : []),
   ];
 
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {links.map((link) => {
         const Icon = link.icon;
-
-        if (!link.available) {
-          return (
-            <div
-              key={link.label}
-              className="bg-[#2a2a2a] border border-gray-600 rounded-lg px-4 py-3 flex items-center gap-3 min-w-[140px] opacity-50 cursor-not-allowed"
-            >
-              <Icon className="w-5 h-5 text-gray-500" />
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-gray-500">
-                  {link.label}
-                </div>
-                <div className="text-xs text-gray-600">Not Available</div>
-              </div>
-            </div>
-          );
-        }
 
         return (
           <a
@@ -55,18 +36,10 @@ export function ExternalLinks({ vocadbId, youtubeUrl }: ExternalLinksProps) {
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-[#1a1a1a] border border-gray-700 hover:border-[#39c5bb] rounded-lg px-4 py-3 flex items-center gap-3 min-w-[140px] transition-all hover:bg-[#2a2a2a] group"
+            className="flex items-center justify-between p-4 bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] rounded-lg border border-gray-800 hover:border-[#39c5bb] transition-all group"
           >
-            <Icon className="w-5 h-5 text-gray-400 group-hover:text-[#39c5bb] transition-colors" />
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-white group-hover:text-[#39c5bb] transition-colors">
-                {link.label}
-              </div>
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <span>Visit</span>
-                <ExternalLink className="w-3 h-3" />
-              </div>
-            </div>
+            <span className="font-medium">{link.label}</span>
+            <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-[#39c5bb] transition-colors" />
           </a>
         );
       })}
