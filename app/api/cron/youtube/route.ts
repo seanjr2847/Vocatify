@@ -10,10 +10,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@/lib/generated/prisma';
+import { prisma } from '@/lib/prisma';
 import { UnifiedYouTubeCrawler, UnifiedCrawlerMode } from '@/lib/crawlers/unified-youtube-crawler';
-
-const prisma = new PrismaClient();
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -101,10 +99,8 @@ export async function POST(request: NextRequest) {
       error: errorMessage,
       duration: `${duration}s`,
     }, { status: 500 });
-
-  } finally {
-    await prisma.$disconnect();
   }
+  // Note: Do NOT call prisma.$disconnect() in serverless - connections are reused
 }
 
 // For testing: Allow GET requests to check status
@@ -125,8 +121,6 @@ export async function GET() {
       success: false,
       error: errorMessage,
     }, { status: 500 });
-
-  } finally {
-    await prisma.$disconnect();
   }
+  // Note: Do NOT call prisma.$disconnect() in serverless - connections are reused
 }
