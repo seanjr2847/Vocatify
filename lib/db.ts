@@ -127,7 +127,7 @@ export async function getTotalRanking(limit: number = 100, offset: number = 0): 
     WITH song_views AS (
       SELECT
         song_id,
-        SUM(view_count) as total_view_count,
+        MAX(view_count) as total_view_count,
         MAX(view_count_updated_at) as last_updated
       FROM pvs
       WHERE service = 'Youtube' AND view_count IS NOT NULL
@@ -158,8 +158,8 @@ export async function getTotalRanking(limit: number = 100, offset: number = 0): 
         pv_id as youtube_id,
         url as youtube_url
       FROM pvs
-      WHERE service = 'Youtube'
-      ORDER BY song_id, id
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY sv.total_view_count DESC) as rank,
@@ -223,14 +223,14 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
     today_changes AS (
       SELECT
         song_id,
-        SUM(daily_increase) as daily_increase
+        MAX(daily_increase) as daily_increase
       FROM daily_changes
       WHERE recorded_date = CURRENT_DATE
         AND daily_increase > 0
       GROUP BY song_id
     ),
     song_views AS (
-      SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
+      SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
     ),
@@ -259,8 +259,8 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
         pv_id as youtube_id,
         url as youtube_url
       FROM pvs
-      WHERE service = 'Youtube'
-      ORDER BY song_id, id
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY tc.daily_increase DESC) as rank,
@@ -321,8 +321,8 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
     weekly_changes AS (
       SELECT
         song_id,
-        SUM(CASE WHEN recorded_date = CURRENT_DATE THEN total_views ELSE 0 END) as latest_views,
-        SUM(CASE WHEN recorded_date = CURRENT_DATE - INTERVAL '7 days' THEN total_views ELSE 0 END) as week_ago_views
+        MAX(CASE WHEN recorded_date = CURRENT_DATE THEN total_views ELSE 0 END) as latest_views,
+        MAX(CASE WHEN recorded_date = CURRENT_DATE - INTERVAL '7 days' THEN total_views ELSE 0 END) as week_ago_views
       FROM weekly_data
       GROUP BY song_id
     ),
@@ -335,7 +335,7 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
         AND (latest_views - week_ago_views) > 0
     ),
     song_views AS (
-      SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
+      SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
     ),
@@ -364,8 +364,8 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
         pv_id as youtube_id,
         url as youtube_url
       FROM pvs
-      WHERE service = 'Youtube'
-      ORDER BY song_id, id
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY wi.weekly_increase DESC) as rank,
@@ -413,7 +413,7 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
 export async function getNewSongsRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
   const songs = await prisma.$queryRaw<any[]>`
     WITH song_views AS (
-      SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
+      SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
     ),
@@ -442,8 +442,8 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
         pv_id as youtube_id,
         url as youtube_url
       FROM pvs
-      WHERE service = 'Youtube'
-      ORDER BY song_id, id
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
     )
     SELECT
       ROW_NUMBER() OVER (ORDER BY s.publish_date DESC) as rank,
@@ -598,12 +598,17 @@ export async function getStats(): Promise<{
   const [songCount, viewStats] = await Promise.all([
     prisma.songs.count(),
     prisma.$queryRaw<[{ songs_with_views: bigint; total_views: bigint; last_update: Date | null }]>`
+      WITH song_max_views AS (
+        SELECT song_id, MAX(view_count) as max_view_count
+        FROM pvs
+        WHERE service = 'Youtube' AND view_count IS NOT NULL
+        GROUP BY song_id
+      )
       SELECT
-        COUNT(DISTINCT song_id) as songs_with_views,
-        COALESCE(SUM(view_count), 0) as total_views,
-        MAX(view_count_updated_at) as last_update
-      FROM pvs
-      WHERE service = 'Youtube' AND view_count IS NOT NULL
+        COUNT(*) as songs_with_views,
+        COALESCE(SUM(max_view_count), 0) as total_views,
+        (SELECT MAX(view_count_updated_at) FROM pvs WHERE service = 'Youtube') as last_update
+      FROM song_max_views
     `,
   ]);
 
@@ -623,7 +628,7 @@ export async function getSongRankPositions(vocadbId: number): Promise<RankingPos
   // 총 조회수 랭킹 위치
   const totalRank = await prisma.$queryRaw<{ position: bigint }[]>`
     WITH song_views AS (
-      SELECT song_id, SUM(view_count) as total_view_count
+      SELECT song_id, MAX(view_count) as total_view_count
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
     ),
@@ -714,7 +719,7 @@ export async function searchSongs(
         )` : ''}
     ),
     song_views AS (
-      SELECT song_id, SUM(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
+      SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
     ),
@@ -743,8 +748,8 @@ export async function searchSongs(
         pv_id as youtube_id,
         url as youtube_url
       FROM pvs
-      WHERE service = 'Youtube'
-      ORDER BY song_id, id
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
     )
     SELECT
       s.vocadb_id as "vocadbId",
@@ -818,7 +823,7 @@ export async function getRelatedSongsByArtist(
         AND sa.song_id != ${currentVocadbId}
     ),
     song_views AS (
-      SELECT song_id, SUM(view_count) as total_view_count
+      SELECT song_id, MAX(view_count) as total_view_count
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
       GROUP BY song_id
     ),
@@ -847,8 +852,8 @@ export async function getRelatedSongsByArtist(
         pv_id as youtube_id,
         url as youtube_url
       FROM pvs
-      WHERE service = 'Youtube'
-      ORDER BY song_id, id
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
     )
     SELECT
       s.vocadb_id as "vocadbId",
