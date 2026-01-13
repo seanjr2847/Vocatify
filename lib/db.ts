@@ -6,7 +6,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
-import { cache, getCachedRankings, setCachedRankings } from './cache';
+import { cache, getCachedRankings, setCachedRankings, UnifiedRankings } from './cache';
 
 // ============================================================
 // Interfaces
@@ -573,7 +573,7 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
  * - 기존 3개 쿼리 대비 약 60-70% 성능 향상
  * - 5분 메모리 캐싱으로 추가 최적화
  */
-export async function getUnifiedRankings(limit: number = 7) {
+export async function getUnifiedRankings(limit: number = 7): Promise<UnifiedRankings> {
   // 캐시 확인
   const cached = getCachedRankings(limit);
   if (cached) {

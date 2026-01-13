@@ -76,11 +76,17 @@ if (typeof setInterval !== 'undefined') {
 /**
  * 랭킹 캐시 헬퍼 함수
  */
-export function getCachedRankings(limit: number) {
-  return cache.get(`rankings:${limit}`);
+export interface UnifiedRankings {
+  totalRanking: any[];
+  weeklyRanking: any[];
+  newRanking: any[];
 }
 
-export function setCachedRankings(limit: number, data: any) {
+export function getCachedRankings(limit: number): UnifiedRankings | null {
+  return cache.get<UnifiedRankings>(`rankings:${limit}`);
+}
+
+export function setCachedRankings(limit: number, data: UnifiedRankings) {
   cache.set(`rankings:${limit}`, data);
 }
 
