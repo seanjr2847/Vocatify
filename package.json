@@ -22,7 +22,9 @@
     "db:add-daily": "tsx scripts/db/add-daily-tracking.ts",
     "db:seed-daily": "tsx scripts/db/seed-daily-counts.ts",
     "db:migrate-daily": "tsx scripts/db/migrate-daily-counts.ts",
-    "db:migrate-to-postgresql": "node scripts/db/migrate-to-postgresql.js"
+    "db:migrate-to-postgresql": "node scripts/db/migrate-to-postgresql.js",
+    "db:cleanup": "tsx scripts/emergency-cleanup.ts",
+    "db:retention": "tsx scripts/implement-retention-policy.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -52,11 +54,13 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
+    "@types/pg": "^8.16.0",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "^15.1.3",
+    "pg": "^8.16.3",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.21.0",

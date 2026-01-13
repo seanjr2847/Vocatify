@@ -488,19 +488,19 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
  * 특정 곡 상세 정보 조회 (모든 관련 데이터 포함)
  */
 export async function getSongById(vocadbId: number): Promise<SongDetail | null> {
-  const song = await prisma.song.findUnique({
-    where: { vocadbId },
+  const song = await prisma.songs.findUnique({
+    where: { vocadb_id: vocadbId },
     include: {
-      names: true,
-      artists: {
-        include: { artist: true },
+      song_names: true,
+      song_artists: {
+        include: { artists: true },
         orderBy: { id: 'asc' },
       },
       pvs: {
         orderBy: [{ service: 'asc' }, { id: 'asc' }],
       },
-      tags: {
-        include: { tag: true },
+      song_tags: {
+        include: { tags: true },
         orderBy: { count: 'desc' },
       },
       lyrics: true,
@@ -510,45 +510,45 @@ export async function getSongById(vocadbId: number): Promise<SongDetail | null> 
   if (!song) return null;
 
   return {
-    vocadbId: song.vocadbId,
-    defaultName: song.defaultName,
-    songType: song.songType,
-    publishDate: song.publishDate,
-    createDate: song.createDate,
-    lengthSeconds: song.lengthSeconds,
-    favoritedTimes: song.favoritedTimes,
-    ratingScore: song.ratingScore,
-    thumbUrl: song.thumbUrl,
-    crawledAt: song.crawledAt,
-    names: song.names.map(n => ({ language: n.language, value: n.value })),
-    artists: song.artists.map(sa => ({
-      id: sa.artist.vocadbId,
-      name: sa.artist.name,
-      artistType: sa.artist.artistType,
+    vocadbId: song.vocadb_id,
+    defaultName: song.default_name,
+    songType: song.song_type,
+    publishDate: song.publish_date,
+    createDate: song.create_date,
+    lengthSeconds: song.length_seconds,
+    favoritedTimes: song.favorited_times,
+    ratingScore: song.rating_score,
+    thumbUrl: song.thumb_url,
+    crawledAt: song.crawled_at,
+    names: song.song_names.map(n => ({ language: n.language, value: n.value })),
+    artists: song.song_artists.map(sa => ({
+      id: sa.artists.vocadb_id,
+      name: sa.artists.name,
+      artistType: sa.artists.artist_type,
       categories: sa.categories,
       roles: sa.roles,
-      isSupport: sa.isSupport,
+      isSupport: sa.is_support,
     })),
     pvs: song.pvs.map(pv => ({
       id: pv.id,
-      pvId: pv.pvId,
+      pvId: pv.pv_id,
       service: pv.service,
-      pvType: pv.pvType,
+      pvType: pv.pv_type,
       name: pv.name,
       url: pv.url,
-      viewCount: pv.viewCount,
-      viewCountUpdatedAt: pv.viewCountUpdatedAt,
+      viewCount: pv.view_count,
+      viewCountUpdatedAt: pv.view_count_updated_at,
     })),
-    tags: song.tags.map(st => ({
-      id: st.tag.vocadbId,
-      name: st.tag.name,
-      categoryName: st.tag.categoryName,
+    tags: song.song_tags.map(st => ({
+      id: st.tags.vocadb_id,
+      name: st.tags.name,
+      categoryName: st.tags.category_name,
       count: st.count,
     })),
     lyrics: song.lyrics.map(l => ({
       id: l.id,
-      translationType: l.translationType,
-      cultureCode: l.cultureCode,
+      translationType: l.translation_type,
+      cultureCode: l.culture_code,
       source: l.source,
       url: l.url,
       value: l.value,
@@ -596,7 +596,7 @@ export async function getStats(): Promise<{
   lastUpdate: Date | null;
 }> {
   const [songCount, viewStats] = await Promise.all([
-    prisma.song.count(),
+    prisma.songs.count(),
     prisma.$queryRaw<[{ songs_with_views: bigint; total_views: bigint; last_update: Date | null }]>`
       SELECT
         COUNT(DISTINCT song_id) as songs_with_views,

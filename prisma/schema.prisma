@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider        = "prisma-client-js"
   output          = "../lib/generated/prisma"
@@ -12,219 +9,153 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================================
-// 1. Song - 곡 핵심 정보
-// ============================================================
-model Song {
-  vocadbId       Int       @id @map("vocadb_id")
-  defaultName    String    @map("default_name")
-  songType       String?   @map("song_type")
-  publishDate    DateTime? @map("publish_date") @db.Date
-  createDate     DateTime? @map("create_date")
-  lengthSeconds  Int?      @map("length_seconds")
+model artists {
+  vocadb_id    Int            @id
+  name         String
+  artist_type  String
+  thumb_url    String?
+  song_artists song_artists[]
 
-  // VocaDB 통계
-  favoritedTimes Int @default(0) @map("favorited_times")
-  ratingScore    Int @default(0) @map("rating_score")
-
-  // 썸네일
-  thumbUrl      String? @map("thumb_url")
-  thumbUrlSmall String? @map("thumb_url_small")
-
-  // 크롤링 메타
-  crawledAt DateTime @map("crawled_at")
-
-  // Relations
-  names   SongName[]
-  artists SongArtist[]
-  pvs     PV[]
-  tags    SongTag[]
-  lyrics  Lyrics[]
-
-  @@index([publishDate(sort: Desc)], name: "idx_songs_publish")
-  @@index([favoritedTimes(sort: Desc)], name: "idx_songs_favorited")
-  @@index([ratingScore(sort: Desc)], name: "idx_songs_rating")
-  @@map("songs")
-}
-
-// ============================================================
-// 2. SongName - 다국어 제목
-// ============================================================
-model SongName {
-  id       Int    @id @default(autoincrement())
-  songId   Int    @map("song_id")
-  language String
-  value    String
-
-  song Song @relation(fields: [songId], references: [vocadbId], onDelete: Cascade)
-
-  @@unique([songId, language])
-  @@index([language])
-  @@index([value])
-  // Optimization: Composite index for multi-language title aggregation
-  @@index([songId, language], name: "idx_song_names_titles")
-  @@map("song_names")
-}
-
-// ============================================================
-// 3. Artist - 아티스트 마스터
-// ============================================================
-model Artist {
-  vocadbId   Int     @id @map("vocadb_id")
-  name       String
-  artistType String  @map("artist_type")
-  thumbUrl   String? @map("thumb_url")
-
-  // Relations
-  songs SongArtist[]
-
-  @@index([artistType])
+  @@index([artist_type])
   @@index([name])
-  @@map("artists")
 }
 
-// ============================================================
-// 4. SongArtist - 곡-아티스트 관계
-// ============================================================
-model SongArtist {
+model crawler_progress {
+  id              String    @id
+  crawler_type    String
+  status          String
+  started_at      DateTime
+  completed_at    DateTime?
+  last_offset     Int       @default(0)
+  total_processed Int       @default(0)
+  total_target    Int?
+  error_message   String?
+  metadata        Json?
+
+  @@index([crawler_type, status])
+}
+
+model daily_view_counts {
+  pv_id         Int
+  recorded_date DateTime @db.Date
+  total_views   BigInt
+  pvs           pvs      @relation(fields: [pv_id], references: [id], onDelete: Cascade)
+
+  @@id([pv_id, recorded_date])
+  @@index([pv_id, recorded_date(sort: Desc)])
+  @@index([recorded_date(sort: Desc)])
+  @@index([recorded_date(sort: Desc), pv_id], map: "idx_daily_recent_changes")
+}
+
+model lyrics {
+  id               Int     @id @default(autoincrement())
+  song_id          Int
+  translation_type String
+  culture_code     String?
+  source           String?
+  url              String?
+  value            String?
+  songs            songs   @relation(fields: [song_id], references: [vocadb_id], onDelete: Cascade)
+
+  @@index([culture_code])
+  @@index([song_id])
+}
+
+model pvs {
+  id                    Int                 @id @default(autoincrement())
+  song_id               Int
+  pv_id                 String
+  service               String
+  pv_type               String
+  name                  String?
+  url                   String
+  thumb_url             String?
+  disabled              Boolean             @default(false)
+  view_count            BigInt?
+  view_count_updated_at DateTime?
+  daily_view_counts     daily_view_counts[]
+  songs                 songs               @relation(fields: [song_id], references: [vocadb_id], onDelete: Cascade)
+
+  @@unique([song_id, service, pv_id])
+  @@index([service, song_id, view_count(sort: Desc)], map: "idx_pvs_youtube_views")
+  @@index([pv_id])
+  @@index([service])
+  @@index([service, view_count(sort: Desc)])
+  @@index([song_id, service])
+  @@index([view_count(sort: Desc)])
+}
+
+model song_artists {
   id         Int     @id @default(autoincrement())
-  songId     Int     @map("song_id")
-  artistId   Int     @map("artist_id")
+  song_id    Int
+  artist_id  Int
   categories String
   roles      String?
-  isSupport  Boolean @default(false) @map("is_support")
+  is_support Boolean @default(false)
   name       String?
+  artists    artists @relation(fields: [artist_id], references: [vocadb_id], onDelete: Cascade)
+  songs      songs   @relation(fields: [song_id], references: [vocadb_id], onDelete: Cascade)
 
-  song   Song   @relation(fields: [songId], references: [vocadbId], onDelete: Cascade)
-  artist Artist @relation(fields: [artistId], references: [vocadbId], onDelete: Cascade)
-
-  @@unique([songId, artistId])
-  @@index([artistId])
+  @@unique([song_id, artist_id])
+  @@index([artist_id])
   @@index([categories])
-  @@index([songId, isSupport])
-  @@map("song_artists")
+  @@index([song_id, is_support])
 }
 
-// ============================================================
-// 5. PV - 영상 소스 (YouTube, Nico, Bilibili 등)
-// ============================================================
-model PV {
-  id       Int     @id @default(autoincrement())
-  songId   Int     @map("song_id")
-  pvId     String  @map("pv_id")
-  service  String
-  pvType   String  @map("pv_type")
-  name     String?
-  url      String
-  thumbUrl String? @map("thumb_url")
-  disabled Boolean @default(false)
+model song_names {
+  id       Int    @id @default(autoincrement())
+  song_id  Int
+  language String
+  value    String
+  songs    songs  @relation(fields: [song_id], references: [vocadb_id], onDelete: Cascade)
 
-  // 조회수 (YouTube 등)
-  viewCount          BigInt?   @map("view_count")
-  viewCountUpdatedAt DateTime? @map("view_count_updated_at")
-
-  // Relations
-  song            Song             @relation(fields: [songId], references: [vocadbId], onDelete: Cascade)
-  dailyViewCounts DailyViewCount[]
-
-  @@unique([songId, service, pvId])
-  @@index([service])
-  @@index([pvId])
-  @@index([viewCount(sort: Desc)])
-  @@index([songId, service])
-  @@index([service, viewCount(sort: Desc)])
-  // Optimization: Composite index for YouTube view aggregation (getTotalRanking)
-  @@index([service, songId, viewCount(sort: Desc)], name: "idx_pvs_youtube_views")
-  @@map("pvs")
+  @@unique([song_id, language])
+  @@index([song_id, language], map: "idx_song_names_titles")
+  @@index([language])
+  @@index([value])
 }
 
-// ============================================================
-// 6. Tag - 태그 마스터
-// ============================================================
-model Tag {
-  vocadbId     Int     @id @map("vocadb_id")
-  name         String  @unique
-  categoryName String? @map("category_name")
+model song_tags {
+  id      Int   @id @default(autoincrement())
+  song_id Int
+  tag_id  Int
+  count   Int   @default(0)
+  songs   songs @relation(fields: [song_id], references: [vocadb_id], onDelete: Cascade)
+  tags    tags  @relation(fields: [tag_id], references: [vocadb_id], onDelete: Cascade)
 
-  // Relations
-  songs SongTag[]
-
-  @@index([categoryName])
-  @@map("tags")
+  @@unique([song_id, tag_id])
+  @@index([tag_id, song_id], map: "idx_song_tags_exclusion")
+  @@index([tag_id])
 }
 
-// ============================================================
-// 7. SongTag - 곡-태그 관계
-// ============================================================
-model SongTag {
-  id     Int @id @default(autoincrement())
-  songId Int @map("song_id")
-  tagId  Int @map("tag_id")
-  count  Int @default(0)
+model songs {
+  vocadb_id       Int            @id
+  default_name    String
+  song_type       String?
+  publish_date    DateTime?      @db.Date
+  create_date     DateTime?
+  length_seconds  Int?
+  favorited_times Int            @default(0)
+  rating_score    Int            @default(0)
+  thumb_url       String?
+  thumb_url_small String?
+  crawled_at      DateTime
+  lyrics          lyrics[]
+  pvs             pvs[]
+  song_artists    song_artists[]
+  song_names      song_names[]
+  song_tags       song_tags[]
 
-  song Song @relation(fields: [songId], references: [vocadbId], onDelete: Cascade)
-  tag  Tag  @relation(fields: [tagId], references: [vocadbId], onDelete: Cascade)
-
-  @@unique([songId, tagId])
-  @@index([tagId])
-  // Optimization: Index for excluded tags filtering
-  @@index([tagId, songId], name: "idx_song_tags_exclusion")
-  @@map("song_tags")
+  @@index([favorited_times(sort: Desc)], map: "idx_songs_favorited")
+  @@index([publish_date(sort: Desc)], map: "idx_songs_publish")
+  @@index([rating_score(sort: Desc)], map: "idx_songs_rating")
 }
 
-// ============================================================
-// 8. Lyrics - 가사
-// ============================================================
-model Lyrics {
-  id              Int     @id @default(autoincrement())
-  songId          Int     @map("song_id")
-  translationType String  @map("translation_type")
-  cultureCode     String? @map("culture_code")
-  source          String?
-  url             String?
-  value           String? @db.Text
+model tags {
+  vocadb_id     Int         @id
+  name          String      @unique
+  category_name String?
+  song_tags     song_tags[]
 
-  song Song @relation(fields: [songId], references: [vocadbId], onDelete: Cascade)
-
-  @@index([songId])
-  @@index([cultureCode])
-  @@map("lyrics")
-}
-
-// ============================================================
-// 9. DailyViewCount - 일별 조회수 기록
-// ============================================================
-model DailyViewCount {
-  pvId         Int      @map("pv_id")
-  recordedDate DateTime @map("recorded_date") @db.Date
-  totalViews   BigInt   @map("total_views")
-
-  // Relations
-  pv PV @relation(fields: [pvId], references: [id], onDelete: Cascade)
-
-  @@id([pvId, recordedDate])
-  @@index([recordedDate(sort: Desc)])
-  @@index([pvId, recordedDate(sort: Desc)])
-  // Optimization: Index for recent daily changes window function queries
-  @@index([recordedDate(sort: Desc), pvId], name: "idx_daily_recent_changes")
-  @@map("daily_view_counts")
-}
-
-// ============================================================
-// 10. CrawlerProgress - 크롤러 진행 상태
-// ============================================================
-model CrawlerProgress {
-  id             String    @id @default(uuid())
-  crawlerType    String    @map("crawler_type")
-  status         String
-  startedAt      DateTime  @map("started_at")
-  completedAt    DateTime? @map("completed_at")
-  lastOffset     Int       @default(0) @map("last_offset")
-  totalProcessed Int       @default(0) @map("total_processed")
-  totalTarget    Int?      @map("total_target")
-  errorMessage   String?   @map("error_message")
-  metadata       Json?
-
-  @@index([crawlerType, status])
-  @@map("crawler_progress")
+  @@index([category_name])
 }

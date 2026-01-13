@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   description: 'Vocaloid 음악 차트 - 전체 랭킹, 일간 트렌딩, 주간 트렌딩, 최신 발매',
 };
 
+// Force dynamic rendering to avoid build-time database queries
+export const dynamic = 'force-dynamic';
+
 export default async function ChartsPage() {
   // Fetch initial data for all tabs in parallel
   const [totalRanking, dailyRanking, weeklyRanking, newRanking] = await Promise.all([

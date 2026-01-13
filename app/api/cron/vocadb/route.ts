@@ -52,9 +52,9 @@ export async function POST(request: NextRequest) {
         message: 'VocaDB crawler completed successfully',
         data: {
           songsProcessed: result.songsProcessed,
-          songsInserted: result.songsInserted,
-          songsSkipped: result.songsSkipped,
-          lastOffset: result.lastOffset,
+          songs_inserted: result.songsInserted,
+          songs_skipped: result.songsSkipped,
+          last_offset: result.lastOffset,
           completed: result.completed,
           duration: `${duration}s`,
         },
@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
         error: result.error,
         data: {
           songsProcessed: result.songsProcessed,
-          songsInserted: result.songsInserted,
-          songsSkipped: result.songsSkipped,
-          lastOffset: result.lastOffset,
+          songs_inserted: result.songsInserted,
+          songs_skipped: result.songsSkipped,
+          last_offset: result.lastOffset,
           duration: `${duration}s`,
         },
       }, { status: 500 });

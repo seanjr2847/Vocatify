@@ -2,6 +2,9 @@ import { HomeClient } from "@/components/HomeClient";
 import { getTotalRanking, getNewSongsRanking, getWeeklyRanking } from "@/lib/db";
 import { serializeBigInt } from "@/lib/serialize";
 
+// Force dynamic rendering to avoid build-time database queries
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   // 서버에서 초기 데이터 로드
   const [topCharts, newReleases, popularSongs] = await Promise.all([

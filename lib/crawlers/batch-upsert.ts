@@ -27,16 +27,16 @@ function chunk<T>(array: T[], size: number): T[][] {
 export async function batchUpsertSongs(
   prisma: PrismaClient,
   songs: Array<{
-    vocadbId: number;
-    defaultName: string;
-    songType: string | null;
-    publishDate: Date | null;
-    createDate: Date | null;
-    lengthSeconds: number | null;
-    favoritedTimes: number;
-    ratingScore: number;
-    thumbUrl: string | null;
-    thumbUrlSmall: string | null;
+    vocadb_id: number;
+    default_name: string;
+    song_type: string | null;
+    publish_date: Date | null;
+    create_date: Date | null;
+    length_seconds: number | null;
+    favorited_times: number;
+    rating_score: number;
+    thumb_url: string | null;
+    thumb_url_small: string | null;
   }>
 ): Promise<void> {
   if (songs.length === 0) return;
@@ -44,8 +44,8 @@ export async function batchUpsertSongs(
   const chunks = chunk(songs, CHUNK_SIZE);
   for (const batch of chunks) {
     const values = batch.map(s => Prisma.sql`(
-      ${s.vocadbId}, ${s.defaultName}, ${s.songType}, ${s.publishDate}, ${s.createDate},
-      ${s.lengthSeconds}, ${s.favoritedTimes}, ${s.ratingScore}, ${s.thumbUrl}, ${s.thumbUrlSmall}, NOW()
+      ${s.vocadb_id}, ${s.default_name}, ${s.song_type}, ${s.publish_date}, ${s.create_date},
+      ${s.length_seconds}, ${s.favorited_times}, ${s.rating_score}, ${s.thumb_url}, ${s.thumb_url_small}, NOW()
     )`);
 
     await prisma.$executeRaw`
@@ -72,13 +72,13 @@ export async function batchUpsertSongs(
  */
 export async function batchUpsertSongNames(
   prisma: PrismaClient,
-  names: Array<{ songId: number; language: string; value: string }>
+  names: Array<{ song_id: number; language: string; value: string }>
 ): Promise<void> {
   if (names.length === 0) return;
 
   const chunks = chunk(names, CHUNK_SIZE * 2);
   for (const batch of chunks) {
-    const values = batch.map(n => Prisma.sql`(${n.songId}, ${n.language}, ${n.value})`);
+    const values = batch.map(n => Prisma.sql`(${n.song_id}, ${n.language}, ${n.value})`);
 
     await prisma.$executeRaw`
       INSERT INTO song_names (song_id, language, value)
@@ -94,22 +94,22 @@ export async function batchUpsertSongNames(
 export async function batchUpsertArtists(
   prisma: PrismaClient,
   artists: Array<{
-    vocadbId: number;
+    vocadb_id: number;
     name: string;
-    artistType: string;
-    thumbUrl: string | null;
+    artist_type: string;
+    thumb_url: string | null;
   }>
 ): Promise<void> {
   if (artists.length === 0) return;
 
-  // Deduplicate by vocadbId
+  // Deduplicate by vocadb_id
   const uniqueArtists = Array.from(
-    new Map(artists.map(a => [a.vocadbId, a])).values()
+    new Map(artists.map(a => [a.vocadb_id, a])).values()
   );
 
   const chunks = chunk(uniqueArtists, CHUNK_SIZE);
   for (const batch of chunks) {
-    const values = batch.map(a => Prisma.sql`(${a.vocadbId}, ${a.name}, ${a.artistType}, ${a.thumbUrl})`);
+    const values = batch.map(a => Prisma.sql`(${a.vocadb_id}, ${a.name}, ${a.artist_type}, ${a.thumb_url})`);
 
     await prisma.$executeRaw`
       INSERT INTO artists (vocadb_id, name, artist_type, thumb_url)
@@ -128,11 +128,11 @@ export async function batchUpsertArtists(
 export async function batchUpsertSongArtists(
   prisma: PrismaClient,
   songArtists: Array<{
-    songId: number;
-    artistId: number;
+    song_id: number;
+    artist_id: number;
     categories: string;
     roles: string | null;
-    isSupport: boolean;
+    is_support: boolean;
     name: string | null;
   }>
 ): Promise<void> {
@@ -141,7 +141,7 @@ export async function batchUpsertSongArtists(
   const chunks = chunk(songArtists, CHUNK_SIZE * 2);
   for (const batch of chunks) {
     const values = batch.map(sa => Prisma.sql`(
-      ${sa.songId}, ${sa.artistId}, ${sa.categories}, ${sa.roles}, ${sa.isSupport}, ${sa.name}
+      ${sa.song_id}, ${sa.artist_id}, ${sa.categories}, ${sa.roles}, ${sa.is_support}, ${sa.name}
     )`);
 
     await prisma.$executeRaw`
@@ -162,13 +162,13 @@ export async function batchUpsertSongArtists(
 export async function batchUpsertPVs(
   prisma: PrismaClient,
   pvs: Array<{
-    songId: number;
-    pvId: string;
+    song_id: number;
+    pv_id: string;
     service: string;
-    pvType: string;
+    pv_type: string;
     name: string | null;
     url: string;
-    thumbUrl: string | null;
+    thumb_url: string | null;
     disabled: boolean;
   }>
 ): Promise<void> {
@@ -177,7 +177,7 @@ export async function batchUpsertPVs(
   const chunks = chunk(pvs, CHUNK_SIZE * 2);
   for (const batch of chunks) {
     const values = batch.map(p => Prisma.sql`(
-      ${p.songId}, ${p.pvId}, ${p.service}, ${p.pvType}, ${p.name}, ${p.url}, ${p.thumbUrl}, ${p.disabled}
+      ${p.song_id}, ${p.pv_id}, ${p.service}, ${p.pv_type}, ${p.name}, ${p.url}, ${p.thumb_url}, ${p.disabled}
     )`);
 
     await prisma.$executeRaw`
@@ -199,21 +199,21 @@ export async function batchUpsertPVs(
 export async function batchUpsertTags(
   prisma: PrismaClient,
   tags: Array<{
-    vocadbId: number;
+    vocadb_id: number;
     name: string;
-    categoryName: string | null;
+    category_name: string | null;
   }>
 ): Promise<void> {
   if (tags.length === 0) return;
 
-  // Deduplicate by vocadbId
+  // Deduplicate by vocadb_id
   const uniqueTags = Array.from(
-    new Map(tags.map(t => [t.vocadbId, t])).values()
+    new Map(tags.map(t => [t.vocadb_id, t])).values()
   );
 
   const chunks = chunk(uniqueTags, CHUNK_SIZE * 2);
   for (const batch of chunks) {
-    const values = batch.map(t => Prisma.sql`(${t.vocadbId}, ${t.name}, ${t.categoryName})`);
+    const values = batch.map(t => Prisma.sql`(${t.vocadb_id}, ${t.name}, ${t.category_name})`);
 
     await prisma.$executeRaw`
       INSERT INTO tags (vocadb_id, name, category_name)
@@ -231,8 +231,8 @@ export async function batchUpsertTags(
 export async function batchUpsertSongTags(
   prisma: PrismaClient,
   songTags: Array<{
-    songId: number;
-    tagId: number;
+    song_id: number;
+    tag_id: number;
     count: number;
   }>
 ): Promise<void> {
@@ -240,7 +240,7 @@ export async function batchUpsertSongTags(
 
   const chunks = chunk(songTags, CHUNK_SIZE * 2);
   for (const batch of chunks) {
-    const values = batch.map(st => Prisma.sql`(${st.songId}, ${st.tagId}, ${st.count})`);
+    const values = batch.map(st => Prisma.sql`(${st.song_id}, ${st.tag_id}, ${st.count})`);
 
     await prisma.$executeRaw`
       INSERT INTO song_tags (song_id, tag_id, count)
@@ -257,9 +257,9 @@ export async function batchReplaceLyrics(
   prisma: PrismaClient,
   songIds: number[],
   lyrics: Array<{
-    songId: number;
-    translationType: string;
-    cultureCode: string | null;
+    song_id: number;
+    translation_type: string;
+    culture_code: string | null;
     source: string | null;
     url: string | null;
     value: string | null;
@@ -269,7 +269,7 @@ export async function batchReplaceLyrics(
 
   // Delete existing lyrics for these songs
   await prisma.lyrics.deleteMany({
-    where: { songId: { in: songIds } },
+    where: { song_id: { in: songIds } },
   });
 
   if (lyrics.length === 0) return;

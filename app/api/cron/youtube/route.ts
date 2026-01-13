@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
           pvsUpdated: result.pvsUpdated,
           titlesUpdated: result.titlesUpdated,
           pvsFailed: result.pvsFailed,
-          lastOffset: result.lastOffset,
+          last_offset: result.lastOffset,
           completed: result.completed,
           duration: `${duration}s`,
         },
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
           pvsUpdated: result.pvsUpdated,
           titlesUpdated: result.titlesUpdated,
           pvsFailed: result.pvsFailed,
-          lastOffset: result.lastOffset,
+          last_offset: result.lastOffset,
           duration: `${duration}s`,
         },
       }, { status: 500 });

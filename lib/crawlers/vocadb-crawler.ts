@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 /**
  * VocaDB PostgreSQL Chunked Crawler - v2
  *
@@ -79,22 +80,23 @@ export class VocaDBCrawler {
     try {
       // Initialize or resume progress
       if (this.options.enableResume) {
-        const existingProgress = await this.prisma.crawlerProgress.findFirst({
-          where: { crawlerType: 'vocadb', status: 'running' },
+        const existingProgress = await this.prisma.crawler_progress.findFirst({
+          where: { crawler_type: 'vocadb', status: 'running' },
         });
 
         if (existingProgress) {
           this.progressId = existingProgress.id;
-          currentOffset = existingProgress.lastOffset;
+          currentOffset = existingProgress.last_offset;
           console.log(`🔄 Resuming VocaDB crawler from offset ${currentOffset}`);
         } else {
-          const progress = await this.prisma.crawlerProgress.create({
+          const progress = await this.prisma.crawler_progress.create({
             data: {
-              crawlerType: 'vocadb',
+              id: crypto.randomUUID(),
+              crawler_type: 'vocadb',
               status: 'running',
-              startedAt: new Date(),
-              lastOffset: currentOffset,
-              totalProcessed: 0,
+              started_at: new Date(),
+              last_offset: currentOffset,
+              total_processed: 0,
               metadata: {
                 batchSize: this.options.batchSize,
                 maxSongsPerRun: this.options.maxSongsPerRun,
@@ -154,9 +156,9 @@ export class VocaDBCrawler {
           console.log(`   Total progress: ${songsProcessed}/${this.options.maxSongsPerRun} songs\n`);
 
           if (this.progressId) {
-            await this.prisma.crawlerProgress.update({
+            await this.prisma.crawler_progress.update({
               where: { id: this.progressId },
-              data: { lastOffset: currentOffset, totalProcessed: songsProcessed },
+              data: { last_offset: currentOffset, total_processed: songsProcessed },
             });
           }
 
@@ -181,13 +183,13 @@ export class VocaDBCrawler {
       }
 
       if (this.progressId) {
-        await this.prisma.crawlerProgress.update({
+        await this.prisma.crawler_progress.update({
           where: { id: this.progressId },
           data: {
             status: completed ? 'completed' : 'running',
-            completedAt: completed ? new Date() : null,
-            lastOffset: currentOffset,
-            totalProcessed: songsProcessed,
+            completed_at: completed ? new Date() : null,
+            last_offset: currentOffset,
+            total_processed: songsProcessed,
           },
         });
       }
@@ -207,9 +209,9 @@ export class VocaDBCrawler {
       console.error(`💥 Crawler failed:`, errorMessage);
 
       if (this.progressId) {
-        await this.prisma.crawlerProgress.update({
+        await this.prisma.crawler_progress.update({
           where: { id: this.progressId },
-          data: { status: 'failed', completedAt: new Date(), errorMessage },
+          data: { status: 'failed', completed_at: new Date(), error_message: errorMessage },
         });
       }
 
@@ -292,23 +294,23 @@ export class VocaDBCrawler {
         }
 
         songs.push({
-          vocadbId: item.id,
-          defaultName: item.name,
-          songType: item.songType || null,
-          publishDate,
-          createDate,
-          lengthSeconds: item.lengthSeconds || null,
-          favoritedTimes: item.favoritedTimes || 0,
-          ratingScore: item.ratingScore || 0,
-          thumbUrl,
-          thumbUrlSmall,
+          vocadb_id: item.id,
+          default_name: item.name,
+          song_type: item.songType || null,
+          publish_date: publishDate,
+          create_date: createDate,
+          length_seconds: item.lengthSeconds || null,
+          favorited_times: item.favoritedTimes || 0,
+          rating_score: item.ratingScore || 0,
+          thumb_url: thumbUrl,
+          thumb_url_small: thumbUrlSmall,
         });
 
         // Song names
         for (const name of item.names || []) {
           if (name.value && name.language) {
             allNames.push({
-              songId: item.id,
+              song_id: item.id,
               language: name.language,
               value: name.value,
             });
@@ -321,18 +323,18 @@ export class VocaDBCrawler {
           if (!artist?.id) continue;
 
           allArtists.push({
-            vocadbId: artist.id,
+            vocadb_id: artist.id,
             name: artist.name,
-            artistType: artist.artistType || 'Unknown',
-            thumbUrl: artist.mainPicture?.urlThumb || null,
+            artist_type: artist.artistType || 'Unknown',
+            thumb_url: artist.mainPicture?.urlThumb || null,
           });
 
           allSongArtists.push({
-            songId: item.id,
-            artistId: artist.id,
+            song_id: item.id,
+            artist_id: artist.id,
             categories: artistEntry.categories || '',
             roles: artistEntry.roles || null,
-            isSupport: artistEntry.isSupport || false,
+            is_support: artistEntry.isSupport || false,
             name: artistEntry.name || null,
           });
         }
@@ -342,13 +344,13 @@ export class VocaDBCrawler {
           if (!pv.pvId || !pv.service) continue;
 
           allPVs.push({
-            songId: item.id,
-            pvId: pv.pvId,
+            song_id: item.id,
+            pv_id: pv.pvId,
             service: pv.service,
-            pvType: pv.pvType || 'Original',
+            pv_type: pv.pvType || 'Original',
             name: pv.name || null,
             url: pv.url || `https://www.youtube.com/watch?v=${pv.pvId}`,
-            thumbUrl: pv.thumbUrl || null,
+            thumb_url: pv.thumbUrl || null,
             disabled: pv.disabled || false,
           });
         }
@@ -359,14 +361,14 @@ export class VocaDBCrawler {
           if (!tag?.id || !tag?.name) continue;
 
           allTags.push({
-            vocadbId: tag.id,
+            vocadb_id: tag.id,
             name: tag.name,
-            categoryName: tag.categoryName || null,
+            category_name: tag.categoryName || null,
           });
 
           allSongTags.push({
-            songId: item.id,
-            tagId: tag.id,
+            song_id: item.id,
+            tag_id: tag.id,
             count: tagEntry.count || 0,
           });
         }
@@ -377,9 +379,9 @@ export class VocaDBCrawler {
           songIdsWithLyrics.push(item.id);
           for (const lyric of itemLyrics) {
             allLyrics.push({
-              songId: item.id,
-              translationType: lyric.translationType,
-              cultureCode: lyric.cultureCode || null,
+              song_id: item.id,
+              translation_type: lyric.translationType,
+              culture_code: lyric.cultureCode || null,
               source: lyric.source || null,
               url: lyric.url || null,
               value: lyric.value || null,
@@ -425,17 +427,17 @@ export class VocaDBCrawler {
   }
 
   static async resetProgress(prisma: PrismaClient): Promise<void> {
-    await prisma.crawlerProgress.updateMany({
-      where: { crawlerType: 'vocadb', status: 'running' },
-      data: { status: 'failed', completedAt: new Date(), errorMessage: 'Manually reset' },
+    await prisma.crawler_progress.updateMany({
+      where: { crawler_type: 'vocadb', status: 'running' },
+      data: { status: 'failed', completed_at: new Date(), error_message: 'Manually reset' },
     });
     console.log('✅ VocaDB crawler progress reset');
   }
 
   static async getStatus(prisma: PrismaClient): Promise<any> {
-    const latestProgress = await prisma.crawlerProgress.findFirst({
-      where: { crawlerType: 'vocadb' },
-      orderBy: { startedAt: 'desc' },
+    const latestProgress = await prisma.crawler_progress.findFirst({
+      where: { crawler_type: 'vocadb' },
+      orderBy: { started_at: 'desc' },
     });
 
     if (!latestProgress) {
@@ -444,12 +446,12 @@ export class VocaDBCrawler {
 
     return {
       status: latestProgress.status,
-      startedAt: latestProgress.startedAt,
-      completedAt: latestProgress.completedAt,
-      lastOffset: latestProgress.lastOffset,
-      totalProcessed: latestProgress.totalProcessed,
-      totalTarget: latestProgress.totalTarget,
-      errorMessage: latestProgress.errorMessage,
+      startedAt: latestProgress.started_at,
+      completedAt: latestProgress.completed_at,
+      lastOffset: latestProgress.last_offset,
+      totalProcessed: latestProgress.total_processed,
+      totalTarget: latestProgress.total_target,
+      errorMessage: latestProgress.error_message,
       metadata: latestProgress.metadata,
     };
   }

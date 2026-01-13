@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 /**
  * Unified YouTube Crawler v2 (New Schema)
  *
@@ -64,10 +65,10 @@ interface YouTubeVideoItem {
 
 interface PVWithSong {
   id: number;
-  songId: number;
-  pvId: string;
-  viewCount: bigint | null;
-  viewCountUpdatedAt: Date | null;
+  song_id: number;
+  pv_id: string;
+  view_count: bigint | null;
+  view_count_updated_at: Date | null;
 }
 
 export class UnifiedYouTubeCrawler {
@@ -138,22 +139,23 @@ export class UnifiedYouTubeCrawler {
 
       // Initialize or resume progress
       if (this.options.enableResume) {
-        const existingProgress = await this.prisma.crawlerProgress.findFirst({
-          where: { crawlerType: 'youtube-unified', status: 'running' },
+        const existingProgress = await this.prisma.crawler_progress.findFirst({
+          where: { crawler_type: 'youtube-unified', status: 'running' },
         });
 
         if (existingProgress) {
           this.progressId = existingProgress.id;
-          currentOffset = existingProgress.lastOffset;
+          currentOffset = existingProgress.last_offset;
           console.log(`🔄 Resuming from offset ${currentOffset}`);
         } else {
-          const progress = await this.prisma.crawlerProgress.create({
+          const progress = await this.prisma.crawler_progress.create({
             data: {
-              crawlerType: 'youtube-unified',
+              id: crypto.randomUUID(),
+              crawler_type: 'youtube-unified',
               status: 'running',
-              startedAt: new Date(),
-              lastOffset: currentOffset,
-              totalProcessed: 0,
+              started_at: new Date(),
+              last_offset: currentOffset,
+              total_processed: 0,
               metadata: {
                 mode: this.options.mode,
                 batchSize: this.options.batchSize,
@@ -192,14 +194,14 @@ export class UnifiedYouTubeCrawler {
         console.log(`   Total progress: ${pvsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
 
         if (this.progressId) {
-          const updateData: any = { totalProcessed: pvsProcessed };
+          const updateData: any = { total_processed: pvsProcessed };
 
           // Only update offset in OFFSET mode
           if (!useIdRange) {
-            updateData.lastOffset = currentOffset;
+            updateData.last_offset = currentOffset;
           }
 
-          await this.prisma.crawlerProgress.update({
+          await this.prisma.crawler_progress.update({
             where: { id: this.progressId },
             data: updateData,
           });
@@ -228,13 +230,13 @@ export class UnifiedYouTubeCrawler {
       }
 
       if (this.progressId) {
-        await this.prisma.crawlerProgress.update({
+        await this.prisma.crawler_progress.update({
           where: { id: this.progressId },
           data: {
             status: completed ? 'completed' : 'running',
-            completedAt: completed ? new Date() : null,
-            lastOffset: currentOffset,
-            totalProcessed: pvsProcessed,
+            completed_at: completed ? new Date() : null,
+            last_offset: currentOffset,
+            total_processed: pvsProcessed,
           },
         });
       }
@@ -262,9 +264,9 @@ export class UnifiedYouTubeCrawler {
       console.error(`💥 Unified YouTube crawler failed:`, errorMessage);
 
       if (this.progressId) {
-        await this.prisma.crawlerProgress.update({
+        await this.prisma.crawler_progress.update({
           where: { id: this.progressId },
-          data: { status: 'failed', completedAt: new Date(), errorMessage },
+          data: { status: 'failed', completed_at: new Date(), error_message: errorMessage },
         });
       }
 
@@ -287,51 +289,51 @@ export class UnifiedYouTubeCrawler {
     // ID range filter (same as getPVsByMode)
     const useIdRange = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;
     const songWhere = useIdRange
-      ? { vocadbId: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
+      ? { vocadb_id: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
       : undefined;
 
     switch (this.options.mode) {
       case 'new':
-        return this.prisma.pV.count({
+        return this.prisma.pvs.count({
           where: {
             ...baseWhere,
             OR: [
-              { viewCountUpdatedAt: null },
-              { viewCountUpdatedAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+              { view_count_updated_at: null },
+              { view_count_updated_at: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
             ],
-            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
         });
 
       case 'old':
-        return this.prisma.pV.count({
+        return this.prisma.pvs.count({
           where: {
             ...baseWhere,
             OR: [
-              { viewCountUpdatedAt: null },
-              { viewCountUpdatedAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
+              { view_count_updated_at: null },
+              { view_count_updated_at: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
             ],
-            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
         });
 
       case 'top':
-        return this.prisma.pV.count({
+        return this.prisma.pvs.count({
           where: {
             ...baseWhere,
             OR: [
-              { viewCount: { gt: 1000000 } },
-              { song: { favoritedTimes: { gt: 100 } } },
+              { view_count: { gt: 1000000 } },
+              { songs: { favorited_times: { gt: 100 } } },
             ],
-            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
         });
 
       case 'all':
-        return this.prisma.pV.count({
+        return this.prisma.pvs.count({
           where: {
             ...baseWhere,
-            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
         });
 
@@ -346,7 +348,7 @@ export class UnifiedYouTubeCrawler {
     // ID range filter (when provided, use song relation filtering instead of OFFSET)
     const useIdRange = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;
     const songWhere = useIdRange
-      ? { vocadbId: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
+      ? { vocadb_id: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
       : undefined;
 
     // Cursor-based pagination for ID-range mode
@@ -356,60 +358,60 @@ export class UnifiedYouTubeCrawler {
 
     switch (this.options.mode) {
       case 'new':
-        return this.prisma.pV.findMany({
+        return this.prisma.pvs.findMany({
           where: {
             ...baseWhere,
             OR: [
-              { viewCountUpdatedAt: null },
-              { viewCountUpdatedAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+              { view_count_updated_at: null },
+              { view_count_updated_at: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
             ],
-            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
-          select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
+          select: { id: true, song_id: true, pv_id: true, view_count: true, view_count_updated_at: true },
           orderBy: { id: 'asc' },  // Always sort by ID for cursor-based pagination
           skip: useIdRange ? 0 : offset,  // Remove OFFSET when using ID-range filtering
           take: limit,
         });
 
       case 'old':
-        return this.prisma.pV.findMany({
+        return this.prisma.pvs.findMany({
           where: {
             ...baseWhere,
             OR: [
-              { viewCountUpdatedAt: null },
-              { viewCountUpdatedAt: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
+              { view_count_updated_at: null },
+              { view_count_updated_at: { lt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } },
             ],
-            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
-          select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
+          select: { id: true, song_id: true, pv_id: true, view_count: true, view_count_updated_at: true },
           orderBy: { id: 'asc' },  // Always sort by ID for cursor-based pagination
           skip: useIdRange ? 0 : offset,
           take: limit,
         });
 
       case 'top':
-        return this.prisma.pV.findMany({
+        return this.prisma.pvs.findMany({
           where: {
             ...baseWhere,
             OR: [
-              { viewCount: { gt: 1000000 } },
-              { song: { favoritedTimes: { gt: 100 } } },
+              { view_count: { gt: 1000000 } },
+              { songs: { favorited_times: { gt: 100 } } },
             ],
-            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
-          select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
-          orderBy: { viewCount: 'desc' },  // Keep viewCount ordering for 'top' mode
+          select: { id: true, song_id: true, pv_id: true, view_count: true, view_count_updated_at: true },
+          orderBy: { view_count: 'desc' },  // Keep viewCount ordering for 'top' mode
           skip: useIdRange ? 0 : offset,
           take: limit,
         });
 
       case 'all':
-        return this.prisma.pV.findMany({
+        return this.prisma.pvs.findMany({
           where: {
             ...baseWhere,
-            ...(songWhere && { song: songWhere }),  // Apply ID range filter
+            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
-          select: { id: true, songId: true, pvId: true, viewCount: true, viewCountUpdatedAt: true },
+          select: { id: true, song_id: true, pv_id: true, view_count: true, view_count_updated_at: true },
           orderBy: { id: 'asc' },  // Always sort by ID for cursor-based pagination
           skip: useIdRange ? 0 : offset,  // Remove OFFSET when using ID-range filtering
           take: limit,
@@ -431,7 +433,7 @@ export class UnifiedYouTubeCrawler {
     let titlesUpdated = 0;
     let failed = 0;
 
-    const youtubeIds = pvs.map(pv => pv.pvId);
+    const youtubeIds = pvs.map(pv => pv.pv_id);
 
     if (youtubeIds.length === 0) {
       return { processed: 0, updated: 0, titlesUpdated: 0, failed: 0 };
@@ -486,10 +488,10 @@ export class UnifiedYouTubeCrawler {
       const limit = pLimit(5);
       const updatePromises = pvs.map((pv) =>
         limit(async () => {
-        const videoData = videoDataMap.get(pv.pvId);
+        const videoData = videoDataMap.get(pv.pv_id);
 
         if (videoData?.viewCount === undefined) {
-          return { success: false, titleCreated: false, pvId: pv.pvId };
+          return { success: false, titleCreated: false, pv_id: pv.pv_id };
         }
 
         try {
@@ -501,34 +503,34 @@ export class UnifiedYouTubeCrawler {
           // This avoids connection pool exhaustion issues
 
           // Update PV view count
-          await this.prisma.pV.update({
+          await this.prisma.pvs.update({
             where: { id: pv.id },
-            data: { viewCount, viewCountUpdatedAt: now },
+            data: { view_count: viewCount, view_count_updated_at: now },
           });
 
           // Upsert DailyViewCount for time-series tracking
-          await this.prisma.dailyViewCount.upsert({
+          await this.prisma.daily_view_counts.upsert({
             where: {
-              pvId_recordedDate: {
-                pvId: pv.id,
-                recordedDate: today,
+              pv_id_recorded_date: {
+                pv_id: pv.id,
+                recorded_date: today,
               },
             },
-            update: { totalViews: viewCount },
+            update: { total_views: viewCount },
             create: {
-              pvId: pv.id,
-              recordedDate: today,
-              totalViews: viewCount,
+              pv_id: pv.id,
+              recorded_date: today,
+              total_views: viewCount,
             },
           });
 
           // Update Korean title in SongName table if found
           // Use atomic UPSERT to prevent race conditions in parallel execution
           if (koreanTitle) {
-            await this.prisma.songName.upsert({
+            await this.prisma.song_names.upsert({
               where: {
-                songId_language: {  // Compound unique key
-                  songId: pv.songId,
+                song_id_language: {  // Compound unique key
+                  song_id: pv.song_id,
                   language: 'Korean',
                 },
               },
@@ -536,7 +538,7 @@ export class UnifiedYouTubeCrawler {
                 value: koreanTitle,  // Update if title changed
               },
               create: {
-                songId: pv.songId,
+                song_id: pv.song_id,
                 language: 'Korean',
                 value: koreanTitle,
               },
@@ -544,10 +546,10 @@ export class UnifiedYouTubeCrawler {
             titleWasCreated = true;  // True for both create and update (acceptable)
           }
 
-          return { success: true, titleCreated: titleWasCreated, pvId: pv.pvId };
+          return { success: true, titleCreated: titleWasCreated, pv_id: pv.pv_id };
         } catch (dbError) {
-          console.error(`❌ DB update failed for PV ${pv.pvId} (ID: ${pv.id}, songId: ${pv.songId}):`, dbError);
-          return { success: false, titleCreated: false, pvId: pv.pvId };
+          console.error(`❌ DB update failed for PV ${pv.pv_id} (ID: ${pv.id}, song_id: ${pv.song_id}):`, dbError);
+          return { success: false, titleCreated: false, pv_id: pv.pv_id };
         }
         })
       );
@@ -577,9 +579,9 @@ export class UnifiedYouTubeCrawler {
   }
 
   static async resetProgress(prisma: PrismaClient): Promise<void> {
-    await prisma.crawlerProgress.updateMany({
-      where: { crawlerType: 'youtube-unified', status: 'running' },
-      data: { status: 'failed', completedAt: new Date(), errorMessage: 'Manually reset' },
+    await prisma.crawler_progress.updateMany({
+      where: { crawler_type: 'youtube-unified', status: 'running' },
+      data: { status: 'failed', completed_at: new Date(), error_message: 'Manually reset' },
     });
     console.log('✅ Unified YouTube crawler progress reset');
   }
@@ -594,9 +596,9 @@ export class UnifiedYouTubeCrawler {
     metadata?: unknown;
     message?: string;
   }> {
-    const latestProgress = await prisma.crawlerProgress.findFirst({
-      where: { crawlerType: 'youtube-unified' },
-      orderBy: { startedAt: 'desc' },
+    const latestProgress = await prisma.crawler_progress.findFirst({
+      where: { crawler_type: 'youtube-unified' },
+      orderBy: { started_at: 'desc' },
     });
 
     if (!latestProgress) {
@@ -605,11 +607,11 @@ export class UnifiedYouTubeCrawler {
 
     return {
       status: latestProgress.status,
-      startedAt: latestProgress.startedAt,
-      completedAt: latestProgress.completedAt,
-      lastOffset: latestProgress.lastOffset,
-      totalProcessed: latestProgress.totalProcessed,
-      errorMessage: latestProgress.errorMessage,
+      startedAt: latestProgress.started_at,
+      completedAt: latestProgress.completed_at,
+      lastOffset: latestProgress.last_offset,
+      totalProcessed: latestProgress.total_processed,
+      errorMessage: latestProgress.error_message,
       metadata: latestProgress.metadata,
     };
   }
