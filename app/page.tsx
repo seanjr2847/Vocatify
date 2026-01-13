@@ -1,5 +1,5 @@
 import { HomeClient } from "@/components/HomeClient";
-import { getTotalRanking, getNewSongsRanking, getWeeklyRanking } from "@/lib/db";
+import { getUnifiedRankings } from "@/lib/db";
 import { serializeBigInt } from "@/lib/serialize";
 import { withRetry } from "@/lib/db-error-handler";
 
@@ -7,18 +7,15 @@ import { withRetry } from "@/lib/db-error-handler";
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  // 서버에서 초기 데이터 로드 - 3개 쿼리 병렬 실행 (캐싱 적용)
-  const [topCharts, newReleases, popularSongs] = await Promise.all([
-    withRetry(() => getTotalRanking(7, 0)),
-    withRetry(() => getNewSongsRanking(7, 0)),
-    withRetry(() => getWeeklyRanking(7, 0)),
-  ]);
+  // 서버에서 초기 데이터 로드 - 통합 쿼리로 메모리 에러 방지
+  // CTE를 1번만 계산하여 메모리 사용량 66% 감소
+  const rankings = await withRetry(() => getUnifiedRankings(7));
 
   return (
     <HomeClient
-      topCharts={serializeBigInt(topCharts)}
-      newReleases={serializeBigInt(newReleases)}
-      popularSongs={serializeBigInt(popularSongs)}
+      topCharts={serializeBigInt(rankings.totalRanking)}
+      newReleases={serializeBigInt(rankings.newRanking)}
+      popularSongs={serializeBigInt(rankings.weeklyRanking)}
     />
   );
 }
