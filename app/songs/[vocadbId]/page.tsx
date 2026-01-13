@@ -15,6 +15,7 @@ import { ExternalLinks } from '@/components/ExternalLinks';
 import { InfoCard } from '@/components/InfoCard';
 import { StatisticsPanel } from '@/components/StatisticsPanel';
 import { RelatedSongsCarousel } from '@/components/RelatedSongsCarousel';
+import { ArtistsByRole } from '@/components/ArtistsByRole';
 import type { Song, SongDetail, DailyViewCount, RankingPositions, SongStatistics } from '@/lib/db';
 import { formatNumber, formatDate, getDisplayTitle, formatDuration } from '@/lib/utils/format-utils';
 
@@ -117,27 +118,26 @@ export default async function SongDetailPage({
                 {song.titleKorean ?? song.titleEnglish ?? song.defaultName}
               </h1>
 
-              <div className="flex items-center gap-3 text-sm">
-                {song.thumbUrl && (
-                  <img
-                    src={song.thumbUrl}
-                    alt={song.artistString}
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                )}
-                <span className="font-bold hover:underline cursor-pointer">{song.artistString}</span>
-                {song.publishDate && (
-                  <>
-                    <span>•</span>
-                    <span>{new Date(song.publishDate).getFullYear()}</span>
-                  </>
-                )}
-                {song.viewCount && (
-                  <>
-                    <span>•</span>
-                    <span>{formatNumber(song.viewCount)} 조회</span>
-                  </>
-                )}
+              {/* Artists Section - Grouped by Role */}
+              <div className="space-y-3">
+                <ArtistsByRole artists={song.artists} />
+
+                {/* Metadata Row - Year and View Count */}
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  {song.publishDate && (
+                    <>
+                      <Calendar className="w-4 h-4" />
+                      <span>{new Date(song.publishDate).getFullYear()}</span>
+                    </>
+                  )}
+                  {song.viewCount && (
+                    <>
+                      <span>•</span>
+                      <Eye className="w-4 h-4" />
+                      <span>{formatNumber(song.viewCount)} 조회</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
