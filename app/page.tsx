@@ -7,11 +7,11 @@ import { withRetry } from "@/lib/db-error-handler";
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  // 서버에서 초기 데이터 로드 (with retry for connection pool timeouts)
+  // 서버에서 초기 데이터 로드 - 3개 쿼리 병렬 실행 (캐싱 적용)
   const [topCharts, newReleases, popularSongs] = await Promise.all([
-    withRetry(() => getTotalRanking(7, 0)), // 인기 차트 7곡
-    withRetry(() => getNewSongsRanking(7, 0)), // 신곡 7곡
-    withRetry(() => getWeeklyRanking(7, 0)), // 주간 인기곡 7곡
+    withRetry(() => getTotalRanking(7, 0)),
+    withRetry(() => getNewSongsRanking(7, 0)),
+    withRetry(() => getWeeklyRanking(7, 0)),
   ]);
 
   return (
