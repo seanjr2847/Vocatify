@@ -59,25 +59,24 @@ jobs:
       fail-fast: false  # Continue other chunks if one fails
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
-      - name: Run YouTube Chunked Update
+      - name: Trigger YouTube Cron Endpoint (Chunk ${{ matrix.chunk }})
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          CHUNK_INDEX: ${{ matrix.chunk }}
-          TOTAL_CHUNKS: 10
-        run: npx tsx scripts/youtube/update-chunked.ts
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          response=$(curl -L -X POST "$VERCEL_URL/api/cron/youtube?mode=all&chunk=${{ matrix.chunk }}&totalChunks=10" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -w "\n%{http_code}" \
+            -s)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "YouTube crawler chunk ${{ matrix.chunk }} failed with status $http_code"
+            exit 1
+          fi

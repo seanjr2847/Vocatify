@@ -43,4 +43,7 @@ next-env.d.ts
 
 /lib/generated/prisma
 
+# SQLite database files (legacy, now using PostgreSQL)
 vocatify.db
+*.db.backup
+data/vocadb/*.db*

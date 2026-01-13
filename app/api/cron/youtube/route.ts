@@ -28,20 +28,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get mode from query params (default: 'all')
+    // Get parameters from query params
     const { searchParams } = new URL(request.url);
     const mode = (searchParams.get('mode') as UnifiedCrawlerMode) || 'all';
     const updateLocalizations = searchParams.get('localizations') !== 'false';
+    const chunkIndex = searchParams.get('chunk') ? parseInt(searchParams.get('chunk')!) : undefined;
+    const totalChunks = searchParams.get('totalChunks') ? parseInt(searchParams.get('totalChunks')!) : undefined;
 
-    console.log(`🎬 Unified YouTube Cron Job Started (mode: ${mode}, localizations: ${updateLocalizations})`);
+    console.log(`🎬 Unified YouTube Cron Job Started (mode: ${mode}, localizations: ${updateLocalizations}, chunk: ${chunkIndex !== undefined ? `${chunkIndex + 1}/${totalChunks}` : 'none'})`);
+
+    // Calculate ID range for chunk-based execution
+    let minVocadbId: number | undefined;
+    let maxVocadbId: number | undefined;
+
+    if (chunkIndex !== undefined && totalChunks !== undefined) {
+      // Get global min/max vocadbId for ID-range based chunking
+      const idRange = await prisma.songs.aggregate({
+        _min: { vocadb_id: true },
+        _max: { vocadb_id: true },
+      });
+
+      const globalMinId = idRange._min.vocadb_id ?? 0;
+      const globalMaxId = idRange._max.vocadb_id ?? 0;
+      const totalIdRange = globalMaxId - globalMinId + 1;
+      const idsPerChunk = Math.ceil(totalIdRange / totalChunks);
+
+      // Calculate this chunk's ID range (inclusive bounds)
+      minVocadbId = globalMinId + (chunkIndex * idsPerChunk);
+      maxVocadbId = Math.min(globalMinId + ((chunkIndex + 1) * idsPerChunk) - 1, globalMaxId);
+
+      console.log(`📊 Chunk ID Range: ${minVocadbId} - ${maxVocadbId}`);
+    }
 
     // Initialize unified crawler
     const crawler = new UnifiedYouTubeCrawler(prisma, {
       mode,                           // Selection mode: new, old, top, all
       batchSize: 50,                  // 50 videos per API request (YouTube API max)
-      maxPVsPerRun: 500,              // Process up to 500 PVs per cron run
+      maxPVsPerRun: 500,              // Process up to 500 PVs per cron run (ignored if chunk mode)
       enableResume: true,             // Enable progress tracking
       updateLocalizations,            // Also fetch Korean titles (default: true)
+      minVocadbId,                    // Optional: minimum vocadbId for chunk
+      maxVocadbId,                    // Optional: maximum vocadbId for chunk
     });
 
     // Execute crawler
