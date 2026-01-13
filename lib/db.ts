@@ -123,13 +123,13 @@ const EXCLUDED_TAG_NAMES = ['human singers', 'out of scope (cover unifier)'];
  *   3. LEFT JOIN ANTI 패턴으로 NOT IN 대체
  */
 export async function getTotalRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
-  const vocaloidType = 'Vocaloid';
+  const excludedType = 'OtherVoiceSynthesizer';
   const songs = await prisma.$queryRaw<any[]>`
-    WITH vocaloid_songs AS (
+    WITH excluded_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
       JOIN artists ON song_artists.artist_id = artists.vocadb_id
-      WHERE artists.artist_type = ${vocaloidType}
+      WHERE artists.artist_type = ${excludedType}
     ),
     song_views AS (
       SELECT
@@ -188,11 +188,12 @@ export async function getTotalRanking(limit: number = 100, offset: number = 0): 
       s.rating_score as "ratingScore",
       s.length_seconds as "lengthSeconds"
     FROM songs s
-    JOIN vocaloid_songs vs ON s.vocadb_id = vs.song_id
+    LEFT JOIN excluded_songs es ON s.vocadb_id = es.song_id
     JOIN song_views sv ON s.vocadb_id = sv.song_id
     LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
     LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
     LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
+    WHERE es.song_id IS NULL
     ORDER BY sv.total_view_count DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -212,13 +213,13 @@ export async function getTotalRanking(limit: number = 100, offset: number = 0): 
  *   4. Window function 최적화
  */
 export async function getDailyRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
-  const vocaloidType = 'Vocaloid';
+  const excludedType = 'OtherVoiceSynthesizer';
   const songs = await prisma.$queryRaw<any[]>`
-    WITH vocaloid_songs AS (
+    WITH excluded_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
       JOIN artists ON song_artists.artist_id = artists.vocadb_id
-      WHERE artists.artist_type = ${vocaloidType}
+      WHERE artists.artist_type = ${excludedType}
     ),
     daily_changes AS (
       SELECT
@@ -299,11 +300,12 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
       tc.daily_increase as "dailyIncrease"
     FROM today_changes tc
     JOIN songs s ON s.vocadb_id = tc.song_id
-    JOIN vocaloid_songs vs ON s.vocadb_id = vs.song_id
+    LEFT JOIN excluded_songs es ON s.vocadb_id = es.song_id
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
     LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
     LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
     LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
+    WHERE es.song_id IS NULL
     ORDER BY tc.daily_increase DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -322,13 +324,13 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
  *   3. 주간 데이터 집계 최적화
  */
 export async function getWeeklyRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
-  const vocaloidType = 'Vocaloid';
+  const excludedType = 'OtherVoiceSynthesizer';
   const songs = await prisma.$queryRaw<any[]>`
-    WITH vocaloid_songs AS (
+    WITH excluded_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
       JOIN artists ON song_artists.artist_id = artists.vocadb_id
-      WHERE artists.artist_type = ${vocaloidType}
+      WHERE artists.artist_type = ${excludedType}
     ),
     weekly_data AS (
       SELECT
@@ -412,11 +414,12 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
       wi.weekly_increase as "weeklyIncrease"
     FROM weekly_increases wi
     JOIN songs s ON s.vocadb_id = wi.song_id
-    JOIN vocaloid_songs vs ON s.vocadb_id = vs.song_id
+    LEFT JOIN excluded_songs es ON s.vocadb_id = es.song_id
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
     LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
     LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
     LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
+    WHERE es.song_id IS NULL
     ORDER BY wi.weekly_increase DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -435,13 +438,13 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
  *   3. idx_songs_publish 인덱스 활용
  */
 export async function getNewSongsRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
-  const vocaloidType = 'Vocaloid';
+  const excludedType = 'OtherVoiceSynthesizer';
   const songs = await prisma.$queryRaw<any[]>`
-    WITH vocaloid_songs AS (
+    WITH excluded_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
       JOIN artists ON song_artists.artist_id = artists.vocadb_id
-      WHERE artists.artist_type = ${vocaloidType}
+      WHERE artists.artist_type = ${excludedType}
     ),
     song_views AS (
       SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
@@ -496,12 +499,13 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
       s.rating_score as "ratingScore",
       s.length_seconds as "lengthSeconds"
     FROM songs s
-    JOIN vocaloid_songs vs ON s.vocadb_id = vs.song_id
+    LEFT JOIN excluded_songs es ON s.vocadb_id = es.song_id
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
     LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
     LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
     LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
     WHERE s.publish_date IS NOT NULL
+      AND es.song_id IS NULL
     ORDER BY s.publish_date DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
