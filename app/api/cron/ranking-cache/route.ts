@@ -31,9 +31,16 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now();
 
     // Step 1: Update weekly stats cache (pre-compute weekly increases)
+    // This may timeout on Vercel Hobby plan, so we catch errors and continue
     console.log('[Cron] Step 1/2: Updating weekly stats cache...');
-    const weeklyStatsResult = await updateWeeklyStatsCache();
-    console.log(`[Cron] Weekly stats updated: ${weeklyStatsResult.count} records in ${weeklyStatsResult.duration}ms`);
+    let weeklyStatsResult;
+    try {
+      weeklyStatsResult = await updateWeeklyStatsCache();
+      console.log(`[Cron] Weekly stats updated: ${weeklyStatsResult.count} records in ${weeklyStatsResult.duration}ms`);
+    } catch (error) {
+      console.error('[Cron] Weekly stats update failed (will skip weekly ranking):', error);
+      weeklyStatsResult = { success: false, count: 0, duration: 0, error: String(error) };
+    }
 
     // Step 2: Update ranking cache (using weekly stats cache)
     console.log('[Cron] Step 2/2: Updating ranking cache...');

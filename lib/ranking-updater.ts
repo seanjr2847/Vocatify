@@ -54,9 +54,18 @@ export async function updateRankingCache() {
     const totalRankings = await calculateTotalRanking();
     console.log(`[Ranking Cache] Total: ${totalRankings.length} rankings`);
 
-    console.log('[Ranking Cache] Calculating weekly ranking...');
-    const weeklyRankings = await calculateWeeklyRanking();
-    console.log(`[Ranking Cache] Weekly: ${weeklyRankings.length} rankings`);
+    // Skip weekly ranking if song_weekly_stats table is empty
+    console.log('[Ranking Cache] Checking weekly stats availability...');
+    const hasWeeklyStats = await prisma.song_weekly_stats.count();
+
+    let weeklyRankings: any[] = [];
+    if (hasWeeklyStats > 0) {
+      console.log('[Ranking Cache] Calculating weekly ranking...');
+      weeklyRankings = await calculateWeeklyRanking();
+      console.log(`[Ranking Cache] Weekly: ${weeklyRankings.length} rankings`);
+    } else {
+      console.log('[Ranking Cache] Skipping weekly ranking (no weekly stats data)');
+    }
 
     console.log('[Ranking Cache] Calculating new ranking...');
     const newRankings = await calculateNewRanking();
