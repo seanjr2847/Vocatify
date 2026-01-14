@@ -47,10 +47,24 @@ export async function updateRankingCache() {
   const startTime = Date.now();
 
   try {
-    // Calculate all rankings in a single unified query for efficiency
-    const allRankings = await calculateAllRankings();
+    // Calculate rankings separately to avoid timeout
+    // Total and New rankings are fast (<1s each)
+    // Weekly ranking is slower (~30s) due to daily_view_counts scan
+    console.log('[Ranking Cache] Calculating total ranking...');
+    const totalRankings = await calculateTotalRanking();
+    console.log(`[Ranking Cache] Total: ${totalRankings.length} rankings`);
 
-    console.log(`[Ranking Cache] Calculated ${allRankings.length} rankings`);
+    console.log('[Ranking Cache] Calculating weekly ranking...');
+    const weeklyRankings = await calculateWeeklyRanking();
+    console.log(`[Ranking Cache] Weekly: ${weeklyRankings.length} rankings`);
+
+    console.log('[Ranking Cache] Calculating new ranking...');
+    const newRankings = await calculateNewRanking();
+    console.log(`[Ranking Cache] New: ${newRankings.length} rankings`);
+
+    const allRankings = [...totalRankings, ...weeklyRankings, ...newRankings];
+
+    console.log(`[Ranking Cache] Calculated ${allRankings.length} rankings total`);
 
     // Count by type
     const counts = allRankings.reduce((acc, row) => {
@@ -86,10 +100,10 @@ export async function updateRankingCache() {
 }
 
 /**
- * Unified ranking calculation using shared CTEs for all ranking types
- * Computes total, weekly, and new rankings in a single query for efficiency
+ * Calculate Total Ranking (by total views)
+ * Fast query (~1s) - no daily_view_counts scan
  */
-async function calculateAllRankings() {
+async function calculateTotalRanking() {
   const result = await prisma.$queryRaw<any[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
@@ -129,6 +143,52 @@ async function calculateAllRankings() {
       FROM pvs
       WHERE service = 'Youtube' AND view_count IS NOT NULL
       ORDER BY song_id, view_count DESC NULLS LAST
+    )
+    SELECT
+      'total' as ranking_type,
+      ROW_NUMBER() OVER (ORDER BY sv.total_view_count DESC) as rank,
+      s.vocadb_id as song_id,
+      s.default_name,
+      st.title_korean,
+      st.title_english,
+      st.title_japanese,
+      st.title_romaji,
+      sa.artist_string,
+      sy.youtube_id,
+      sy.youtube_url,
+      s.thumb_url,
+      sv.total_view_count as view_count,
+      sv.last_updated as view_count_updated_at,
+      s.publish_date,
+      s.song_type,
+      s.favorited_times,
+      s.rating_score,
+      s.length_seconds,
+      NULL::bigint as weekly_increase
+    FROM songs s
+    INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
+    JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
+    ORDER BY sv.total_view_count DESC
+    LIMIT ${RANKING_LIMIT}
+  `;
+
+  return result.map(row => mapToRankingCacheRow(row, 'total'));
+}
+
+/**
+ * Calculate Weekly Ranking (by weekly increase)
+ * Slower query (~30s) - requires daily_view_counts scan
+ */
+async function calculateWeeklyRanking() {
+  const result = await prisma.$queryRaw<any[]>`
+    WITH included_songs AS (
+      SELECT DISTINCT song_id
+      FROM song_artists
+      JOIN artists ON song_artists.artist_id = artists.vocadb_id
+      WHERE artists.artist_type IN ('Vocaloid', 'UTAU', 'SynthesizerV', 'CeVIO', 'VOICEVOX', 'AIVOICE', 'VoiSona', 'Voiceroid', 'NEUTRINO', 'ACEVirtualSinger')
     ),
     weekly_data AS (
       SELECT
@@ -157,112 +217,151 @@ async function calculateAllRankings() {
       WHERE latest_views > 0
         AND (latest_views - week_ago_views) > 0
     ),
-    -- Total Ranking (by total views)
-    total_ranking AS (
-      SELECT
-        'total' as ranking_type,
-        ROW_NUMBER() OVER (ORDER BY sv.total_view_count DESC) as rank,
-        s.vocadb_id as song_id,
-        s.default_name,
-        st.title_korean,
-        st.title_english,
-        st.title_japanese,
-        st.title_romaji,
-        sa.artist_string,
-        sy.youtube_id,
-        sy.youtube_url,
-        s.thumb_url,
-        sv.total_view_count as view_count,
-        sv.last_updated as view_count_updated_at,
-        s.publish_date,
-        s.song_type,
-        s.favorited_times,
-        s.rating_score,
-        s.length_seconds,
-        NULL::bigint as weekly_increase
-      FROM songs s
-      INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
-      JOIN song_views sv ON s.vocadb_id = sv.song_id
-      LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
-      LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
-      LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
-      ORDER BY sv.total_view_count DESC
-      LIMIT ${RANKING_LIMIT}
+    song_views AS (
+      SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
+      FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
+      GROUP BY song_id
     ),
-    -- Weekly Ranking (by weekly increase)
-    weekly_ranking AS (
+    song_titles AS (
       SELECT
-        'weekly' as ranking_type,
-        ROW_NUMBER() OVER (ORDER BY wi.weekly_increase DESC) as rank,
-        s.vocadb_id as song_id,
-        s.default_name,
-        st.title_korean,
-        st.title_english,
-        st.title_japanese,
-        st.title_romaji,
-        sa.artist_string,
-        sy.youtube_id,
-        sy.youtube_url,
-        s.thumb_url,
-        sv.total_view_count as view_count,
-        sv.last_updated as view_count_updated_at,
-        s.publish_date,
-        s.song_type,
-        s.favorited_times,
-        s.rating_score,
-        s.length_seconds,
-        wi.weekly_increase
-      FROM weekly_increases wi
-      JOIN songs s ON s.vocadb_id = wi.song_id
-      INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
-      LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
-      LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
-      LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
-      LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
-      ORDER BY wi.weekly_increase DESC
-      LIMIT ${RANKING_LIMIT}
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
     ),
-    -- New Ranking (by publish date)
-    new_ranking AS (
+    song_artists AS (
       SELECT
-        'new' as ranking_type,
-        ROW_NUMBER() OVER (ORDER BY s.publish_date DESC) as rank,
-        s.vocadb_id as song_id,
-        s.default_name,
-        st.title_korean,
-        st.title_english,
-        st.title_japanese,
-        st.title_romaji,
-        sa.artist_string,
-        sy.youtube_id,
-        sy.youtube_url,
-        s.thumb_url,
-        sv.total_view_count as view_count,
-        sv.last_updated as view_count_updated_at,
-        s.publish_date,
-        s.song_type,
-        s.favorited_times,
-        s.rating_score,
-        s.length_seconds,
-        NULL::bigint as weekly_increase
-      FROM songs s
-      INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
-      LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
-      LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
-      LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
-      LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
-      WHERE s.publish_date IS NOT NULL
-        AND s.publish_date >= CURRENT_DATE - INTERVAL '30 days'
-      ORDER BY s.publish_date DESC
-      LIMIT ${RANKING_LIMIT}
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
     )
-    -- Union all rankings together
-    SELECT * FROM total_ranking
-    UNION ALL
-    SELECT * FROM weekly_ranking
-    UNION ALL
-    SELECT * FROM new_ranking
+    SELECT
+      'weekly' as ranking_type,
+      ROW_NUMBER() OVER (ORDER BY wi.weekly_increase DESC) as rank,
+      s.vocadb_id as song_id,
+      s.default_name,
+      st.title_korean,
+      st.title_english,
+      st.title_japanese,
+      st.title_romaji,
+      sa.artist_string,
+      sy.youtube_id,
+      sy.youtube_url,
+      s.thumb_url,
+      sv.total_view_count as view_count,
+      sv.last_updated as view_count_updated_at,
+      s.publish_date,
+      s.song_type,
+      s.favorited_times,
+      s.rating_score,
+      s.length_seconds,
+      wi.weekly_increase
+    FROM weekly_increases wi
+    JOIN songs s ON s.vocadb_id = wi.song_id
+    INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
+    LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
+    ORDER BY wi.weekly_increase DESC
+    LIMIT ${RANKING_LIMIT}
   `;
 
-  return result.map(row => mapToRankingCacheRow(row, row.ranking_type));
+  return result.map(row => mapToRankingCacheRow(row, 'weekly'));
+}
+
+/**
+ * Calculate New Ranking (by publish date)
+ * Fast query (~1s) - no daily_view_counts scan
+ */
+async function calculateNewRanking() {
+  const result = await prisma.$queryRaw<any[]>`
+    WITH included_songs AS (
+      SELECT DISTINCT song_id
+      FROM song_artists
+      JOIN artists ON song_artists.artist_id = artists.vocadb_id
+      WHERE artists.artist_type IN ('Vocaloid', 'UTAU', 'SynthesizerV', 'CeVIO', 'VOICEVOX', 'AIVOICE', 'VoiSona', 'Voiceroid', 'NEUTRINO', 'ACEVirtualSinger')
+    ),
+    song_views AS (
+      SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
+      FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
+      GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artists AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
+    )
+    SELECT
+      'new' as ranking_type,
+      ROW_NUMBER() OVER (ORDER BY s.publish_date DESC) as rank,
+      s.vocadb_id as song_id,
+      s.default_name,
+      st.title_korean,
+      st.title_english,
+      st.title_japanese,
+      st.title_romaji,
+      sa.artist_string,
+      sy.youtube_id,
+      sy.youtube_url,
+      s.thumb_url,
+      sv.total_view_count as view_count,
+      sv.last_updated as view_count_updated_at,
+      s.publish_date,
+      s.song_type,
+      s.favorited_times,
+      s.rating_score,
+      s.length_seconds,
+      NULL::bigint as weekly_increase
+    FROM songs s
+    INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
+    LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
+    WHERE s.publish_date IS NOT NULL
+      AND s.publish_date >= CURRENT_DATE - INTERVAL '30 days'
+    ORDER BY s.publish_date DESC
+    LIMIT ${RANKING_LIMIT}
+  `;
+
+  return result.map(row => mapToRankingCacheRow(row, 'new'));
 }
