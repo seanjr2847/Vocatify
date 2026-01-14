@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getWeeklyRanking } from '@/lib/db';
+import { getCachedWeeklyRanking } from '@/lib/db';
 import { serializeBigInt } from '@/lib/serialize';
 
 export async function GET(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const ranking = await getWeeklyRanking(limit, offset);
+    const ranking = await getCachedWeeklyRanking(limit, offset);
 
     return NextResponse.json({
       success: true,
