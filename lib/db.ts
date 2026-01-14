@@ -953,29 +953,22 @@ export async function getStats(): Promise<{
  * - 최적화: LEFT JOIN ANTI 패턴으로 NOT IN 제거
  */
 export async function getSongRankPositions(vocadbId: number): Promise<RankingPositions> {
-  // 총 조회수 랭킹 위치
-  const totalRank = await prisma.$queryRaw<{ position: bigint }[]>`
-    WITH song_views AS (
-      SELECT song_id, MAX(view_count) as total_view_count
-      FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
-      GROUP BY song_id
-    ),
-    ranked AS (
-      SELECT
-        sv.song_id,
-        ROW_NUMBER() OVER (ORDER BY sv.total_view_count DESC) as position
-      FROM song_views sv
-    )
-    SELECT position FROM ranked WHERE song_id = ${vocadbId}
-  `;
-
-  // 일간/주간 랭킹은 데이터가 없을 수 있으므로 간단하게 null 반환
-  // (실제 구현은 위의 getDailyRanking/getWeeklyRanking과 유사)
+  // Use pre-computed ranking cache for fast lookups
+  const [totalRank, weeklyRank] = await Promise.all([
+    prisma.ranking_cache.findFirst({
+      where: { ranking_type: 'total', song_id: vocadbId },
+      select: { rank: true },
+    }),
+    prisma.ranking_cache.findFirst({
+      where: { ranking_type: 'weekly', song_id: vocadbId },
+      select: { rank: true },
+    }),
+  ]);
 
   return {
-    total: totalRank[0] ? Number(totalRank[0].position) : null,
-    daily: null, // TODO: Implement when daily data exists
-    weekly: null, // TODO: Implement when weekly data exists
+    total: totalRank?.rank ?? null,
+    daily: null, // Daily rankings not cached yet
+    weekly: weeklyRank?.rank ?? null,
   };
 }
 
