@@ -30,11 +30,9 @@ export async function POST(request: NextRequest) {
     console.log('[Cron] Ranking cache update started');
     const startTime = Date.now();
 
-    // Step 1: Update weekly stats cache (DISABLED - causes timeout on Vercel Hobby plan)
-    // Weekly stats must be populated via separate process with longer timeout
-    // TODO: Run weekly stats updater via local script or GitHub Actions
-    console.log('[Cron] Skipping weekly stats update (disabled due to Vercel timeout limit)');
-    const weeklyStatsResult = { success: false, count: 0, duration: 0, skipped: true };
+    // Step 1: Update weekly stats cache (optimized with batch processing)
+    console.log('[Cron] Step 1/2: Updating weekly stats cache...');
+    const weeklyStatsResult = await updateWeeklyStatsCache();
 
     // Step 2: Update ranking cache (using weekly stats cache)
     console.log('[Cron] Step 2/2: Updating ranking cache...');

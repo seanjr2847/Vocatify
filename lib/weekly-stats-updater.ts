@@ -54,21 +54,28 @@ export async function updateWeeklyStatsCache() {
       };
     }
 
-    // Use bulk INSERT ... ON CONFLICT for fast upsert
-    await prisma.$executeRaw`
-      INSERT INTO song_weekly_stats (song_id, weekly_increase, current_views, previous_views, updated_at)
-      VALUES ${Prisma.join(
-        weeklyStats.map((stat) =>
-          Prisma.sql`(${stat.song_id}, ${stat.weekly_increase}, ${stat.current_views}, ${stat.previous_views}, NOW())`
-        )
-      )}
-      ON CONFLICT (song_id)
-      DO UPDATE SET
-        weekly_increase = EXCLUDED.weekly_increase,
-        current_views = EXCLUDED.current_views,
-        previous_views = EXCLUDED.previous_views,
-        updated_at = EXCLUDED.updated_at
-    `;
+    // Use batch INSERT ... ON CONFLICT to avoid timeout
+    // Process in chunks of 500 records
+    const batchSize = 500;
+    for (let i = 0; i < weeklyStats.length; i += batchSize) {
+      const batch = weeklyStats.slice(i, i + batchSize);
+      console.log(`[Weekly Stats] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(weeklyStats.length / batchSize)} (${batch.length} records)`);
+
+      await prisma.$executeRaw`
+        INSERT INTO song_weekly_stats (song_id, weekly_increase, current_views, previous_views, updated_at)
+        VALUES ${Prisma.join(
+          batch.map((stat) =>
+            Prisma.sql`(${stat.song_id}, ${stat.weekly_increase}, ${stat.current_views}, ${stat.previous_views}, NOW())`
+          )
+        )}
+        ON CONFLICT (song_id)
+        DO UPDATE SET
+          weekly_increase = EXCLUDED.weekly_increase,
+          current_views = EXCLUDED.current_views,
+          previous_views = EXCLUDED.previous_views,
+          updated_at = EXCLUDED.updated_at
+      `;
+    }
 
     const duration = Date.now() - startTime;
     console.log(`[Weekly Stats] Updated ${weeklyStats.length} records in ${duration}ms`);
