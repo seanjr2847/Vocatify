@@ -180,7 +180,7 @@ async function calculateTotalRanking() {
 
 /**
  * Calculate Weekly Ranking (by weekly increase)
- * Slower query (~30s) - requires daily_view_counts scan
+ * Fast query (~1s) - uses pre-computed song_weekly_stats cache
  */
 async function calculateWeeklyRanking() {
   const result = await prisma.$queryRaw<any[]>`
@@ -189,33 +189,6 @@ async function calculateWeeklyRanking() {
       FROM song_artists
       JOIN artists ON song_artists.artist_id = artists.vocadb_id
       WHERE artists.artist_type IN ('Vocaloid', 'UTAU', 'SynthesizerV', 'CeVIO', 'VOICEVOX', 'AIVOICE', 'VoiSona', 'Voiceroid', 'NEUTRINO', 'ACEVirtualSinger')
-    ),
-    weekly_data AS (
-      SELECT
-        pv.song_id,
-        dvc.pv_id,
-        dvc.recorded_date,
-        dvc.total_views
-      FROM daily_view_counts dvc
-      JOIN pvs pv ON dvc.pv_id = pv.id
-      WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '8 days'
-        AND pv.service = 'Youtube'
-    ),
-    weekly_changes AS (
-      SELECT
-        song_id,
-        MAX(CASE WHEN recorded_date = CURRENT_DATE THEN total_views ELSE 0 END) as latest_views,
-        MAX(CASE WHEN recorded_date = CURRENT_DATE - INTERVAL '7 days' THEN total_views ELSE 0 END) as week_ago_views
-      FROM weekly_data
-      GROUP BY song_id
-    ),
-    weekly_increases AS (
-      SELECT
-        song_id,
-        latest_views - week_ago_views as weekly_increase
-      FROM weekly_changes
-      WHERE latest_views > 0
-        AND (latest_views - week_ago_views) > 0
     ),
     song_views AS (
       SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
@@ -252,7 +225,7 @@ async function calculateWeeklyRanking() {
     )
     SELECT
       'weekly' as ranking_type,
-      ROW_NUMBER() OVER (ORDER BY wi.weekly_increase DESC) as rank,
+      ROW_NUMBER() OVER (ORDER BY ws.weekly_increase DESC) as rank,
       s.vocadb_id as song_id,
       s.default_name,
       st.title_korean,
@@ -270,15 +243,15 @@ async function calculateWeeklyRanking() {
       s.favorited_times,
       s.rating_score,
       s.length_seconds,
-      wi.weekly_increase
-    FROM weekly_increases wi
-    JOIN songs s ON s.vocadb_id = wi.song_id
+      ws.weekly_increase
+    FROM song_weekly_stats ws
+    JOIN songs s ON s.vocadb_id = ws.song_id
     INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
     LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
     LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
     LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
-    ORDER BY wi.weekly_increase DESC
+    ORDER BY ws.weekly_increase DESC
     LIMIT ${RANKING_LIMIT}
   `;
 

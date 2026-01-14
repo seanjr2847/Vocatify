@@ -190,3 +190,14 @@ model ranking_cache {
   @@index([ranking_type, rank])
   @@index([updated_at])
 }
+
+model song_weekly_stats {
+  song_id         Int      @id
+  weekly_increase BigInt
+  current_views   BigInt
+  previous_views  BigInt
+  updated_at      DateTime @default(now())
+
+  @@index([weekly_increase(sort: Desc)])
+  @@index([updated_at])
+}

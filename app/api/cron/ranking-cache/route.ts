@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateRankingCache } from '@/lib/ranking-updater';
+import { updateWeeklyStatsCache } from '@/lib/weekly-stats-updater';
 
 /**
  * Ranking Cache Update Cron Job
@@ -29,15 +30,23 @@ export async function POST(request: NextRequest) {
     console.log('[Cron] Ranking cache update started');
     const startTime = Date.now();
 
-    // Update ranking cache
-    const result = await updateRankingCache();
+    // Step 1: Update weekly stats cache (pre-compute weekly increases)
+    console.log('[Cron] Step 1/2: Updating weekly stats cache...');
+    const weeklyStatsResult = await updateWeeklyStatsCache();
+    console.log(`[Cron] Weekly stats updated: ${weeklyStatsResult.count} records in ${weeklyStatsResult.duration}ms`);
+
+    // Step 2: Update ranking cache (using weekly stats cache)
+    console.log('[Cron] Step 2/2: Updating ranking cache...');
+    const rankingResult = await updateRankingCache();
 
     const duration = Date.now() - startTime;
     console.log(`[Cron] Ranking cache update completed in ${duration}ms`);
 
     return NextResponse.json({
       message: 'Ranking cache updated successfully',
-      ...result,
+      weeklyStats: weeklyStatsResult,
+      rankings: rankingResult,
+      totalDuration: duration,
     });
   } catch (error) {
     console.error('[Cron] Ranking cache update failed:', error);

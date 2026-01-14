@@ -116,7 +116,15 @@
       "mcp__plugin_serena_serena__create_text_file",
       "Bash(npx ts-node:*)",
       "Bash(npx prisma:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(for i in {1..6})",
+      "Bash(do sleep 15)",
+      "Bash(for i in {1..5})",
+      "Bash(do curl -o /dev/null -s -w \"요청 $i: %{time_total}초\\\\n\" \"http://localhost:3009/\")",
+      "Bash(git reset:*)",
+      "Bash(echo $env:CRON_SECRET)",
+      "Bash(vercel env:*)"
     ]
   }
 }
