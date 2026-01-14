@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTotalRanking } from '@/lib/db';
+import { getCachedTotalRanking } from '@/lib/db';
 import { serializeBigInt } from '@/lib/serialize';
 
 export async function GET(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '100');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const ranking = await getTotalRanking(limit, offset);
+    const ranking = await getCachedTotalRanking(limit, offset);
 
     return NextResponse.json({
       success: true,

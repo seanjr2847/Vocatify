@@ -7,6 +7,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { cache, getCachedRankings, setCachedRankings, UnifiedRankings } from './cache';
+import { INCLUDED_VOICE_SYNTHESIZER_TYPES } from './constants';
 
 // ============================================================
 // Interfaces
@@ -109,21 +110,6 @@ export interface SongStatistics {
 // ============================================================
 
 const EXCLUDED_TAG_NAMES = ['human singers', 'out of scope (cover unifier)'];
-
-// Voice synthesizer types to include in rankings (excludes OtherVoiceSynthesizer)
-// To add new voice synthesizer types, add them to this array
-const INCLUDED_VOICE_SYNTHESIZER_TYPES = [
-  'Vocaloid',
-  'UTAU',
-  'SynthesizerV',
-  'CeVIO',
-  'VOICEVOX',
-  'AIVOICE',
-  'VoiSona',
-  'Voiceroid',
-  'NEUTRINO',
-  'ACEVirtualSinger',
-] as const;
 
 // ============================================================
 // Ranking Functions

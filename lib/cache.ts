@@ -4,6 +4,8 @@
  * - 메모리 사용량 최소화
  */
 
+import type { RankingItem } from './db';
+
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
@@ -77,9 +79,9 @@ if (typeof setInterval !== 'undefined') {
  * 랭킹 캐시 헬퍼 함수
  */
 export interface UnifiedRankings {
-  totalRanking: any[];
-  weeklyRanking: any[];
-  newRanking: any[];
+  totalRanking: RankingItem[];
+  weeklyRanking: RankingItem[];
+  newRanking: RankingItem[];
 }
 
 export function getCachedRankings(limit: number): UnifiedRankings | null {
