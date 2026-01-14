@@ -90,12 +90,15 @@ export async function updateRankingCache() {
  * Computes total, weekly, and new rankings in a single query for efficiency
  */
 async function calculateAllRankings() {
+  // Build the voice synthesizer types as a SQL array literal
+  const voiceTypes = INCLUDED_VOICE_SYNTHESIZER_TYPES.map(t => `'${t}'`).join(', ');
+
   const result = await prisma.$queryRaw<any[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
       JOIN artists ON song_artists.artist_id = artists.vocadb_id
-      WHERE artists.artist_type IN (${Prisma.join(INCLUDED_VOICE_SYNTHESIZER_TYPES)})
+      WHERE artists.artist_type IN (${Prisma.raw(voiceTypes)})
     ),
     song_views AS (
       SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
