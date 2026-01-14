@@ -36,7 +36,6 @@ export async function POST(request: NextRequest) {
     console.log(`[Cron] Ranking cache update completed in ${duration}ms`);
 
     return NextResponse.json({
-      success: true,
       message: 'Ranking cache updated successfully',
       ...result,
     });

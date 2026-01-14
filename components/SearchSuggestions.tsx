@@ -171,9 +171,9 @@ export function SearchSuggestions({
                     <div className="flex items-center gap-2">
                       <p className="text-xs text-gray-400 truncate">
                         {shouldHighlightArtist ? (
-                          <HighlightedText text={song.artistString} query={query} />
+                          <HighlightedText text={song.artistString || ''} query={query} />
                         ) : (
-                          song.artistString
+                          song.artistString || ''
                         )}
                       </p>
                       {matchedFieldLabel && song.matchedField !== 'titleKorean' && song.matchedField !== 'title' && (

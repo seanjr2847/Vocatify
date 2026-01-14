@@ -19,7 +19,7 @@ export interface RankingSong {
   titleEnglish: string | null;
   titleJapanese: string | null;
   titleRomaji: string | null;
-  artistString: string;
+  artistString: string | null;
   youtubeId: string | null;
   youtubeUrl: string | null;
   thumbUrl: string | null;
@@ -1359,7 +1359,7 @@ export async function getCachedTotalRanking(limit: number = 100, offset: number 
     favoritedTimes: item.favorited_times || 0,
     ratingScore: item.rating_score || 0,
     lengthSeconds: item.length_seconds,
-    weeklyIncrease: null,
+    weeklyIncrease: item.weekly_increase ?? undefined,
   }));
 }
 
@@ -1393,7 +1393,7 @@ export async function getCachedWeeklyRanking(limit: number = 100, offset: number
     favoritedTimes: item.favorited_times || 0,
     ratingScore: item.rating_score || 0,
     lengthSeconds: item.length_seconds,
-    weeklyIncrease: item.weekly_increase,
+    weeklyIncrease: item.weekly_increase ?? undefined,
   }));
 }
 
@@ -1427,6 +1427,6 @@ export async function getCachedNewRanking(limit: number = 100, offset: number = 
     favoritedTimes: item.favorited_times || 0,
     ratingScore: item.rating_score || 0,
     lengthSeconds: item.length_seconds,
-    weeklyIncrease: null,
+    weeklyIncrease: item.weekly_increase ?? undefined,
   }));
 }
