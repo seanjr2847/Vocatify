@@ -55,11 +55,12 @@ export async function updateRankingCache() {
     console.log(`[Ranking Cache] Total: ${totalRankings.length} rankings`);
 
     // Skip weekly ranking if song_weekly_stats table is empty
+    // Use findFirst instead of count() for better performance
     console.log('[Ranking Cache] Checking weekly stats availability...');
-    const hasWeeklyStats = await prisma.song_weekly_stats.count();
+    const hasWeeklyStats = await prisma.song_weekly_stats.findFirst();
 
     let weeklyRankings: any[] = [];
-    if (hasWeeklyStats > 0) {
+    if (hasWeeklyStats) {
       console.log('[Ranking Cache] Calculating weekly ranking...');
       weeklyRankings = await calculateWeeklyRanking();
       console.log(`[Ranking Cache] Weekly: ${weeklyRankings.length} rankings`);
@@ -81,16 +82,18 @@ export async function updateRankingCache() {
       return acc;
     }, {} as Record<string, number>);
 
-    // Clear old cache and insert new data in transaction
-    await prisma.$transaction(async (tx) => {
-      // Delete all old rankings
-      await tx.ranking_cache.deleteMany({});
+    // Clear old cache and insert new data
+    // Use TRUNCATE for much faster deletion than deleteMany
+    await prisma.$executeRaw`TRUNCATE TABLE ranking_cache`;
 
-      // Insert new rankings
-      await tx.ranking_cache.createMany({
-        data: allRankings,
+    // Insert new rankings in batches to avoid timeout
+    const batchSize = 100;
+    for (let i = 0; i < allRankings.length; i += batchSize) {
+      const batch = allRankings.slice(i, i + batchSize);
+      await prisma.ranking_cache.createMany({
+        data: batch,
       });
-    });
+    }
 
     const duration = Date.now() - startTime;
     console.log(`[Ranking Cache] Update completed in ${duration}ms`);
