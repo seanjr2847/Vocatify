@@ -6,6 +6,7 @@
  */
 
 import { prisma } from './prisma';
+import { Prisma } from '@prisma/client';
 
 export async function updateWeeklyStatsCache() {
   console.log('[Weekly Stats] Starting update...');
@@ -53,26 +54,21 @@ export async function updateWeeklyStatsCache() {
       };
     }
 
-    // Use upsert to update existing records or insert new ones
-    await prisma.$transaction(
-      weeklyStats.map((stat) =>
-        prisma.song_weekly_stats.upsert({
-          where: { song_id: stat.song_id },
-          update: {
-            weekly_increase: stat.weekly_increase,
-            current_views: stat.current_views,
-            previous_views: stat.previous_views,
-            updated_at: new Date(),
-          },
-          create: {
-            song_id: stat.song_id,
-            weekly_increase: stat.weekly_increase,
-            current_views: stat.current_views,
-            previous_views: stat.previous_views,
-          },
-        })
-      )
-    );
+    // Use bulk INSERT ... ON CONFLICT for fast upsert
+    await prisma.$executeRaw`
+      INSERT INTO song_weekly_stats (song_id, weekly_increase, current_views, previous_views, updated_at)
+      VALUES ${Prisma.join(
+        weeklyStats.map((stat) =>
+          Prisma.sql`(${stat.song_id}, ${stat.weekly_increase}, ${stat.current_views}, ${stat.previous_views}, NOW())`
+        )
+      )}
+      ON CONFLICT (song_id)
+      DO UPDATE SET
+        weekly_increase = EXCLUDED.weekly_increase,
+        current_views = EXCLUDED.current_views,
+        previous_views = EXCLUDED.previous_views,
+        updated_at = EXCLUDED.updated_at
+    `;
 
     const duration = Date.now() - startTime;
     console.log(`[Weekly Stats] Updated ${weeklyStats.length} records in ${duration}ms`);
