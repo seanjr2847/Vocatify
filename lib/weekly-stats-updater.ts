@@ -14,6 +14,7 @@ export async function updateWeeklyStatsCache() {
 
   try {
     // Calculate weekly increases from daily_view_counts table
+    // Use yesterday's data since today's data may not be recorded yet
     const weeklyStats = await prisma.$queryRaw<any[]>`
       WITH weekly_data AS (
         SELECT
@@ -22,14 +23,15 @@ export async function updateWeeklyStatsCache() {
           dvc.total_views
         FROM daily_view_counts dvc
         JOIN pvs pv ON dvc.pv_id = pv.id
-        WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '8 days'
+        WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '9 days'
+          AND dvc.recorded_date <= CURRENT_DATE - INTERVAL '1 day'
           AND pv.service = 'Youtube'
       ),
       weekly_changes AS (
         SELECT
           song_id,
-          MAX(CASE WHEN recorded_date = CURRENT_DATE THEN total_views ELSE 0 END) as current_views,
-          MAX(CASE WHEN recorded_date = CURRENT_DATE - INTERVAL '7 days' THEN total_views ELSE 0 END) as previous_views
+          MAX(CASE WHEN recorded_date = CURRENT_DATE - INTERVAL '1 day' THEN total_views ELSE 0 END) as current_views,
+          MAX(CASE WHEN recorded_date = CURRENT_DATE - INTERVAL '8 days' THEN total_views ELSE 0 END) as previous_views
         FROM weekly_data
         GROUP BY song_id
       )
@@ -54,27 +56,24 @@ export async function updateWeeklyStatsCache() {
       };
     }
 
-    // Use batch INSERT ... ON CONFLICT to avoid timeout
+    // First, truncate the table for clean slate
+    await prisma.$executeRaw`TRUNCATE TABLE song_weekly_stats`;
+
+    // Use batch createMany for fast insertion
     // Process in chunks of 500 records
     const batchSize = 500;
     for (let i = 0; i < weeklyStats.length; i += batchSize) {
       const batch = weeklyStats.slice(i, i + batchSize);
       console.log(`[Weekly Stats] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(weeklyStats.length / batchSize)} (${batch.length} records)`);
 
-      await prisma.$executeRaw`
-        INSERT INTO song_weekly_stats (song_id, weekly_increase, current_views, previous_views, updated_at)
-        VALUES ${Prisma.join(
-          batch.map((stat) =>
-            Prisma.sql`(${stat.song_id}, ${stat.weekly_increase}, ${stat.current_views}, ${stat.previous_views}, NOW())`
-          )
-        )}
-        ON CONFLICT (song_id)
-        DO UPDATE SET
-          weekly_increase = EXCLUDED.weekly_increase,
-          current_views = EXCLUDED.current_views,
-          previous_views = EXCLUDED.previous_views,
-          updated_at = EXCLUDED.updated_at
-      `;
+      await prisma.song_weekly_stats.createMany({
+        data: batch.map((stat) => ({
+          song_id: stat.song_id,
+          weekly_increase: stat.weekly_increase,
+          current_views: stat.current_views,
+          previous_views: stat.previous_views,
+        })),
+      });
     }
 
     const duration = Date.now() - startTime;
