@@ -161,3 +161,32 @@ model tags {
 
   @@index([category_name])
 }
+
+model ranking_cache {
+  id                    Int      @id @default(autoincrement())
+  ranking_type          String   // 'total', 'weekly', 'new'
+  rank                  Int
+  song_id               Int
+  default_name          String
+  title_korean          String?
+  title_english         String?
+  title_japanese        String?
+  title_romaji          String?
+  artist_string         String?
+  youtube_id            String?
+  youtube_url           String?
+  thumb_url             String?
+  view_count            BigInt?
+  view_count_updated_at DateTime?
+  publish_date          DateTime? @db.Date
+  song_type             String?
+  favorited_times       Int?
+  rating_score          Int?
+  length_seconds        Int?
+  weekly_increase       BigInt?
+  updated_at            DateTime  @default(now())
+
+  @@unique([ranking_type, rank])
+  @@index([ranking_type, rank])
+  @@index([updated_at])
+}

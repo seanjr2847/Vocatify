@@ -1272,3 +1272,161 @@ export async function getSongStatistics(vocadbId: number): Promise<SongStatistic
     return null;
   }
 }
+
+// ============================================================
+// Cached Ranking Functions (Pre-computed from ranking_cache table)
+// ============================================================
+
+/**
+ * Get rankings from pre-computed cache table (FAST)
+ * Returns top 7 rankings for homepage by default
+ */
+export async function getCachedUnifiedRankings(limit: number = 7): Promise<UnifiedRankings> {
+  const [total, weekly, newSongs] = await Promise.all([
+    prisma.ranking_cache.findMany({
+      where: { ranking_type: 'total' },
+      orderBy: { rank: 'asc' },
+      take: limit,
+    }),
+    prisma.ranking_cache.findMany({
+      where: { ranking_type: 'weekly' },
+      orderBy: { rank: 'asc' },
+      take: limit,
+    }),
+    prisma.ranking_cache.findMany({
+      where: { ranking_type: 'new' },
+      orderBy: { rank: 'asc' },
+      take: limit,
+    }),
+  ]);
+
+  const mapToRankingItem = (item: any): RankingItem => ({
+    rank: item.rank,
+    vocadbId: item.song_id,
+    defaultName: item.default_name,
+    titleKorean: item.title_korean,
+    titleEnglish: item.title_english,
+    titleJapanese: item.title_japanese,
+    titleRomaji: item.title_romaji,
+    artistString: item.artist_string,
+    youtubeId: item.youtube_id,
+    youtubeUrl: item.youtube_url,
+    thumbUrl: item.thumb_url,
+    viewCount: item.view_count,
+    viewCountUpdatedAt: item.view_count_updated_at,
+    publishDate: item.publish_date,
+    songType: item.song_type,
+    favoritedTimes: item.favorited_times || 0,
+    ratingScore: item.rating_score || 0,
+    lengthSeconds: item.length_seconds,
+    weeklyIncrease: item.weekly_increase,
+  });
+
+  return {
+    totalRanking: total.map(mapToRankingItem),
+    weeklyRanking: weekly.map(mapToRankingItem),
+    newRanking: newSongs.map(mapToRankingItem),
+  };
+}
+
+/**
+ * Get cached total ranking (by view count)
+ */
+export async function getCachedTotalRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
+  const results = await prisma.ranking_cache.findMany({
+    where: { ranking_type: 'total' },
+    orderBy: { rank: 'asc' },
+    skip: offset,
+    take: limit,
+  });
+
+  return results.map(item => ({
+    rank: item.rank,
+    vocadbId: item.song_id,
+    defaultName: item.default_name,
+    titleKorean: item.title_korean,
+    titleEnglish: item.title_english,
+    titleJapanese: item.title_japanese,
+    titleRomaji: item.title_romaji,
+    artistString: item.artist_string,
+    youtubeId: item.youtube_id,
+    youtubeUrl: item.youtube_url,
+    thumbUrl: item.thumb_url,
+    viewCount: item.view_count,
+    viewCountUpdatedAt: item.view_count_updated_at,
+    publishDate: item.publish_date,
+    songType: item.song_type,
+    favoritedTimes: item.favorited_times || 0,
+    ratingScore: item.rating_score || 0,
+    lengthSeconds: item.length_seconds,
+    weeklyIncrease: null,
+  }));
+}
+
+/**
+ * Get cached weekly ranking (by weekly increase)
+ */
+export async function getCachedWeeklyRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
+  const results = await prisma.ranking_cache.findMany({
+    where: { ranking_type: 'weekly' },
+    orderBy: { rank: 'asc' },
+    skip: offset,
+    take: limit,
+  });
+
+  return results.map(item => ({
+    rank: item.rank,
+    vocadbId: item.song_id,
+    defaultName: item.default_name,
+    titleKorean: item.title_korean,
+    titleEnglish: item.title_english,
+    titleJapanese: item.title_japanese,
+    titleRomaji: item.title_romaji,
+    artistString: item.artist_string,
+    youtubeId: item.youtube_id,
+    youtubeUrl: item.youtube_url,
+    thumbUrl: item.thumb_url,
+    viewCount: item.view_count,
+    viewCountUpdatedAt: item.view_count_updated_at,
+    publishDate: item.publish_date,
+    songType: item.song_type,
+    favoritedTimes: item.favorited_times || 0,
+    ratingScore: item.rating_score || 0,
+    lengthSeconds: item.length_seconds,
+    weeklyIncrease: item.weekly_increase,
+  }));
+}
+
+/**
+ * Get cached new songs ranking (by publish date)
+ */
+export async function getCachedNewRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
+  const results = await prisma.ranking_cache.findMany({
+    where: { ranking_type: 'new' },
+    orderBy: { rank: 'asc' },
+    skip: offset,
+    take: limit,
+  });
+
+  return results.map(item => ({
+    rank: item.rank,
+    vocadbId: item.song_id,
+    defaultName: item.default_name,
+    titleKorean: item.title_korean,
+    titleEnglish: item.title_english,
+    titleJapanese: item.title_japanese,
+    titleRomaji: item.title_romaji,
+    artistString: item.artist_string,
+    youtubeId: item.youtube_id,
+    youtubeUrl: item.youtube_url,
+    thumbUrl: item.thumb_url,
+    viewCount: item.view_count,
+    viewCountUpdatedAt: item.view_count_updated_at,
+    publishDate: item.publish_date,
+    songType: item.song_type,
+    favoritedTimes: item.favorited_times || 0,
+    ratingScore: item.rating_score || 0,
+    lengthSeconds: item.length_seconds,
+    weeklyIncrease: null,
+  }));
+}
