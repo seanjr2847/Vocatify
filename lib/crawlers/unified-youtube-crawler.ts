@@ -79,6 +79,18 @@ export class UnifiedYouTubeCrawler {
   };
   private progressId?: string;
 
+  /**
+   * Generate unique progress key for chunk-specific tracking
+   * - ID-range mode: youtube-unified-chunk-{minId}-{maxId}
+   * - Sequential mode: youtube-unified
+   */
+  private getProgressKey(): string {
+    if (this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined) {
+      return `youtube-unified-chunk-${this.options.minVocadbId}-${this.options.maxVocadbId}`;
+    }
+    return 'youtube-unified';
+  }
+
   constructor(prisma: PrismaClient, options: UnifiedYouTubeCrawlerOptions = {}) {
     this.prisma = prisma;
 
@@ -140,18 +152,25 @@ export class UnifiedYouTubeCrawler {
       // Initialize or resume progress
       if (this.options.enableResume) {
         const existingProgress = await this.prisma.crawler_progress.findFirst({
-          where: { crawler_type: 'youtube-unified', status: 'running' },
+          where: { crawler_type: this.getProgressKey(), status: 'running' },
         });
 
         if (existingProgress) {
           this.progressId = existingProgress.id;
           currentOffset = existingProgress.last_offset;
-          console.log(`🔄 Resuming from offset ${currentOffset}`);
+
+          // In ID-range mode, restore cursor position
+          if (useIdRange) {
+            lastProcessedPvId = existingProgress.last_offset;
+            console.log(`🔄 Resuming from cursor (PV ID: ${lastProcessedPvId})`);
+          } else {
+            console.log(`🔄 Resuming from offset ${currentOffset}`);
+          }
         } else {
           const progress = await this.prisma.crawler_progress.create({
             data: {
               id: crypto.randomUUID(),
-              crawler_type: 'youtube-unified',
+              crawler_type: this.getProgressKey(),
               status: 'running',
               started_at: new Date(),
               last_offset: currentOffset,
@@ -196,9 +215,12 @@ export class UnifiedYouTubeCrawler {
         if (this.progressId) {
           const updateData: any = { total_processed: pvsProcessed };
 
-          // Only update offset in OFFSET mode
+          // Update offset/cursor for both modes
           if (!useIdRange) {
             updateData.last_offset = currentOffset;
+          } else {
+            // In ID-range mode, save cursor position for resumption
+            updateData.last_offset = lastProcessedPvId;
           }
 
           await this.prisma.crawler_progress.update({
