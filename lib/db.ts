@@ -73,7 +73,7 @@ export interface SongDetail {
     viewCountUpdatedAt: Date | null;
   }[];
   tags: { id: number; name: string; categoryName: string | null; count: number }[];
-  lyrics: { id: number; translationType: string; cultureCode: string | null; source: string | null; url: string | null; value: string | null }[];
+  lyrics: { id: number; translationType: string; cultureCode: string | null; source: string | null; url: string | null }[];
 }
 
 export interface RankingPositions {
@@ -882,7 +882,7 @@ export async function getSongById(vocadbId: number): Promise<SongDetail | null> 
       cultureCode: l.culture_code,
       source: l.source,
       url: l.url,
-      value: l.value,
+      // value 필드는 성능 최적화를 위해 제외 (Prisma select에서 value: false)
     })),
   };
 
