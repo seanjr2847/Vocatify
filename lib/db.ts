@@ -912,31 +912,39 @@ export async function getSongById(vocadbId: number): Promise<SongDetail | null> 
 export async function getDailyViewCounts(
   vocadbId: number,
   days: number = 30
-): Promise<{ date: Date; views: bigint }[]> {
+): Promise<DailyViewCount[]> {
   // 캐시 확인
-  const cached = cache.get<{ date: Date; views: bigint }[]>(`dailyViews:${vocadbId}:${days}`);
+  const cached = cache.get<DailyViewCount[]>(`dailyViews:${vocadbId}:${days}`);
   if (cached) return cached;
 
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-  const results = await prisma.$queryRaw<{ date: Date; views: bigint }[]>`
+  const results = await prisma.$queryRaw<{ recorded_date: Date; total_views: bigint; pv_id: number }[]>`
     SELECT
-      dvc.recorded_date as date,
-      SUM(dvc.total_views) as views
+      dvc.pv_id,
+      dvc.recorded_date,
+      SUM(dvc.total_views) as total_views
     FROM daily_view_counts dvc
     JOIN pvs p ON dvc.pv_id = p.id
     WHERE p.song_id = ${vocadbId}
       AND p.service = 'Youtube'
       AND dvc.recorded_date >= ${startDate}
-    GROUP BY dvc.recorded_date
+    GROUP BY dvc.pv_id, dvc.recorded_date
     ORDER BY dvc.recorded_date ASC
   `;
 
-  // 캐시에 저장 (5분 TTL)
-  cache.set(`dailyViews:${vocadbId}:${days}`, results);
+  // Transform to match DailyViewCount interface
+  const transformed: DailyViewCount[] = results.map(r => ({
+    pvId: r.pv_id,
+    recordedDate: r.recorded_date,
+    totalViews: r.total_views,
+  }));
 
-  return results;
+  // 캐시에 저장 (5분 TTL)
+  cache.set(`dailyViews:${vocadbId}:${days}`, transformed);
+
+  return transformed;
 }
 
 // ============================================================
