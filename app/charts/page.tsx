@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { Metadata } from 'next';
-import { getCachedTotalRanking, getDailyRanking, getCachedWeeklyRanking, getCachedNewRanking } from '@/lib/db';
+import { getCachedTotalRanking, getCachedDailyRanking, getCachedWeeklyRanking, getCachedNewRanking } from '@/lib/db';
 import { serializeBigInt } from '@/lib/serialize';
 import { ChartsClient } from './ChartsClient';
 
@@ -14,11 +14,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function ChartsPage() {
   // Fetch initial data for all tabs in parallel
-  // Using cached rankings for total, weekly, and new (0.1s each)
-  // Daily ranking still uses complex query (needs daily_view_counts data)
+  // All rankings now use cached data from ranking_cache table (0.1s each)
   const [totalRanking, dailyRanking, weeklyRanking, newRanking] = await Promise.all([
     getCachedTotalRanking(100, 0),
-    getDailyRanking(100, 0),
+    getCachedDailyRanking(100, 0),
     getCachedWeeklyRanking(100, 0),
     getCachedNewRanking(100, 0),
   ]);

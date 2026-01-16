@@ -13,6 +13,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { UnifiedYouTubeCrawler, UnifiedCrawlerMode } from '@/lib/crawlers/unified-youtube-crawler';
 
+export const maxDuration = 300; // 5 minutes max (Vercel Pro)
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
@@ -64,7 +66,7 @@ export async function POST(request: NextRequest) {
     const crawler = new UnifiedYouTubeCrawler(prisma, {
       mode,                           // Selection mode: new, old, top, all
       batchSize: 50,                  // 50 videos per API request (YouTube API max)
-      maxPVsPerRun: 500,              // Process up to 500 PVs per cron run (ignored if chunk mode)
+      maxPVsPerRun: chunkIndex !== undefined ? 2000 : 500,  // Chunk mode: 2000 PVs (safe for 5min timeout), non-chunk: 500
       enableResume: true,             // Enable progress tracking
       updateLocalizations,            // Also fetch Korean titles (default: true)
       minVocadbId,                    // Optional: minimum vocadbId for chunk

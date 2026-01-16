@@ -1480,3 +1480,37 @@ export async function getCachedNewRanking(limit: number = 100, offset: number = 
     weeklyIncrease: item.weekly_increase ?? undefined,
   }));
 }
+
+/**
+ * Get cached daily ranking (by daily increase)
+ */
+export async function getCachedDailyRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
+  const results = await prisma.ranking_cache.findMany({
+    where: { ranking_type: 'daily' },
+    orderBy: { rank: 'asc' },
+    skip: offset,
+    take: limit,
+  });
+
+  return results.map(item => ({
+    rank: item.rank,
+    vocadbId: item.song_id,
+    defaultName: item.default_name,
+    titleKorean: item.title_korean,
+    titleEnglish: item.title_english,
+    titleJapanese: item.title_japanese,
+    titleRomaji: item.title_romaji,
+    artistString: item.artist_string,
+    youtubeId: item.youtube_id,
+    youtubeUrl: item.youtube_url,
+    thumbUrl: item.thumb_url,
+    viewCount: item.view_count,
+    viewCountUpdatedAt: item.view_count_updated_at,
+    publishDate: item.publish_date,
+    songType: item.song_type,
+    favoritedTimes: item.favorited_times || 0,
+    ratingScore: item.rating_score || 0,
+    lengthSeconds: item.length_seconds,
+    dailyIncrease: item.daily_increase ?? undefined,
+  }));
+}

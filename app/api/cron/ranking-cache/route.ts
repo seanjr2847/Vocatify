@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     const { prisma } = await import('@/lib/prisma');
 
     // Get latest update time and count
-    const [latestUpdate, totalCount, weeklyCount, newCount] = await Promise.all([
+    const [latestUpdate, totalCount, weeklyCount, newCount, dailyCount] = await Promise.all([
       prisma.ranking_cache.findFirst({
         select: { updated_at: true },
         orderBy: { updated_at: 'desc' },
@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
       prisma.ranking_cache.count({ where: { ranking_type: 'total' } }),
       prisma.ranking_cache.count({ where: { ranking_type: 'weekly' } }),
       prisma.ranking_cache.count({ where: { ranking_type: 'new' } }),
+      prisma.ranking_cache.count({ where: { ranking_type: 'daily' } }),
     ]);
 
     return NextResponse.json({
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest) {
         total: totalCount,
         weekly: weeklyCount,
         new: newCount,
+        daily: dailyCount,
       },
     });
   } catch (error) {

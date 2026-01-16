@@ -72,7 +72,12 @@ export async function updateRankingCache() {
     const newRankings = await calculateNewRanking();
     console.log(`[Ranking Cache] New: ${newRankings.length} rankings`);
 
-    const allRankings = [...totalRankings, ...weeklyRankings, ...newRankings];
+    // Calculate daily ranking (slower query ~40s)
+    console.log('[Ranking Cache] Calculating daily ranking...');
+    const dailyRankings = await calculateDailyRanking();
+    console.log(`[Ranking Cache] Daily: ${dailyRankings.length} rankings`);
+
+    const allRankings = [...totalRankings, ...weeklyRankings, ...newRankings, ...dailyRankings];
 
     console.log(`[Ranking Cache] Calculated ${allRankings.length} rankings total`);
 
@@ -103,6 +108,7 @@ export async function updateRankingCache() {
       totalCount: counts['total'] || 0,
       weeklyCount: counts['weekly'] || 0,
       newCount: counts['new'] || 0,
+      dailyCount: counts['daily'] || 0,
       duration,
     };
   } catch (error) {
@@ -268,6 +274,114 @@ async function calculateWeeklyRanking() {
   `;
 
   return result.map(row => mapToRankingCacheRow(row, 'weekly'));
+}
+
+/**
+ * Calculate Daily Ranking (by daily increase)
+ * Slower query (~40s) - scans daily_view_counts with LAG window function
+ */
+async function calculateDailyRanking() {
+  const result = await prisma.$queryRaw<any[]>`
+    WITH included_songs AS (
+      SELECT DISTINCT song_id
+      FROM song_artists
+      JOIN artists ON song_artists.artist_id = artists.vocadb_id
+      WHERE artists.artist_type IN ('Vocaloid', 'UTAU', 'SynthesizerV', 'CeVIO', 'VOICEVOX', 'AIVOICE', 'VoiSona', 'Voiceroid', 'NEUTRINO', 'ACEVirtualSinger')
+    ),
+    daily_changes AS (
+      SELECT
+        pv.song_id,
+        dvc.pv_id,
+        dvc.recorded_date,
+        dvc.total_views,
+        dvc.total_views - LAG(dvc.total_views) OVER (
+          PARTITION BY dvc.pv_id
+          ORDER BY dvc.recorded_date
+        ) as daily_increase
+      FROM daily_view_counts dvc
+      JOIN pvs pv ON dvc.pv_id = pv.id
+      WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '3 days'
+        AND pv.service = 'Youtube'
+    ),
+    today_changes AS (
+      SELECT
+        song_id,
+        MAX(daily_increase) as daily_increase
+      FROM daily_changes
+      WHERE recorded_date::date = (CURRENT_DATE - INTERVAL '1 day')::date
+        AND daily_increase > 0
+      GROUP BY song_id
+    ),
+    song_views AS (
+      SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
+      FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
+      GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artists AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
+    )
+    SELECT
+      'daily' as ranking_type,
+      ROW_NUMBER() OVER (ORDER BY tc.daily_increase DESC) as rank,
+      s.vocadb_id as song_id,
+      s.default_name,
+      st.title_korean,
+      st.title_english,
+      st.title_japanese,
+      st.title_romaji,
+      sa.artist_string,
+      sy.youtube_id,
+      sy.youtube_url,
+      s.thumb_url,
+      sv.total_view_count as view_count,
+      sv.last_updated as view_count_updated_at,
+      s.publish_date,
+      s.song_type,
+      s.favorited_times,
+      s.rating_score,
+      s.length_seconds,
+      NULL::bigint as weekly_increase,
+      tc.daily_increase
+    FROM today_changes tc
+    JOIN songs s ON s.vocadb_id = tc.song_id
+    INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
+    LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
+    ORDER BY tc.daily_increase DESC
+    LIMIT ${RANKING_LIMIT}
+  `;
+
+  return result.map(row => ({
+    ...mapToRankingCacheRow(row, 'daily' as any),
+    daily_increase: row.daily_increase ?? null,
+  }));
 }
 
 /**

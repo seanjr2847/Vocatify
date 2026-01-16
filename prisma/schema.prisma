@@ -184,6 +184,7 @@ model ranking_cache {
   rating_score          Int?
   length_seconds        Int?
   weekly_increase       BigInt?
+  daily_increase        BigInt?
   updated_at            DateTime  @default(now())
 
   @@unique([ranking_type, rank])
