@@ -245,7 +245,7 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
         ) as daily_increase
       FROM daily_view_counts dvc
       JOIN pvs pv ON dvc.pv_id = pv.id
-      WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '2 days'
+      WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '3 days'
         AND pv.service = 'Youtube'
     ),
     today_changes AS (
@@ -253,7 +253,7 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
         song_id,
         MAX(daily_increase) as daily_increase
       FROM daily_changes
-      WHERE recorded_date = CURRENT_DATE
+      WHERE recorded_date::date = (CURRENT_DATE - INTERVAL '1 day')::date
         AND daily_increase > 0
       GROUP BY song_id
     ),
