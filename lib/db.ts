@@ -800,8 +800,13 @@ export async function getUnifiedRankings(limit: number = 7): Promise<UnifiedRank
 
 /**
  * 특정 곡 상세 정보 조회 (모든 관련 데이터 포함)
+ * - 5분 캐싱으로 성능 최적화
  */
 export async function getSongById(vocadbId: number): Promise<SongDetail | null> {
+  // 캐시 확인
+  const cached = cache.get<SongDetail>(`song:${vocadbId}`);
+  if (cached) return cached;
+
   const song = await prisma.songs.findUnique({
     where: { vocadb_id: vocadbId },
     include: {
@@ -811,19 +816,31 @@ export async function getSongById(vocadbId: number): Promise<SongDetail | null> 
         orderBy: { id: 'asc' },
       },
       pvs: {
-        orderBy: [{ service: 'asc' }, { id: 'asc' }],
+        where: { service: 'Youtube' }, // YouTube만 (성능 최적화)
+        orderBy: [{ view_count: 'desc' }],
+        take: 5, // 상위 5개만
       },
       song_tags: {
         include: { tags: true },
         orderBy: { count: 'desc' },
+        take: 20, // 상위 20개만 (성능 최적화)
       },
-      lyrics: true,
+      lyrics: {
+        select: {
+          id: true,
+          translation_type: true,
+          culture_code: true,
+          source: true,
+          url: true,
+          value: false, // 가사 본문 제외 (성능 최적화)
+        },
+      },
     },
   });
 
   if (!song) return null;
 
-  return {
+  const result: SongDetail = {
     vocadbId: song.vocadb_id,
     defaultName: song.default_name,
     songType: song.song_type,
@@ -868,15 +885,25 @@ export async function getSongById(vocadbId: number): Promise<SongDetail | null> 
       value: l.value,
     })),
   };
+
+  // 캐시에 저장 (5분 TTL)
+  cache.set(`song:${vocadbId}`, result);
+
+  return result;
 }
 
 /**
  * 곡의 일별 조회수 기록 조회 (YouTube PV 기준)
+ * - 5분 캐싱으로 성능 최적화
  */
 export async function getDailyViewCounts(
   vocadbId: number,
   days: number = 30
 ): Promise<{ date: Date; views: bigint }[]> {
+  // 캐시 확인
+  const cached = cache.get<{ date: Date; views: bigint }[]>(`dailyViews:${vocadbId}:${days}`);
+  if (cached) return cached;
+
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -892,6 +919,9 @@ export async function getDailyViewCounts(
     GROUP BY dvc.recorded_date
     ORDER BY dvc.recorded_date ASC
   `;
+
+  // 캐시에 저장 (5분 TTL)
+  cache.set(`dailyViews:${vocadbId}:${days}`, results);
 
   return results;
 }
@@ -1116,12 +1146,17 @@ export async function searchSongs(
 /**
  * 같은 아티스트의 다른 인기곡 조회
  * - 최적화: 재사용 가능한 CTE로 중복 제거
+ * - 5분 캐싱으로 성능 최적화
  */
 export async function getRelatedSongsByArtist(
   artistId: number,
   currentVocadbId: number,
   limit: number = 6
 ): Promise<RankingSong[]> {
+  // 캐시 확인
+  const cached = cache.get<RankingSong[]>(`related:${artistId}:${currentVocadbId}:${limit}`);
+  if (cached) return cached;
+
   const songs = await prisma.$queryRaw<any[]>`
     WITH artist_songs AS (
       SELECT DISTINCT sa.song_id
@@ -1130,37 +1165,42 @@ export async function getRelatedSongsByArtist(
         AND sa.song_id != ${currentVocadbId}
     ),
     song_views AS (
-      SELECT song_id, MAX(view_count) as total_view_count
-      FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
-      GROUP BY song_id
+      SELECT p.song_id, MAX(p.view_count) as total_view_count
+      FROM pvs p
+      INNER JOIN artist_songs asng ON p.song_id = asng.song_id
+      WHERE p.service = 'Youtube' AND p.view_count IS NOT NULL
+      GROUP BY p.song_id
     ),
     song_titles AS (
       SELECT
-        song_id,
-        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
-        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
-        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
-        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
-      FROM song_names
-      GROUP BY song_id
+        sn.song_id,
+        MAX(CASE WHEN sn.language = 'Korean' THEN sn.value END) as title_korean,
+        MAX(CASE WHEN sn.language = 'English' THEN sn.value END) as title_english,
+        MAX(CASE WHEN sn.language = 'Japanese' THEN sn.value END) as title_japanese,
+        MAX(CASE WHEN sn.language = 'Romaji' THEN sn.value END) as title_romaji
+      FROM song_names sn
+      INNER JOIN artist_songs asng ON sn.song_id = asng.song_id
+      GROUP BY sn.song_id
     ),
     song_artists AS (
       SELECT
         sa.song_id,
         STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
       FROM song_artists sa
+      INNER JOIN artist_songs asng ON sa.song_id = asng.song_id
       JOIN artists a ON sa.artist_id = a.vocadb_id
       WHERE sa.is_support = false
       GROUP BY sa.song_id
     ),
     song_youtube AS (
-      SELECT DISTINCT ON (song_id)
-        song_id,
-        pv_id as youtube_id,
-        url as youtube_url
-      FROM pvs
-      WHERE service = 'Youtube' AND view_count IS NOT NULL
-      ORDER BY song_id, view_count DESC NULLS LAST
+      SELECT DISTINCT ON (p.song_id)
+        p.song_id,
+        p.pv_id as youtube_id,
+        p.url as youtube_url
+      FROM pvs p
+      INNER JOIN artist_songs asng ON p.song_id = asng.song_id
+      WHERE p.service = 'Youtube' AND p.view_count IS NOT NULL
+      ORDER BY p.song_id, p.view_count DESC NULLS LAST
     )
     SELECT
       s.vocadb_id as "vocadbId",
@@ -1189,6 +1229,9 @@ export async function getRelatedSongsByArtist(
     LIMIT ${limit}
   `;
 
+  // 캐시에 저장 (5분 TTL)
+  cache.set(`related:${artistId}:${currentVocadbId}:${limit}`, songs);
+
   return songs;
 }
 
@@ -1199,8 +1242,13 @@ export async function getRelatedSongsByArtist(
 /**
  * 곡의 통계 정보 조회 (오늘/어제/이번주/지난주 조회수 증가량 등)
  * - 최적화: 중첩 서브쿼리를 집계 함수로 변경하여 단일 스캔으로 처리
+ * - 5분 캐싱으로 성능 최적화
  */
 export async function getSongStatistics(vocadbId: number): Promise<SongStatistics | null> {
+  // 캐시 확인
+  const cached = cache.get<SongStatistics | null>(`stats:${vocadbId}`);
+  if (cached !== undefined) return cached;
+
   try {
     const result = await prisma.$queryRaw<any[]>`
       WITH pv_ids AS (
@@ -1235,9 +1283,12 @@ export async function getSongStatistics(vocadbId: number): Promise<SongStatistic
       FROM daily_increases
     `;
 
-    if (result.length === 0) return null;
+    if (result.length === 0) {
+      cache.set(`stats:${vocadbId}`, null); // null도 캐싱
+      return null;
+    }
 
-    return {
+    const stats: SongStatistics = {
       viewsToday: result[0].viewsToday,
       viewsYesterday: result[0].viewsYesterday,
       viewsThisWeek: result[0].viewsThisWeek,
@@ -1246,9 +1297,16 @@ export async function getSongStatistics(vocadbId: number): Promise<SongStatistic
       peakDailyIncrease: result[0].peakDailyIncrease,
       peakDate: result[0].peakDate,
     };
+
+    // 캐시에 저장 (5분 TTL)
+    cache.set(`stats:${vocadbId}`, stats);
+
+    return stats;
   } catch (error) {
     console.error('Error fetching song statistics:', error);
-    return null;
+    const nullResult = null;
+    cache.set(`stats:${vocadbId}`, nullResult); // 에러도 캐싱하여 반복 쿼리 방지
+    return nullResult;
   }
 }
 
