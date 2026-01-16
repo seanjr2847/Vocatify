@@ -226,6 +226,12 @@ export async function getTotalRanking(limit: number = 100, offset: number = 0): 
  *   4. Window function 최적화
  */
 export async function getDailyRanking(limit: number = 100, offset: number = 0): Promise<RankingItem[]> {
+  // 캐시 확인 (offset=0인 경우만 캐싱, 5분 TTL)
+  if (offset === 0) {
+    const cached = cache.get<RankingItem[]>(`daily:${limit}`);
+    if (cached) return cached;
+  }
+
   const songs = await prisma.$queryRaw<any[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
@@ -321,10 +327,17 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
     LIMIT ${limit} OFFSET ${offset}
   `;
 
-  return songs.map((song, idx) => ({
+  const results = songs.map((song, idx) => ({
     ...song,
     rank: offset + idx + 1,
   }));
+
+  // 캐시에 저장 (offset=0인 경우만, 5분 TTL)
+  if (offset === 0) {
+    cache.set(`daily:${limit}`, results);
+  }
+
+  return results;
 }
 
 /**
