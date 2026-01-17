@@ -59,24 +59,51 @@ jobs:
       fail-fast: false  # Continue other chunks if one fails
 
     steps:
-      - name: Trigger YouTube Cron Endpoint (Chunk ${{ matrix.chunk }})
+      - name: Process Chunk ${{ matrix.chunk }} with Auto-Retry
         env:
           VERCEL_URL: ${{ secrets.VERCEL_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          response=$(curl -L -X POST "$VERCEL_URL/api/cron/youtube?mode=all&chunk=${{ matrix.chunk }}&totalChunks=10" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
+          COMPLETED="false"
+          ROUND=1
+          MAX_ROUNDS=20
+          CHUNK=${{ matrix.chunk }}
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
+          echo "🎬 Starting chunk $CHUNK (max $MAX_ROUNDS rounds)"
 
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
+          while [ "$COMPLETED" = "false" ] && [ $ROUND -le $MAX_ROUNDS ]; do
+            echo ""
+            echo "===== Round $ROUND/$MAX_ROUNDS ====="
 
-          if [ "$http_code" != "200" ]; then
-            echo "YouTube crawler chunk ${{ matrix.chunk }} failed with status $http_code"
+            response=$(curl -L -X POST "$VERCEL_URL/api/cron/youtube?mode=all&chunk=$CHUNK&totalChunks=10" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Content-Type: application/json" \
+              -w "\n%{http_code}" \
+              -s)
+
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | sed '$d')
+
+            echo "HTTP Status: $http_code"
+            echo "Response: $body"
+
+            if [ "$http_code" != "200" ]; then
+              echo "❌ Round $ROUND failed with status $http_code"
+              exit 1
+            fi
+
+            # Check if chunk is fully completed
+            if echo "$body" | grep -q '"completed":true'; then
+              COMPLETED="true"
+              echo "✅ Chunk $CHUNK fully completed in $ROUND rounds!"
+            else
+              echo "⏳ Chunk $CHUNK incomplete, continuing..."
+              ROUND=$((ROUND + 1))
+              sleep 3  # 3초 대기 (API rate limit 방지)
+            fi
+          done
+
+          if [ "$COMPLETED" = "false" ]; then
+            echo "⚠️ Max rounds ($MAX_ROUNDS) reached but chunk incomplete"
             exit 1
           fi
