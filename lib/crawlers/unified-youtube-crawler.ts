@@ -212,6 +212,16 @@ export class UnifiedYouTubeCrawler {
         const percent = totalPVsToProcess > 0 ? ((pvsProcessed / totalPVsToProcess) * 100).toFixed(1) : '0';
         console.log(`   Total progress: ${pvsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
 
+        // Update cursor for next batch BEFORE saving to DB
+        if (useIdRange) {
+          // ID-range mode: update lastProcessedPvId to skip already-processed PVs
+          const maxPvId = Math.max(...pvs.map(pv => pv.id));
+          lastProcessedPvId = maxPvId;
+        } else {
+          // OFFSET mode: increment offset
+          currentOffset += this.options.batchSize;
+        }
+
         if (this.progressId) {
           const updateData: any = { total_processed: pvsProcessed };
 
@@ -238,16 +248,6 @@ export class UnifiedYouTubeCrawler {
           console.log(`✅ Processed all available PVs`);
           completed = true;
           break;
-        }
-
-        // Update cursor for next batch
-        if (useIdRange) {
-          // ID-range mode: update lastProcessedPvId to skip already-processed PVs
-          const maxPvId = Math.max(...pvs.map(pv => pv.id));
-          lastProcessedPvId = maxPvId;
-        } else {
-          // OFFSET mode: increment offset
-          currentOffset += this.options.batchSize;
         }
       }
 
