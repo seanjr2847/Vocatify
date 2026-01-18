@@ -339,6 +339,18 @@ export class UnifiedYouTubeCrawler {
         });
 
       case 'top':
+        // In chunk mode, combine top criteria with vocadb_id range properly
+        if (useIdRange) {
+          return this.prisma.pvs.count({
+            where: {
+              ...baseWhere,
+              OR: [
+                { view_count: { gt: 1000000 } },
+                { songs: { AND: [songWhere, { favorited_times: { gt: 100 } }] } },
+              ],
+            },
+          });
+        }
         return this.prisma.pvs.count({
           where: {
             ...baseWhere,
@@ -346,7 +358,6 @@ export class UnifiedYouTubeCrawler {
               { view_count: { gt: 1000000 } },
               { songs: { favorited_times: { gt: 100 } } },
             ],
-            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
         });
 
@@ -410,6 +421,22 @@ export class UnifiedYouTubeCrawler {
         });
 
       case 'top':
+        // In chunk mode, combine top criteria with vocadb_id range properly
+        if (useIdRange) {
+          return this.prisma.pvs.findMany({
+            where: {
+              ...baseWhere,
+              OR: [
+                { view_count: { gt: 1000000 } },
+                { songs: { AND: [songWhere, { favorited_times: { gt: 100 } }] } },
+              ],
+            },
+            select: { id: true, song_id: true, pv_id: true, view_count: true, view_count_updated_at: true },
+            orderBy: { id: 'asc' },  // Always sort by ID
+            skip: lastProcessedPvId,
+            take: limit,
+          });
+        }
         return this.prisma.pvs.findMany({
           where: {
             ...baseWhere,
@@ -417,11 +444,10 @@ export class UnifiedYouTubeCrawler {
               { view_count: { gt: 1000000 } },
               { songs: { favorited_times: { gt: 100 } } },
             ],
-            ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
           select: { id: true, song_id: true, pv_id: true, view_count: true, view_count_updated_at: true },
-          orderBy: { id: 'asc' },  // Always sort by ID (view_count ordering causes unstable pagination)
-          skip: useIdRange ? lastProcessedPvId : offset,  // Use lastProcessedPvId as offset in chunk mode
+          orderBy: { id: 'asc' },  // Always sort by ID
+          skip: offset,
           take: limit,
         });
 
@@ -469,6 +495,11 @@ export class UnifiedYouTubeCrawler {
 
       const response = await fetch(url);
       if (!response.ok) {
+        // Check for quota exceeded (403) or rate limit (429)
+        if (response.status === 403 || response.status === 429) {
+          const errorBody = await response.text();
+          throw new Error(`YouTube API quota/rate limit exceeded (${response.status}): ${errorBody}`);
+        }
         throw new Error(`YouTube API error: ${response.status} ${response.statusText}`);
       }
 
