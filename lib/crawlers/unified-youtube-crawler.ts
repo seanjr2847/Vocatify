@@ -212,13 +212,12 @@ export class UnifiedYouTubeCrawler {
         const percent = totalPVsToProcess > 0 ? ((pvsProcessed / totalPVsToProcess) * 100).toFixed(1) : '0';
         console.log(`   Total progress: ${pvsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
 
-        // Update cursor for next batch BEFORE saving to DB
+        // Update offset for next batch BEFORE saving to DB
         if (useIdRange) {
-          // ID-range mode: update lastProcessedPvId to skip already-processed PVs
-          const maxPvId = Math.max(...pvs.map(pv => pv.id));
-          lastProcessedPvId = maxPvId;
+          // Chunk mode: lastProcessedPvId is used as offset counter (not PV.id cursor)
+          lastProcessedPvId += pvs.length;  // Increment by actual processed count
         } else {
-          // OFFSET mode: increment offset
+          // Sequential mode: increment offset
           currentOffset += this.options.batchSize;
         }
 
@@ -373,10 +372,9 @@ export class UnifiedYouTubeCrawler {
       ? { vocadb_id: { gte: this.options.minVocadbId, lte: this.options.maxVocadbId } }
       : undefined;
 
-    // Cursor-based pagination for ID-range mode
-    if (useIdRange && lastProcessedPvId > 0) {
-      baseWhere.id = { gt: lastProcessedPvId };
-    }
+    // NOTE: Do NOT use cursor (PV.id) with vocadb_id range - they conflict!
+    // Chunks are divided by vocadb_id, so we must use OFFSET within each chunk
+    // The "lastProcessedPvId" variable is repurposed as an offset counter in chunk mode
 
     switch (this.options.mode) {
       case 'new':
@@ -390,8 +388,8 @@ export class UnifiedYouTubeCrawler {
             ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
           select: { id: true, song_id: true, pv_id: true, view_count: true, view_count_updated_at: true },
-          orderBy: { id: 'asc' },  // Always sort by ID for cursor-based pagination
-          skip: useIdRange ? 0 : offset,  // Remove OFFSET when using ID-range filtering
+          orderBy: { id: 'asc' },  // Always sort by ID
+          skip: useIdRange ? lastProcessedPvId : offset,  // Use lastProcessedPvId as offset in chunk mode
           take: limit,
         });
 
@@ -434,8 +432,8 @@ export class UnifiedYouTubeCrawler {
             ...(songWhere && { songs: songWhere }),  // Apply ID range filter
           },
           select: { id: true, song_id: true, pv_id: true, view_count: true, view_count_updated_at: true },
-          orderBy: { id: 'asc' },  // Always sort by ID for cursor-based pagination
-          skip: useIdRange ? 0 : offset,  // Remove OFFSET when using ID-range filtering
+          orderBy: { id: 'asc' },  // Always sort by ID
+          skip: useIdRange ? lastProcessedPvId : offset,  // Use lastProcessedPvId as offset in chunk mode
           take: limit,
         });
 
