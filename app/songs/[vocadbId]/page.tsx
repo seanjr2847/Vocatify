@@ -16,6 +16,7 @@ import { InfoCard } from '@/components/InfoCard';
 import { StatisticsPanel } from '@/components/StatisticsPanel';
 import { RelatedSongsCarousel } from '@/components/RelatedSongsCarousel';
 import { ArtistsByRole } from '@/components/ArtistsByRole';
+import { TagList } from '@/components/TagList';
 import type { Song, SongDetail, DailyViewCount, RankingPositions, SongStatistics } from '@/lib/db';
 import { formatNumber, formatDate, getDisplayTitle, formatDuration } from '@/lib/utils/format-utils';
 
@@ -258,29 +259,7 @@ export default async function SongDetailPage({
         </InfoCard>
 
         {/* Tags */}
-        {song.tags && song.tags.length > 0 && (
-          <div className="mb-6 animate-fadeIn">
-            <h3 className="text-lg font-bold mb-3">태그</h3>
-            <div className="flex flex-wrap gap-2">
-              {song.tags.map((tag) => (
-                <button
-                  key={tag.id}
-                  className="group px-4 py-2 bg-[#2a2a2a] hover:bg-[#3a3a3a] border border-gray-800 hover:border-[#39c5bb] rounded-lg text-sm transition-all"
-                  title={tag.categoryName || undefined}
-                >
-                  <span className="text-gray-300 group-hover:text-white">
-                    {tag.name}
-                  </span>
-                  {tag.count > 5 && (
-                    <span className="ml-2 text-xs text-gray-500">
-                      {tag.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {song.tags && song.tags.length > 0 && <TagList tags={song.tags} />}
 
         {/* External Links */}
         <div className="mb-8">

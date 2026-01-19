@@ -47,7 +47,27 @@ interface MusicPlayerContextValue {
 const MusicPlayerContext = createContext<MusicPlayerContextValue | undefined>(undefined);
 
 export function MusicPlayerProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<PlayerState>({
+  // Session Storage에서 재생목록 복원
+  const loadPlaylistFromSession = (): Partial<PlayerState> => {
+    if (typeof window === 'undefined') return {};
+
+    try {
+      const stored = sessionStorage.getItem('vocatify_playlist');
+      if (!stored) return {};
+
+      const data = JSON.parse(stored);
+      return {
+        playlist: data.playlist || [],
+        playlistSource: data.playlistSource || 'Queue',
+        currentSong: data.currentSong || null,
+      };
+    } catch (error) {
+      console.error('Failed to load playlist from session storage:', error);
+      return {};
+    }
+  };
+
+  const [state, setState] = useState<PlayerState>(() => ({
     currentSong: null,
     isPlaying: false,
     volume: 50,
@@ -62,10 +82,27 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     isRadioMode: false,
     radioTags: [],
     radioPlayedIds: [],
-  });
+    ...loadPlaylistFromSession(), // Session Storage에서 복원
+  }));
 
   const playerRef = useRef<any>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Session Storage에 재생목록 자동 저장
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const dataToSave = {
+        playlist: state.playlist,
+        playlistSource: state.playlistSource,
+        currentSong: state.currentSong,
+      };
+      sessionStorage.setItem('vocatify_playlist', JSON.stringify(dataToSave));
+    } catch (error) {
+      console.error('Failed to save playlist to session storage:', error);
+    }
+  }, [state.playlist, state.playlistSource, state.currentSong]);
 
   // Update current time while playing
   useEffect(() => {

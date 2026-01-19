@@ -8,6 +8,8 @@ interface SearchPageProps {
     page?: string;
     sortBy?: string;
     artistType?: string;
+    tagId?: string;
+    tagName?: string;
   }>;
 }
 
@@ -17,6 +19,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const page = parseInt(params.page || "1");
   const sortBy = (params.sortBy || "viewCount") as any;
   const artistType = params.artistType === "all" ? null : "Vocaloid";
+  const tagId = params.tagId ? parseInt(params.tagId) : null;
+  const tagName = params.tagName || null;
 
   // Redirect to home if no query
   if (!query || query.length < 2) {
@@ -27,7 +31,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const offset = (page - 1) * limit;
 
   // Fetch search results server-side
-  const result = await searchSongs(query, limit, offset, sortBy, artistType);
+  const result = await searchSongs(query, limit, offset, sortBy, artistType, tagId);
 
   return (
     <div className="min-h-screen bg-[#1d2123]">
@@ -38,6 +42,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         currentPage={page}
         sortBy={sortBy}
         artistType={artistType || "Vocaloid"}
+        tagId={tagId}
+        tagName={tagName}
       />
     </div>
   );

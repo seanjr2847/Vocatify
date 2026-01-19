@@ -1031,7 +1031,8 @@ export async function searchSongs(
   limit: number = 20,
   offset: number = 0,
   sortBy: SortBy = 'viewCount',
-  artistType: string | null = 'Vocaloid'
+  artistType: string | null = 'Vocaloid',
+  tagId?: number | null
 ): Promise<SearchResult> {
   const searchTerm = `%${query}%`;
 
@@ -1066,9 +1067,11 @@ export async function searchSongs(
       LEFT JOIN song_names sn ON s.vocadb_id = sn.song_id
       LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
       LEFT JOIN artists a ON sa.artist_id = a.vocadb_id
+      ${tagId ? `JOIN song_tags st ON s.vocadb_id = st.song_id` : ''}
       WHERE (s.default_name ILIKE ${searchTerm}
          OR sn.value ILIKE ${searchTerm}
          OR a.name ILIKE ${searchTerm})
+        ${tagId ? `AND st.tag_id = ${tagId}` : ''}
         ${artistType ? `AND EXISTS (
           SELECT 1 FROM song_artists sa2
           JOIN artists a2 ON sa2.artist_id = a2.vocadb_id
@@ -1143,9 +1146,11 @@ export async function searchSongs(
     LEFT JOIN song_names sn ON s.vocadb_id = sn.song_id
     LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
     LEFT JOIN artists a ON sa.artist_id = a.vocadb_id
+    ${tagId ? `JOIN song_tags st ON s.vocadb_id = st.song_id` : ''}
     WHERE (s.default_name ILIKE ${searchTerm}
        OR sn.value ILIKE ${searchTerm}
        OR a.name ILIKE ${searchTerm})
+      ${tagId ? `AND st.tag_id = ${tagId}` : ''}
       ${artistType ? `AND EXISTS (
         SELECT 1 FROM song_artists sa2
         JOIN artists a2 ON sa2.artist_id = a2.vocadb_id

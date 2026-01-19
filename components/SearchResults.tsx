@@ -16,6 +16,8 @@ interface SearchResultsProps {
   currentPage: number;
   sortBy: string;
   artistType: string;
+  tagId?: number | null;
+  tagName?: string | null;
 }
 
 const SORT_OPTIONS = [
@@ -33,11 +35,15 @@ export function SearchResults({
   currentPage,
   sortBy: initialSortBy,
   artistType: initialArtistType,
+  tagId: initialTagId,
+  tagName: initialTagName,
 }: SearchResultsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sortBy, setSortBy] = useState(initialSortBy);
   const [artistType, setArtistType] = useState(initialArtistType);
+  const [tagId] = useState(initialTagId);
+  const [tagName] = useState(initialTagName);
 
   const totalPages = Math.ceil(total / 20);
 
@@ -59,6 +65,14 @@ export function SearchResults({
       params.set("artistType", artistType === "Vocaloid" ? "vocaloid" : "all");
     }
 
+    // Preserve tag filter
+    if (tagId) {
+      params.set("tagId", tagId.toString());
+      if (tagName) {
+        params.set("tagName", tagName);
+      }
+    }
+
     params.set("page", "1"); // Reset to first page on filter change
     router.push(`/search?${params.toString()}`);
   };
@@ -69,6 +83,15 @@ export function SearchResults({
     params.set("page", page.toString());
     params.set("sortBy", sortBy);
     params.set("artistType", artistType === "Vocaloid" ? "vocaloid" : "all");
+
+    // Preserve tag filter
+    if (tagId) {
+      params.set("tagId", tagId.toString());
+      if (tagName) {
+        params.set("tagName", tagName);
+      }
+    }
+
     router.push(`/search?${params.toString()}`);
   };
 
@@ -88,6 +111,96 @@ export function SearchResults({
           '{query}'에 대한 {total.toLocaleString()}개의 결과
         </p>
       </div>
+
+      {/* Tag Filter Indicator - Holographic Design */}
+      {tagId && (
+        <div className="mb-6 animate-fadeIn">
+          <div className="relative group">
+            {/* Animated Glow Background */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-teal-600 rounded-2xl blur-lg opacity-30 group-hover:opacity-50 animate-pulse"></div>
+
+            {/* Main Container */}
+            <div className="relative flex items-center gap-3 px-5 py-3 bg-gradient-to-br from-purple-950/40 via-gray-900/60 to-teal-950/40 border-2 border-purple-500/30 rounded-2xl backdrop-blur-md overflow-hidden">
+              {/* Animated Background Pattern */}
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/20 to-transparent animate-shimmer"></div>
+              </div>
+
+              {/* Filter Icon */}
+              <div className="relative flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-teal-500/20 flex items-center justify-center border border-purple-400/30">
+                  <svg
+                    className="w-4 h-4 text-purple-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Filter Info */}
+              <div className="relative flex-1 min-w-0">
+                <div className="text-xs text-purple-300/70 font-medium mb-0.5">
+                  ACTIVE FILTER
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-bold bg-gradient-to-r from-purple-200 via-pink-200 to-teal-200 bg-clip-text text-transparent">
+                    {tagName || `Tag #${tagId}`}
+                  </span>
+                  <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse"></div>
+                </div>
+              </div>
+
+              {/* Remove Button */}
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.delete("tagId");
+                  params.delete("tagName");
+                  router.push(`/search?${params.toString()}`);
+                }}
+                className="relative flex-shrink-0 group/btn"
+                title="태그 필터 제거"
+              >
+                <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-red-500/20 to-pink-500/20 hover:from-red-500/40 hover:to-pink-500/40 flex items-center justify-center border border-red-400/30 hover:border-red-400/60 transition-all duration-300 hover:scale-110">
+                  {/* Glow on hover */}
+                  <div className="absolute inset-0 rounded-lg bg-red-500/20 blur-md opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
+
+                  <svg
+                    className="relative w-4 h-4 text-red-300 group-hover/btn:text-red-200 transition-all duration-300 group-hover/btn:rotate-90"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              </button>
+
+              {/* Decorative Corner Accents */}
+              <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-2xl"></div>
+              <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-teal-500/10 to-transparent rounded-full blur-2xl"></div>
+            </div>
+          </div>
+
+          {/* Inline Animation Styles */}
+          <style jsx>{`
+            @keyframes shimmer {
+              0% {
+                transform: translateX(-100%);
+              }
+              100% {
+                transform: translateX(100%);
+              }
+            }
+            .animate-shimmer {
+              animation: shimmer 3s infinite;
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-4 mb-6 flex-wrap">
@@ -137,9 +250,65 @@ export function SearchResults({
 
       {/* Results */}
       {initialResults.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-xl text-gray-400 mb-2">검색 결과가 없습니다</p>
-          <p className="text-sm text-gray-500">다른 검색어를 시도해보세요</p>
+        <div className="relative py-24">
+          {/* Decorative Background */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-5">
+            <svg className="w-64 h-64" viewBox="0 0 200 200" fill="none">
+              <circle cx="100" cy="100" r="80" stroke="currentColor" strokeWidth="0.5" className="text-purple-500" />
+              <circle cx="100" cy="100" r="60" stroke="currentColor" strokeWidth="0.5" className="text-pink-500" />
+              <circle cx="100" cy="100" r="40" stroke="currentColor" strokeWidth="0.5" className="text-teal-500" />
+            </svg>
+          </div>
+
+          <div className="relative text-center">
+            {/* Empty State Icon */}
+            <div className="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-teal-500/10 border border-purple-500/20">
+              <svg className="w-10 h-10 text-purple-300/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+
+            {/* Main Message */}
+            <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-gray-200 to-gray-400 bg-clip-text text-transparent">
+              검색 결과가 없습니다
+            </h3>
+
+            {/* Contextual Message */}
+            {tagId ? (
+              <div className="max-w-md mx-auto space-y-4">
+                <p className="text-gray-400 leading-relaxed">
+                  이 태그와 <span className="text-purple-300 font-semibold">'{query}'</span> 검색어가 모두 일치하는 곡이 없습니다.
+                </p>
+
+                {/* Clear Filter Button */}
+                <button
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.delete("tagId");
+                    params.delete("tagName");
+                    router.push(`/search?${params.toString()}`);
+                  }}
+                  className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl overflow-hidden transition-all duration-300 hover:scale-105"
+                >
+                  {/* Button Background */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-teal-600/20 group-hover:from-purple-600/30 group-hover:via-pink-600/30 group-hover:to-teal-600/30 transition-all"></div>
+                  <div className="absolute inset-0 border-2 border-purple-500/30 group-hover:border-purple-400/50 rounded-xl transition-all"></div>
+
+                  {/* Button Content */}
+                  <svg className="relative w-4 h-4 text-purple-300 group-hover:text-purple-200 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span className="relative text-sm font-semibold text-purple-300 group-hover:text-purple-200 transition-colors">
+                    태그 필터 제거
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <p className="text-gray-400 max-w-md mx-auto">
+                다른 검색어를 시도하거나 필터를 조정해보세요
+              </p>
+            )}
+          </div>
         </div>
       ) : (
         <div className="space-y-2">

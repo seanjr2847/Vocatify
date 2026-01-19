@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Home, Music, Radio, Search, User, Video } from "lucide-react";
+import { Home, Music, Radio, Search, Video } from "lucide-react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
@@ -10,6 +10,7 @@ import { NavigationSection } from "@/components/NavigationSection";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { RankingItem, Song } from "@/lib/db";
 import { toast } from "sonner";
+import { UserMenu } from "@/components/auth/UserMenu";
 
 interface SearchSong extends Song {
   matchedField?: 'title' | 'titleEnglish' | 'titleJapanese' | 'titleKorean' | 'titleRomaji' | 'artist';
@@ -23,10 +24,7 @@ const navigationItems = [
   { icon: Video, alt: "비디오", href: null },
 ];
 
-const personalItems = [
-  { icon: User, alt: "프로필", href: null },
-  { icon: User, alt: "설정", href: null },
-];
+// Removed personalItems - replaced with UserMenu component
 
 interface HomeClientProps {
   topCharts: RankingItem[];
@@ -204,18 +202,7 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
           </nav>
 
           <div className="flex flex-col items-center gap-4 mt-auto">
-            {personalItems.map((item, index) => (
-              <Button
-                key={index}
-                variant="ghost"
-                size="icon"
-                className="w-[22px] h-[22px] p-0 hover:bg-transparent"
-                onClick={() => handleNavClick(item.href, item.alt)}
-                title={item.alt}
-              >
-                <item.icon className="w-[22px] h-[22px] text-white/40" />
-              </Button>
-            ))}
+            <UserMenu />
           </div>
         </aside>
 

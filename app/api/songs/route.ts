@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const sortByParam = searchParams.get('sortBy') || 'viewCount';
     const artistTypeParam = searchParams.get('artistType');
+    const tagIdParam = searchParams.get('tagId');
 
     // Validate query
     if (!query || query.length < 2) {
@@ -28,6 +29,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Parse and validate tagId
+    let tagId: number | null = null;
+    if (tagIdParam) {
+      const parsedTagId = parseInt(tagIdParam);
+      if (isNaN(parsedTagId) || parsedTagId <= 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: '유효하지 않은 태그 ID입니다.',
+          },
+          { status: 400 }
+        );
+      }
+      tagId = parsedTagId;
+    }
+
     // Validate sortBy
     const sortBy = VALID_SORT_OPTIONS.includes(sortByParam as SortBy)
       ? (sortByParam as SortBy)
@@ -36,7 +53,7 @@ export async function GET(request: NextRequest) {
     // Parse artistType (null means all artists, 'Vocaloid' means Vocaloid only)
     const artistType = artistTypeParam === 'all' ? null : 'Vocaloid';
 
-    const result = await searchSongs(query, limit, offset, sortBy, artistType);
+    const result = await searchSongs(query, limit, offset, sortBy, artistType, tagId);
 
     return NextResponse.json({
       success: true,
@@ -56,6 +73,7 @@ export async function GET(request: NextRequest) {
       filters: {
         sortBy,
         artistType: artistType || 'all',
+        tagId: tagId || null,
       },
       query, // Include original query for highlighting
     });
