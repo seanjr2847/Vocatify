@@ -340,7 +340,7 @@ export class UnifiedYouTubeCrawler {
 
       case 'top':
         // In chunk mode, combine top criteria with vocadb_id range properly
-        if (useIdRange) {
+        if (useIdRange && songWhere) {
           return this.prisma.pvs.count({
             where: {
               ...baseWhere,
@@ -422,7 +422,7 @@ export class UnifiedYouTubeCrawler {
 
       case 'top':
         // In chunk mode, combine top criteria with vocadb_id range properly
-        if (useIdRange) {
+        if (useIdRange && songWhere) {
           return this.prisma.pvs.findMany({
             where: {
               ...baseWhere,
