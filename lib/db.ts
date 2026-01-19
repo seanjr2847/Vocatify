@@ -131,7 +131,7 @@ export async function getTotalRanking(limit: number = 100, offset: number = 0): 
     if (cached) return cached;
   }
 
-  const songs = await prisma.$queryRaw<any[]>`
+  const songs = await prisma.$queryRaw<RankingItem[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
@@ -232,7 +232,7 @@ export async function getDailyRanking(limit: number = 100, offset: number = 0): 
     if (cached) return cached;
   }
 
-  const songs = await prisma.$queryRaw<any[]>`
+  const songs = await prisma.$queryRaw<RankingItem[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
@@ -354,7 +354,7 @@ export async function getWeeklyRanking(limit: number = 100, offset: number = 0):
     if (cached) return cached;
   }
 
-  const songs = await prisma.$queryRaw<any[]>`
+  const songs = await prisma.$queryRaw<RankingItem[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
@@ -479,7 +479,7 @@ export async function getNewSongsRanking(limit: number = 100, offset: number = 0
     if (cached) return cached;
   }
 
-  const songs = await prisma.$queryRaw<any[]>`
+  const songs = await prisma.$queryRaw<RankingItem[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
@@ -1060,7 +1060,7 @@ export async function searchSongs(
     }
   })();
 
-  const songs = await prisma.$queryRaw<any[]>`
+  const songs = await prisma.$queryRaw<RankingItem[]>`
     WITH matching_songs AS (
       SELECT DISTINCT s.vocadb_id
       FROM songs s
@@ -1183,7 +1183,7 @@ export async function getRelatedSongsByArtist(
   const cached = cache.get<RankingSong[]>(`related:${artistId}:${currentVocadbId}:${limit}`);
   if (cached) return cached;
 
-  const songs = await prisma.$queryRaw<any[]>`
+  const songs = await prisma.$queryRaw<RankingItem[]>`
     WITH artist_songs AS (
       SELECT DISTINCT sa.song_id
       FROM song_artists sa

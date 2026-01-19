@@ -8,6 +8,16 @@
 import { prisma } from './prisma';
 import { Prisma } from '@prisma/client';
 
+/**
+ * Weekly stats query result type
+ */
+interface WeeklyStatsRow {
+  song_id: number;
+  current_views: bigint;
+  previous_views: bigint;
+  weekly_increase: bigint;
+}
+
 export async function updateWeeklyStatsCache() {
   console.log('[Weekly Stats] Starting update...');
   const startTime = Date.now();
@@ -15,7 +25,7 @@ export async function updateWeeklyStatsCache() {
   try {
     // Calculate weekly increases from daily_view_counts table
     // Use yesterday's data since today's data may not be recorded yet
-    const weeklyStats = await prisma.$queryRaw<any[]>`
+    const weeklyStats = await prisma.$queryRaw<WeeklyStatsRow[]>`
       WITH weekly_data AS (
         SELECT
           pv.song_id,

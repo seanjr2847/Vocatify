@@ -37,7 +37,7 @@ interface MusicPlayerContextValue {
   clearPlaylist: () => void;
   updateDuration: (duration: number) => void;
   updatePlayingState: (isPlaying: boolean) => void;
-  playerRef: React.MutableRefObject<any>;
+  playerRef: React.MutableRefObject<unknown>;
   // Radio mode
   startRadio: (songId: number) => Promise<void>;
   stopRadio: () => void;
@@ -85,7 +85,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     ...loadPlaylistFromSession(), // Session Storage에서 복원
   }));
 
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<unknown>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Session Storage에 재생목록 자동 저장

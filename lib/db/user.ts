@@ -67,6 +67,50 @@ export interface UserPlaylistDetail extends UserPlaylistSummary {
   }[];
 }
 
+/**
+ * Raw query result type for user favorites
+ */
+interface RawUserFavoriteRow {
+  id: string;
+  userId: string;
+  songId: number;
+  createdAt: Date;
+  song_vocadbId: number;
+  song_defaultName: string;
+  song_titleKorean: string | null;
+  song_titleEnglish: string | null;
+  song_titleJapanese: string | null;
+  song_titleRomaji: string | null;
+  song_artistString: string | null;
+  song_youtubeId: string | null;
+  song_youtubeUrl: string | null;
+  song_thumbUrl: string | null;
+  song_viewCount: bigint | null;
+  song_publishDate: Date | null;
+  song_songType: string | null;
+  song_lengthSeconds: number | null;
+}
+
+/**
+ * Raw query result type for enriched song data
+ */
+interface RawEnrichedSongRow {
+  vocadb_id: number;
+  default_name: string;
+  title_korean: string | null;
+  title_english: string | null;
+  title_japanese: string | null;
+  title_romaji: string | null;
+  artist_string: string | null;
+  youtube_id: string | null;
+  youtube_url: string | null;
+  thumb_url: string | null;
+  view_count: bigint | null;
+  publish_date: Date | null;
+  song_type: string | null;
+  length_seconds: number | null;
+}
+
 // ============================================================
 // Favorites Functions
 // ============================================================
@@ -80,7 +124,7 @@ export async function getUserFavorites(
   offset: number = 0
 ): Promise<{ favorites: UserFavorite[]; total: number }> {
   const [favorites, total] = await Promise.all([
-    prisma.$queryRaw<any[]>`
+    prisma.$queryRaw<RawUserFavoriteRow[]>`
       WITH song_views AS (
         SELECT song_id, MAX(view_count) as total_view_count
         FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
@@ -299,7 +343,7 @@ export async function getPlaylistById(
 
   // Fetch enriched song data
   const songIds = playlist.songs.map((s) => s.songId);
-  const enrichedSongs = await prisma.$queryRaw<any[]>`
+  const enrichedSongs = await prisma.$queryRaw<RawEnrichedSongRow[]>`
     WITH song_views AS (
       SELECT song_id, MAX(view_count) as total_view_count
       FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL

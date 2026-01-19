@@ -1,4 +1,4 @@
-import { searchSongs } from "@/lib/db";
+import { searchSongs, SortBy } from "@/lib/db";
 import { SearchResults } from "@/components/SearchResults";
 import { redirect } from "next/navigation";
 

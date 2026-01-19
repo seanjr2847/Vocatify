@@ -222,7 +222,9 @@ export class UnifiedYouTubeCrawler {
         }
 
         if (this.progressId) {
-          const updateData: any = { total_processed: pvsProcessed };
+          const updateData: { total_processed: number; last_offset?: number } = {
+            total_processed: pvsProcessed
+          };
 
           // Update offset/cursor for both modes
           if (!useIdRange) {
@@ -375,7 +377,7 @@ export class UnifiedYouTubeCrawler {
   }
 
   private async getPVsByMode(offset: number, limit: number, lastProcessedPvId = 0): Promise<PVWithSong[]> {
-    const baseWhere: any = { service: 'Youtube' };
+    const baseWhere: { service: string; view_count?: unknown; id?: unknown } = { service: 'Youtube' };
 
     // ID range filter (when provided, use song relation filtering instead of OFFSET)
     const useIdRange = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;

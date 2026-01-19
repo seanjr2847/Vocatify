@@ -173,7 +173,7 @@ export async function updateRankingCache() {
  * Fast query (~1s) - no daily_view_counts scan
  */
 async function calculateTotalRanking() {
-  const result = await prisma.$queryRaw<any[]>`
+  const result = await prisma.$queryRaw<RawRankingRow[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
@@ -252,7 +252,7 @@ async function calculateTotalRanking() {
  * Fast query (~1s) - uses pre-computed song_weekly_stats cache
  */
 async function calculateWeeklyRanking() {
-  const result = await prisma.$queryRaw<any[]>`
+  const result = await prisma.$queryRaw<RawRankingRow[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
@@ -332,7 +332,7 @@ async function calculateWeeklyRanking() {
  * Slower query (~40s) - scans daily_view_counts with LAG window function
  */
 async function calculateDailyRanking() {
-  const result = await prisma.$queryRaw<any[]>`
+  const result = await prisma.$queryRaw<RawRankingRow[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
@@ -440,7 +440,7 @@ async function calculateDailyRanking() {
  * Fast query (~1s) - no daily_view_counts scan
  */
 async function calculateNewRanking() {
-  const result = await prisma.$queryRaw<any[]>`
+  const result = await prisma.$queryRaw<RawRankingRow[]>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists

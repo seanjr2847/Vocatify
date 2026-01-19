@@ -33,6 +33,17 @@ const SYNTHETIC_VOCALIST_TYPES = [
   'OtherVoiceSynthesizer',  // Crawler includes this, rankings exclude it
 ];
 
+/**
+ * VocaDB API song item (partial type)
+ */
+interface VocaDBSongItem {
+  id: number;
+  pvs?: unknown[];
+  tags?: Array<{ tag?: { name?: string }; name?: string }>;
+  lyrics?: Array<{ translationType?: string; [key: string]: unknown }>;
+  [key: string]: unknown;
+}
+
 export interface VocaDBCrawlerOptions {
   batchSize?: number;
   maxSongsPerRun?: number;
@@ -49,6 +60,18 @@ export interface VocaDBCrawlerResult {
   lastOffset: number;
   completed: boolean;
   error?: string;
+}
+
+export interface VocaDBCrawlerStatus {
+  status: string;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  lastOffset?: number | null;
+  totalProcessed?: number | null;
+  totalTarget?: number | null;
+  errorMessage?: string | null;
+  metadata?: unknown;
+  message?: string;
 }
 
 export class VocaDBCrawler {
@@ -222,9 +245,9 @@ export class VocaDBCrawler {
    * Process entire batch using bulk SQL operations
    * Much faster than individual upserts
    */
-  private async processBatch(items: any[]): Promise<{ processed: number; inserted: number; skipped: number }> {
+  private async processBatch(items: VocaDBSongItem[]): Promise<{ processed: number; inserted: number; skipped: number }> {
     // 1. Filter valid items first
-    const validItems: any[] = [];
+    const validItems: VocaDBSongItem[] = [];
     let skipped = 0;
 
     for (const item of items) {
@@ -236,7 +259,7 @@ export class VocaDBCrawler {
 
       // Check for excluded tags
       const allTags = (item.tags || [])
-        .map((t: any) => t.tag?.name || t.name)
+        .map((t) => t.tag?.name || t.name)
         .filter((t: string) => t);
 
       const hasExcludedTag = allTags.some((tag: string) =>
@@ -373,7 +396,7 @@ export class VocaDBCrawler {
         }
 
         // Lyrics
-        const itemLyrics = (item.lyrics || []).filter((l: any) => l.translationType);
+        const itemLyrics = (item.lyrics || []).filter((l) => l.translationType);
         if (itemLyrics.length > 0) {
           songIdsWithLyrics.push(item.id);
           for (const lyric of itemLyrics) {
@@ -433,7 +456,7 @@ export class VocaDBCrawler {
     console.log('✅ VocaDB crawler progress reset');
   }
 
-  static async getStatus(prisma: PrismaClient): Promise<any> {
+  static async getStatus(prisma: PrismaClient): Promise<VocaDBCrawlerStatus> {
     const latestProgress = await prisma.crawler_progress.findFirst({
       where: { crawler_type: 'vocadb' },
       orderBy: { started_at: 'desc' },
