@@ -77,12 +77,12 @@ export async function GET(request: NextRequest) {
       },
       query, // Include original query for highlighting
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('곡 검색 오류:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || '곡 검색 중 오류가 발생했습니다.',
+        error: error instanceof Error ? error.message : '곡 검색 중 오류가 발생했습니다.',
       },
       { status: 500 }
     );

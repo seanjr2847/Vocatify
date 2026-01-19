@@ -17,7 +17,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
   const query = params.q || "";
   const page = parseInt(params.page || "1");
-  const sortBy = (params.sortBy || "viewCount") as any;
+  const sortBy = (params.sortBy || "viewCount") as SortBy;
   const artistType = params.artistType === "all" ? null : "Vocaloid";
   const tagId = params.tagId ? parseInt(params.tagId) : null;
   const tagName = params.tagName || null;

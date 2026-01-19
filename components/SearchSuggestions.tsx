@@ -98,7 +98,7 @@ export function SearchSuggestions({
         className="absolute top-full left-0 right-0 mt-2 bg-gray-800 rounded-lg shadow-2xl border border-gray-700 z-50 max-h-96 overflow-hidden"
       >
         <div className="p-4 text-center text-gray-400">
-          <span className="text-purple-400">'{query}'</span>에 대한 검색 결과가 없습니다.
+          <span className="text-purple-400">&apos;{query}&apos;</span>에 대한 검색 결과가 없습니다.
           <p className="text-sm text-gray-500 mt-1">다른 검색어를 시도해보세요</p>
         </div>
       </div>

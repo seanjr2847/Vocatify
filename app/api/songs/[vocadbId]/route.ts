@@ -114,12 +114,12 @@ export async function GET(
         },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('곡 상세 조회 오류:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || '곡 조회 중 오류가 발생했습니다.',
+        error: error instanceof Error ? error.message : '곡 조회 중 오류가 발생했습니다.',
       },
       { status: 500 }
     );

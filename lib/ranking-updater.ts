@@ -12,12 +12,63 @@ import { INCLUDED_VOICE_SYNTHESIZER_TYPES } from './constants';
 const RANKING_LIMIT = 100; // Store top 100 for each ranking type
 
 /**
+ * Raw query result type from Prisma
+ */
+interface RawRankingRow {
+  rank: number | bigint;
+  song_id: number;
+  default_name: string;
+  title_korean: string | null;
+  title_english: string | null;
+  title_japanese: string | null;
+  title_romaji: string | null;
+  artist_string: string | null;
+  youtube_id: string | null;
+  youtube_url: string | null;
+  thumb_url: string | null;
+  view_count: bigint | null;
+  view_count_updated_at: Date | null;
+  publish_date: Date | null;
+  song_type: string | null;
+  favorited_times: number;
+  rating_score: number;
+  length_seconds: number | null;
+  weekly_increase: bigint | null;
+}
+
+/**
+ * Ranking cache row type
+ */
+interface RankingCacheRow {
+  ranking_type: string;
+  rank: number;
+  song_id: number;
+  default_name: string;
+  title_korean: string | null;
+  title_english: string | null;
+  title_japanese: string | null;
+  title_romaji: string | null;
+  artist_string: string | null;
+  youtube_id: string | null;
+  youtube_url: string | null;
+  thumb_url: string | null;
+  view_count: bigint | null;
+  view_count_updated_at: Date | null;
+  publish_date: Date | null;
+  song_type: string | null;
+  favorited_times: number;
+  rating_score: number;
+  length_seconds: number | null;
+  weekly_increase: bigint | null;
+}
+
+/**
  * Helper function to map raw query results to ranking cache rows
  */
 function mapToRankingCacheRow(
-  row: any,
-  rankingType: 'total' | 'weekly' | 'new'
-): any {
+  row: RawRankingRow,
+  rankingType: 'total' | 'weekly' | 'new' | 'daily'
+): RankingCacheRow {
   return {
     ranking_type: rankingType,
     rank: Number(row.rank),
@@ -59,7 +110,7 @@ export async function updateRankingCache() {
     console.log('[Ranking Cache] Checking weekly stats availability...');
     const hasWeeklyStats = await prisma.song_weekly_stats.findFirst();
 
-    let weeklyRankings: any[] = [];
+    let weeklyRankings: RankingCacheRow[] = [];
     if (hasWeeklyStats) {
       console.log('[Ranking Cache] Calculating weekly ranking...');
       weeklyRankings = await calculateWeeklyRanking();
@@ -379,7 +430,7 @@ async function calculateDailyRanking() {
   `;
 
   return result.map(row => ({
-    ...mapToRankingCacheRow(row, 'daily' as any),
+    ...mapToRankingCacheRow(row, 'daily'),
     daily_increase: row.daily_increase ?? null,
   }));
 }

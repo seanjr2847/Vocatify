@@ -257,8 +257,30 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
       const { seedSong, tags, playlist } = data;
 
+      // API response type
+      interface ApiSong {
+        vocadbId: number;
+        defaultName?: string;
+        title?: string;
+        titleEnglish?: string | null;
+        titleJapanese?: string | null;
+        titleRomaji?: string | null;
+        titleKorean?: string | null;
+        artistString?: string;
+        artist?: string;
+        youtubeId?: string | null;
+        youtubeUrl?: string | null;
+        thumbUrl?: string | null;
+        favoritedTimes?: number;
+        ratingScore?: number;
+        publishDate?: string | null;
+        songType?: string | null;
+        viewCount?: string | null;
+        viewCountUpdatedAt?: string | null;
+      }
+
       // Convert API response to Song type
-      const convertToSong = (s: any): Song => ({
+      const convertToSong = (s: ApiSong): Song => ({
         vocadbId: s.vocadbId,
         defaultName: s.defaultName || s.title || '',
         titleEnglish: s.titleEnglish || null,
@@ -271,10 +293,10 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         thumbUrl: s.thumbUrl || null,
         favoritedTimes: s.favoritedTimes || 0,
         ratingScore: s.ratingScore || 0,
-        publishDate: s.publishDate || null,
+        publishDate: s.publishDate ? new Date(s.publishDate) : null,
         songType: s.songType || null,
-        viewCount: s.viewCount || null,
-        viewCountUpdatedAt: s.viewCountUpdatedAt || null,
+        viewCount: s.viewCount ? BigInt(s.viewCount) : null,
+        viewCountUpdatedAt: s.viewCountUpdatedAt ? new Date(s.viewCountUpdatedAt) : null,
       });
 
       setState(prev => ({
@@ -346,7 +368,28 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         const data = await response.json();
 
         if (data.success && data.playlist.length > 0) {
-          const newSongs: Song[] = data.playlist.map((s: any) => ({
+          interface ApiSong {
+            vocadbId: number;
+            defaultName?: string;
+            title?: string;
+            titleEnglish?: string | null;
+            titleJapanese?: string | null;
+            titleRomaji?: string | null;
+            titleKorean?: string | null;
+            artistString?: string;
+            artist?: string;
+            youtubeId?: string | null;
+            youtubeUrl?: string | null;
+            thumbUrl?: string | null;
+            favoritedTimes?: number;
+            ratingScore?: number;
+            publishDate?: string | null;
+            songType?: string | null;
+            viewCount?: string | null;
+            viewCountUpdatedAt?: string | null;
+          }
+
+          const newSongs: Song[] = data.playlist.map((s: ApiSong) => ({
             vocadbId: s.vocadbId,
             defaultName: s.defaultName || s.title || '',
             titleEnglish: s.titleEnglish || null,

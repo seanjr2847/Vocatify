@@ -108,7 +108,7 @@ export function SearchResults({
         </Link>
         <h1 className="text-3xl font-bold text-white mb-2">검색 결과</h1>
         <p className="text-gray-400">
-          '{query}'에 대한 {total.toLocaleString()}개의 결과
+          &apos;{query}&apos;에 대한 {total.toLocaleString()}개의 결과
         </p>
       </div>
 
@@ -277,7 +277,7 @@ export function SearchResults({
             {tagId ? (
               <div className="max-w-md mx-auto space-y-4">
                 <p className="text-gray-400 leading-relaxed">
-                  이 태그와 <span className="text-purple-300 font-semibold">'{query}'</span> 검색어가 모두 일치하는 곡이 없습니다.
+                  이 태그와 <span className="text-purple-300 font-semibold">&apos;{query}&apos;</span> 검색어가 모두 일치하는 곡이 없습니다.
                 </p>
 
                 {/* Clear Filter Button */}

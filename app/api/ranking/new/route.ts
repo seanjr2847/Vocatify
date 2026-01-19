@@ -24,12 +24,12 @@ export async function GET(request: NextRequest) {
         count: ranking.length,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('신곡 랭킹 조회 오류:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || '랭킹 조회 중 오류가 발생했습니다.',
+        error: error instanceof Error ? error.message : '랭킹 조회 중 오류가 발생했습니다.',
       },
       { status: 500 }
     );
