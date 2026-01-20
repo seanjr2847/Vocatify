@@ -158,6 +158,7 @@ export class UnifiedYouTubeCrawler {
         if (existingProgress) {
           this.progressId = existingProgress.id;
           currentOffset = existingProgress.last_offset;
+          pvsProcessed = existingProgress.total_processed;  // ✅ Restore cumulative count
 
           // In ID-range mode, restore offset position (not PV.id cursor)
           if (useIdRange) {
@@ -166,6 +167,8 @@ export class UnifiedYouTubeCrawler {
           } else {
             console.log(`🔄 Resuming from offset ${currentOffset}`);
           }
+          console.log(`📊 Cumulative progress: ${pvsProcessed.toLocaleString()} PVs processed so far`);
+        }
         } else {
           const progress = await this.prisma.crawler_progress.create({
             data: {
