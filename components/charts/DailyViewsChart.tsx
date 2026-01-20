@@ -9,18 +9,25 @@ interface DailyViewsChartProps {
 }
 
 export function DailyViewsChart({ data }: DailyViewsChartProps) {
-  // Transform data for nivo
+  // Transform data for nivo with daily increase calculation
   const chartData = [
     {
       id: '조회수',
       color: '#39c5bb',
-      data: data.map(record => ({
-        x: new Date(record.recordedDate).toLocaleDateString('ko-KR', {
-          month: 'short',
-          day: 'numeric',
-        }),
-        y: Number(record.totalViews),
-      })),
+      data: data.map((record, index) => {
+        const currentViews = Number(record.totalViews);
+        const previousViews = index > 0 ? Number(data[index - 1].totalViews) : currentViews;
+        const dailyIncrease = currentViews - previousViews;
+
+        return {
+          x: new Date(record.recordedDate).toLocaleDateString('ko-KR', {
+            month: 'short',
+            day: 'numeric',
+          }),
+          y: currentViews,
+          dailyIncrease: dailyIncrease,
+        };
+      }),
     },
   ];
 
@@ -126,14 +133,25 @@ export function DailyViewsChart({ data }: DailyViewsChartProps) {
             },
           },
         }}
-        tooltip={({ point }) => (
-          <div className="bg-[#1f2937] text-white px-4 py-3 rounded-lg shadow-xl border border-gray-700">
-            <div className="text-sm font-semibold mb-1">{point.data.xFormatted}</div>
-            <div className="text-lg font-bold text-[#39c5bb]">
-              {formatNumber(point.data.y as number)} 조회
+        tooltip={({ point }) => {
+          const dailyIncrease = (point.data as { x: string; y: number; dailyIncrease?: number }).dailyIncrease || 0;
+          const increaseColor = dailyIncrease > 0 ? '#10b981' : dailyIncrease < 0 ? '#ef4444' : '#6b7280';
+          const increaseSymbol = dailyIncrease > 0 ? '+' : '';
+
+          return (
+            <div className="bg-[#1f2937] text-white px-4 py-3 rounded-lg shadow-xl border border-gray-700">
+              <div className="text-sm font-semibold mb-2">{point.data.xFormatted}</div>
+              <div className="text-lg font-bold text-[#39c5bb] mb-1">
+                {formatNumber(point.data.y as number)} 조회
+              </div>
+              {dailyIncrease !== 0 && (
+                <div className="text-sm font-medium" style={{ color: increaseColor }}>
+                  일간 {increaseSymbol}{formatNumber(dailyIncrease)}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        }}
       />
     </div>
   );

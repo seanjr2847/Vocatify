@@ -943,17 +943,28 @@ export async function getDailyViewCounts(
   startDate.setDate(startDate.getDate() - days);
 
   const results = await prisma.$queryRaw<{ recorded_date: Date; total_views: bigint; pv_id: number }[]>`
+    WITH ranked_views AS (
+      SELECT
+        dvc.recorded_date,
+        dvc.pv_id,
+        dvc.total_views,
+        ROW_NUMBER() OVER (
+          PARTITION BY dvc.recorded_date
+          ORDER BY dvc.total_views DESC
+        ) as rn
+      FROM daily_view_counts dvc
+      JOIN pvs p ON dvc.pv_id = p.id
+      WHERE p.song_id = ${vocadbId}
+        AND p.service = 'Youtube'
+        AND dvc.recorded_date >= ${startDate}
+    )
     SELECT
-      dvc.pv_id,
-      dvc.recorded_date,
-      SUM(dvc.total_views) as total_views
-    FROM daily_view_counts dvc
-    JOIN pvs p ON dvc.pv_id = p.id
-    WHERE p.song_id = ${vocadbId}
-      AND p.service = 'Youtube'
-      AND dvc.recorded_date >= ${startDate}
-    GROUP BY dvc.pv_id, dvc.recorded_date
-    ORDER BY dvc.recorded_date ASC
+      recorded_date,
+      MAX(total_views) as total_views,
+      MAX(CASE WHEN rn = 1 THEN pv_id END) as pv_id
+    FROM ranked_views
+    GROUP BY recorded_date
+    ORDER BY recorded_date ASC
   `;
 
   // Transform to match DailyViewCount interface
@@ -1058,48 +1069,88 @@ export async function searchSongs(
 ): Promise<SearchResult> {
   const searchTerm = `%${query}%`;
 
-  // Build ORDER BY clause based on sortBy
-  const orderClause = (() => {
-    switch (sortBy) {
-      case 'publishDate':
-        return 'ORDER BY s.publish_date DESC NULLS LAST';
-      case 'title':
-        return 'ORDER BY s.default_name ASC';
-      case 'artist':
-        return 'ORDER BY artist_string ASC NULLS LAST';
-      case 'relevance':
-        // Relevance: exact match > starts with > contains
-        return `ORDER BY
-          CASE
-            WHEN s.default_name ILIKE ${query} THEN 1
-            WHEN s.default_name ILIKE ${query + '%'} THEN 2
-            ELSE 3
-          END,
-          COALESCE(sv.total_view_count, 0) DESC`;
-      case 'viewCount':
-      default:
-        return 'ORDER BY COALESCE(sv.total_view_count, 0) DESC';
-    }
-  })();
+  // Build dynamic JOIN and WHERE clauses with parameterized queries
+  let paramIndex = 1;
+  const tagJoin = tagId ? 'JOIN song_tags st ON s.vocadb_id = st.song_id' : '';
 
-  const songs = await prisma.$queryRaw<RankingItem[]>`
+  // Build WHERE clause with correct parameter indices
+  const tagIdParam = tagId ? paramIndex++ : null;
+  const tagWhere = tagId ? `AND st.tag_id = $${tagIdParam}` : '';
+
+  const artistTypeParam = artistType ? paramIndex++ : null;
+  const artistTypeWhere = artistType
+    ? `AND EXISTS (
+        SELECT 1 FROM song_artists sa2
+        JOIN artists a2 ON sa2.artist_id = a2.vocadb_id
+        WHERE sa2.song_id = s.vocadb_id
+          AND a2.artist_type = $${artistTypeParam}
+      )`
+    : '';
+
+  // Build ORDER BY clause
+  let orderClause: string;
+  let queryExactParam: number | null = null;
+  let queryStartsWithParam: number | null = null;
+
+  switch (sortBy) {
+    case 'publishDate':
+      orderClause = 'ORDER BY s.publish_date DESC NULLS LAST';
+      break;
+    case 'title':
+      orderClause = 'ORDER BY s.default_name ASC';
+      break;
+    case 'artist':
+      orderClause = 'ORDER BY artist_string ASC NULLS LAST';
+      break;
+    case 'relevance':
+      queryExactParam = paramIndex++;
+      queryStartsWithParam = paramIndex++;
+      orderClause = `ORDER BY
+        CASE
+          WHEN s.default_name ILIKE $${queryExactParam} THEN 1
+          WHEN s.default_name ILIKE $${queryStartsWithParam} THEN 2
+          ELSE 3
+        END,
+        COALESCE(sv.total_view_count, 0) DESC`;
+      break;
+    case 'viewCount':
+    default:
+      orderClause = 'ORDER BY COALESCE(sv.total_view_count, 0) DESC';
+  }
+
+  const limitParam = paramIndex++;
+  const offsetParam = paramIndex++;
+
+  // Build parameters array in correct order
+  const params: unknown[] = [];
+  if (tagId && tagIdParam) params[tagIdParam - 1] = tagId;
+  if (artistType && artistTypeParam) params[artistTypeParam - 1] = artistType;
+  if (queryExactParam) params[queryExactParam - 1] = query;
+  if (queryStartsWithParam) params[queryStartsWithParam - 1] = `${query}%`;
+  params[limitParam - 1] = limit;
+  params[offsetParam - 1] = offset;
+
+  // Add search term parameters
+  const searchTermParam1 = paramIndex++;
+  const searchTermParam2 = paramIndex++;
+  const searchTermParam3 = paramIndex++;
+  params[searchTermParam1 - 1] = searchTerm;
+  params[searchTermParam2 - 1] = searchTerm;
+  params[searchTermParam3 - 1] = searchTerm;
+
+  const songQuery = `
     WITH matching_songs AS (
       SELECT DISTINCT s.vocadb_id
       FROM songs s
       LEFT JOIN song_names sn ON s.vocadb_id = sn.song_id
       LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
       LEFT JOIN artists a ON sa.artist_id = a.vocadb_id
-      ${tagId ? `JOIN song_tags st ON s.vocadb_id = st.song_id` : ''}
-      WHERE (s.default_name ILIKE ${searchTerm}
-         OR sn.value ILIKE ${searchTerm}
-         OR a.name ILIKE ${searchTerm})
-        ${tagId ? `AND st.tag_id = ${tagId}` : ''}
-        ${artistType ? `AND EXISTS (
-          SELECT 1 FROM song_artists sa2
-          JOIN artists a2 ON sa2.artist_id = a2.vocadb_id
-          WHERE sa2.song_id = s.vocadb_id
-            AND a2.artist_type = ${artistType}
-        )` : ''}
+      ${tagJoin}
+      WHERE (s.default_name ILIKE $${searchTermParam1}
+         OR sn.value ILIKE $${searchTermParam2}
+         OR a.name ILIKE $${searchTermParam3})
+        ${tagWhere}
+        ${artistTypeWhere}
     ),
     song_views AS (
       SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
@@ -1158,28 +1209,42 @@ export async function searchSongs(
     LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
     LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
     LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
-    ORDER BY COALESCE(sv.total_view_count, 0) DESC
-    LIMIT ${limit} OFFSET ${offset}
+    ${orderClause}
+    LIMIT $${limitParam} OFFSET $${offsetParam}
   `;
 
-  const countResult = await prisma.$queryRaw<[{ count: bigint }]>`
+  const songs = await prisma.$queryRawUnsafe<RankingItem[]>(songQuery, ...params);
+
+  // Count query with same filters
+  const countSearchParam1 = paramIndex++;
+  const countSearchParam2 = paramIndex++;
+  const countSearchParam3 = paramIndex++;
+
+  const countQuery = `
     SELECT COUNT(DISTINCT s.vocadb_id) as count
     FROM songs s
     LEFT JOIN song_names sn ON s.vocadb_id = sn.song_id
     LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
     LEFT JOIN artists a ON sa.artist_id = a.vocadb_id
-    ${tagId ? `JOIN song_tags st ON s.vocadb_id = st.song_id` : ''}
-    WHERE (s.default_name ILIKE ${searchTerm}
-       OR sn.value ILIKE ${searchTerm}
-       OR a.name ILIKE ${searchTerm})
-      ${tagId ? `AND st.tag_id = ${tagId}` : ''}
-      ${artistType ? `AND EXISTS (
-        SELECT 1 FROM song_artists sa2
-        JOIN artists a2 ON sa2.artist_id = a2.vocadb_id
-        WHERE sa2.song_id = s.vocadb_id
-          AND a2.artist_type = ${artistType}
-      )` : ''}
+    ${tagJoin}
+    WHERE (s.default_name ILIKE $${countSearchParam1}
+       OR sn.value ILIKE $${countSearchParam2}
+       OR a.name ILIKE $${countSearchParam3})
+      ${tagWhere}
+      ${artistTypeWhere}
   `;
+
+  const countParams: unknown[] = [];
+  if (tagId && tagIdParam) countParams[tagIdParam - 1] = tagId;
+  if (artistType && artistTypeParam) countParams[artistTypeParam - 1] = artistType;
+  countParams[countSearchParam1 - 1] = searchTerm;
+  countParams[countSearchParam2 - 1] = searchTerm;
+  countParams[countSearchParam3 - 1] = searchTerm;
+
+  const countResult = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
+    countQuery,
+    ...countParams
+  );
 
   return {
     songs,

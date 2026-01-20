@@ -168,7 +168,6 @@ export class UnifiedYouTubeCrawler {
             console.log(`🔄 Resuming from offset ${currentOffset}`);
           }
           console.log(`📊 Cumulative progress: ${pvsProcessed.toLocaleString()} PVs processed so far`);
-        }
         } else {
           const progress = await this.prisma.crawler_progress.create({
             data: {

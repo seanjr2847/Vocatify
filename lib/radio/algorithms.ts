@@ -22,28 +22,18 @@ export async function getTagBasedPlaylist(
     return getPopularPlaylist(excludeIds, limit);
   }
 
-  // 2단계: 태그 점수 계산 (CTE)
+  // 2단계: 태그 점수 계산 (CTE) - 최적화: FILTER 사용
   const query = Prisma.sql`
-    WITH tag_scores AS (
+    WITH tag_matches AS (
       SELECT
         song_id,
-        SUM(
-          CASE
-            WHEN tag_id = ANY(${tagIds}::int[])
-            THEN count * 2
-            ELSE 0
-          END
-        ) as tag_match_score
+        COUNT(*) FILTER (WHERE tag_id = ANY(${tagIds}::int[])) as matched_tags,
+        SUM(count) FILTER (WHERE tag_id = ANY(${tagIds}::int[])) as tag_weight
       FROM song_tags
       WHERE song_id != ALL(${excludeIds}::int[])
+        AND tag_id = ANY(${tagIds}::int[])
       GROUP BY song_id
-      HAVING SUM(
-        CASE
-          WHEN tag_id = ANY(${tagIds}::int[])
-          THEN count
-          ELSE 0
-        END
-      ) > 0
+      HAVING COUNT(*) FILTER (WHERE tag_id = ANY(${tagIds}::int[])) > 0
     ),
     combined_scores AS (
       SELECT
@@ -61,13 +51,13 @@ export async function getTagBasedPlaylist(
         s.rating_score,
         s.publish_date,
         (
-          ts.tag_match_score * 0.5 +
+          tm.tag_weight * 0.5 +
           LOG(GREATEST(s.view_count::numeric / 1000000, 1)) * 0.3 +
           s.favorited_times * 0.00015 +
-          s.rating_score / 100 * 0.05
+          s.rating_score / 100.0 * 0.05
         ) as final_score
-      FROM tag_scores ts
-      JOIN songs s ON ts.song_id = s.vocadb_id
+      FROM tag_matches tm
+      JOIN songs s ON tm.song_id = s.vocadb_id
       WHERE s.view_count > 5000 AND s.artist_type = 'Vocaloid'
     )
     SELECT * FROM combined_scores
