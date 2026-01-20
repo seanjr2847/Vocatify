@@ -54,9 +54,20 @@ jobs:
             echo "HTTP Status: $http_code"
             echo "Response: $body"
 
+            # Handle errors
             if [ "$http_code" != "200" ]; then
-              echo "❌ Round $ROUND failed with status $http_code"
-              exit 1
+              echo "⚠️ Round $ROUND returned status $http_code"
+
+              # Check if partial success (some songs processed)
+              if echo "$body" | grep -q '"songsProcessed":[1-9]'; then
+                echo "✓ Partial success - some songs processed, continuing..."
+                ROUND=$((ROUND + 1))
+                sleep 10  # 10초 대기 (에러 후 longer wait)
+                continue
+              else
+                echo "❌ Complete failure - no progress made"
+                exit 1
+              fi
             fi
 
             # Check if crawler is fully completed
