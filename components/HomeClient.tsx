@@ -181,6 +181,7 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
   return (
     <div className="bg-[#1d2123] overflow-hidden w-full flex flex-col min-h-screen">
       <div className="flex flex-1">
+        {/* Desktop Sidebar - hidden on mobile */}
         <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6">
           <div className="w-[34px] h-[34px] flex items-center justify-center">
             {/* 로고 플레이스홀더 - 로고 이미지를 추가하세요 */}
@@ -207,41 +208,62 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
         </aside>
 
         <main className="flex-1 flex flex-col">
-          <header className="h-[73px] bg-[#1d2123] flex items-center px-[27px]">
-            <form onSubmit={handleSearch} className="flex items-center gap-[22px] w-full relative">
-              <Search className="w-4 h-4 text-white/25" />
-              <div className="flex-1 relative">
-                <Input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="곡, 아티스트 검색 (로마지 지원)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onFocus={() => {
-                    if (searchQuery.length >= 2 && suggestions.length > 0) {
-                      setShowSuggestions(true);
-                    }
-                  }}
-                  className="border-0 bg-transparent text-sm font-semibold text-white placeholder:text-white/25 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [font-family:'Quicksand-SemiBold',Helvetica] w-full"
-                  autoComplete="off"
-                  aria-autocomplete="list"
-                  aria-controls="search-suggestions"
-                  aria-expanded={showSuggestions}
-                />
-                {showSuggestions && (
-                  <SearchSuggestions
-                    suggestions={suggestions}
-                    query={searchQuery}
-                    total={suggestionsTotal}
-                    isLoading={isLoading}
-                    selectedIndex={selectedIndex}
-                    onClose={handleCloseSuggestions}
-                    onSelectIndex={handleSelectIndex}
-                  />
-                )}
+          {/* Enhanced Responsive Header */}
+          <header className="sticky top-0 z-50 h-[73px] bg-[#1d2123]/95 backdrop-blur-md border-b border-white/5 flex items-center px-4 sm:px-6 lg:px-[27px]">
+            <div className="flex items-center gap-3 sm:gap-[22px] w-full">
+              {/* Mobile Navigation Button - visible only on mobile */}
+              <div className="flex lg:hidden items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full hover:bg-[#39c5bb]/10"
+                  onClick={() => toast.info("모바일 메뉴 준비 중")}
+                >
+                  <Music className="h-5 w-5 text-[#39c5bb]" />
+                </Button>
               </div>
-            </form>
+
+              {/* Search Form */}
+              <form onSubmit={handleSearch} className="flex items-center gap-2 sm:gap-[22px] flex-1 relative">
+                <Search className="w-4 h-4 text-white/25" />
+                <div className="flex-1 relative">
+                  <Input
+                    ref={inputRef}
+                    type="text"
+                    placeholder="곡, 아티스트 검색 (로마지 지원)"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => {
+                      if (searchQuery.length >= 2 && suggestions.length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    className="border-0 bg-transparent text-sm font-semibold text-white placeholder:text-white/25 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [font-family:'Quicksand-SemiBold',Helvetica] w-full"
+                    autoComplete="off"
+                    aria-autocomplete="list"
+                    aria-controls="search-suggestions"
+                    aria-expanded={showSuggestions}
+                  />
+                  {showSuggestions && (
+                    <SearchSuggestions
+                      suggestions={suggestions}
+                      query={searchQuery}
+                      total={suggestionsTotal}
+                      isLoading={isLoading}
+                      selectedIndex={selectedIndex}
+                      onClose={handleCloseSuggestions}
+                      onSelectIndex={handleSelectIndex}
+                    />
+                  )}
+                </div>
+              </form>
+
+              {/* User Menu - always visible on all screen sizes */}
+              <div className="flex items-center lg:hidden">
+                <UserMenu />
+              </div>
+            </div>
           </header>
 
           <section className="flex-1 relative w-full py-6 pb-[150px]">
