@@ -22,29 +22,56 @@ jobs:
   vocadb-crawler:
     name: VocaDB Crawler
     runs-on: ubuntu-latest
+    timeout-minutes: 120  # 2시간 timeout
     # TEMPORARY: Removed if condition for debugging
     # if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
 
     steps:
-      - name: Trigger VocaDB Cron Endpoint
+      - name: Run VocaDB Crawler with Auto-Retry
         env:
           VERCEL_URL: ${{ secrets.VERCEL_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          response=$(curl -L -X POST "$VERCEL_URL/api/cron/vocadb" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
+          COMPLETED="false"
+          ROUND=1
+          MAX_ROUNDS=50
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
+          echo "🎬 Starting VocaDB crawler (max $MAX_ROUNDS rounds)"
 
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
+          while [ "$COMPLETED" = "false" ] && [ $ROUND -le $MAX_ROUNDS ]; do
+            echo ""
+            echo "===== Round $ROUND/$MAX_ROUNDS ====="
 
-          if [ "$http_code" != "200" ]; then
-            echo "VocaDB crawler failed with status $http_code"
+            response=$(curl -L -X POST "$VERCEL_URL/api/cron/vocadb" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Content-Type: application/json" \
+              -w "\n%{http_code}" \
+              -s)
+
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | sed '$d')
+
+            echo "HTTP Status: $http_code"
+            echo "Response: $body"
+
+            if [ "$http_code" != "200" ]; then
+              echo "❌ Round $ROUND failed with status $http_code"
+              exit 1
+            fi
+
+            # Check if crawler is fully completed
+            if echo "$body" | grep -q '"completed":true'; then
+              COMPLETED="true"
+              echo "✅ VocaDB crawler fully completed in $ROUND rounds!"
+            else
+              echo "⏳ VocaDB crawler incomplete, continuing..."
+              ROUND=$((ROUND + 1))
+              sleep 3  # 3초 대기 (API rate limit 방지)
+            fi
+          done
+
+          if [ "$COMPLETED" = "false" ]; then
+            echo "⚠️ Max rounds ($MAX_ROUNDS) reached but crawler incomplete"
             exit 1
           fi
 
