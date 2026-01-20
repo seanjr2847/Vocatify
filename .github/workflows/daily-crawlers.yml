@@ -22,7 +22,8 @@ jobs:
   vocadb-crawler:
     name: VocaDB Crawler
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
+    # TEMPORARY: Removed if condition for debugging
+    # if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
 
     steps:
       - name: Trigger VocaDB Cron Endpoint
