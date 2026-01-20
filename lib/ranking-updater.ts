@@ -33,7 +33,8 @@ interface RawRankingRow {
   favorited_times: number;
   rating_score: number;
   length_seconds: number | null;
-  weekly_increase: bigint | null;
+  weekly_increase?: bigint | null;
+  daily_increase?: bigint | null;
 }
 
 /**

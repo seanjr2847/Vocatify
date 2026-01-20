@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { Song } from './db';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
+import type { YouTubePlayer as YouTubePlayerType } from 'react-youtube';
 
 interface PlayerState {
   currentSong: Song | null;
@@ -37,7 +38,7 @@ interface MusicPlayerContextValue {
   clearPlaylist: () => void;
   updateDuration: (duration: number) => void;
   updatePlayingState: (isPlaying: boolean) => void;
-  playerRef: React.MutableRefObject<unknown>;
+  playerRef: React.MutableRefObject<YouTubePlayerType | null>;
   // Radio mode
   startRadio: (songId: number) => Promise<void>;
   stopRadio: () => void;
@@ -85,7 +86,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     ...loadPlaylistFromSession(), // Session Storage에서 복원
   }));
 
-  const playerRef = useRef<unknown>(null);
+  const playerRef = useRef<YouTubePlayerType | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Session Storage에 재생목록 자동 저장

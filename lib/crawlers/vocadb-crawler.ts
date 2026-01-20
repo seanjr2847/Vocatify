@@ -38,9 +38,50 @@ const SYNTHETIC_VOCALIST_TYPES = [
  */
 interface VocaDBSongItem {
   id: number;
-  pvs?: unknown[];
-  tags?: Array<{ tag?: { name?: string }; name?: string }>;
-  lyrics?: Array<{ translationType?: string; [key: string]: unknown }>;
+  name: string;
+  songType?: string;
+  artistString?: string;
+  lengthSeconds?: number;
+  favoritedTimes?: number;
+  ratingScore?: number;
+  names?: Array<{ value?: string; language?: string }>;
+  artists?: Array<{
+    artist?: {
+      id?: number;
+      name?: string;
+      artistType?: string;
+      mainPicture?: { urlThumb?: string };
+    };
+    name?: string;
+    categories?: string;
+    roles?: string;
+    isSupport?: boolean;
+  }>;
+  pvs?: Array<{
+    pvId?: string;
+    service?: string;
+    pvType?: string;
+    name?: string;
+    url?: string;
+    thumbUrl?: string;
+    disabled?: boolean;
+  }>;
+  tags?: Array<{ tag?: { id?: number; name?: string; categoryName?: string }; name?: string; count?: number }>;
+  lyrics?: Array<{
+    translationType?: string;
+    cultureCode?: string;
+    source?: string;
+    url?: string;
+    value?: string;
+    [key: string]: unknown;
+  }>;
+  mainPicture?: {
+    urlThumb?: string;
+    urlSmallThumb?: string;
+  };
+  thumbUrl?: string;
+  publishDate?: string;
+  createDate?: string;
   [key: string]: unknown;
 }
 
@@ -260,7 +301,7 @@ export class VocaDBCrawler {
       // Check for excluded tags
       const allTags = (item.tags || [])
         .map((t) => t.tag?.name || t.name)
-        .filter((t: string) => t);
+        .filter((t): t is string => !!t);
 
       const hasExcludedTag = allTags.some((tag: string) =>
         EXCLUDED_TAGS.some(excluded => tag.toLowerCase() === excluded.toLowerCase())
@@ -342,7 +383,7 @@ export class VocaDBCrawler {
         // Artists
         for (const artistEntry of item.artists || []) {
           const artist = artistEntry.artist;
-          if (!artist?.id) continue;
+          if (!artist?.id || !artist?.name) continue;
 
           allArtists.push({
             vocadb_id: artist.id,
@@ -396,7 +437,7 @@ export class VocaDBCrawler {
         }
 
         // Lyrics
-        const itemLyrics = (item.lyrics || []).filter((l) => l.translationType);
+        const itemLyrics = (item.lyrics || []).filter((l): l is typeof l & { translationType: string } => !!l.translationType);
         if (itemLyrics.length > 0) {
           songIdsWithLyrics.push(item.id);
           for (const lyric of itemLyrics) {

@@ -377,7 +377,7 @@ export class UnifiedYouTubeCrawler {
   }
 
   private async getPVsByMode(offset: number, limit: number, lastProcessedPvId = 0): Promise<PVWithSong[]> {
-    const baseWhere: { service: string; view_count?: unknown; id?: unknown } = { service: 'Youtube' };
+    const baseWhere = { service: 'Youtube' } as const;
 
     // ID range filter (when provided, use song relation filtering instead of OFFSET)
     const useIdRange = this.options.minVocadbId !== undefined && this.options.maxVocadbId !== undefined;

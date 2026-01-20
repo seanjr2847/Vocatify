@@ -580,7 +580,29 @@ export async function getUnifiedRankings(limit: number = 7): Promise<UnifiedRank
   }
 
   // 캐시 미스 - DB 쿼리 실행
-  const result = await prisma.$queryRaw<any[]>`
+  const result = await prisma.$queryRaw<Array<{
+    rank: number;
+    vocadb_id: number;
+    default_name: string;
+    title_korean: string | null;
+    title_english: string | null;
+    title_japanese: string | null;
+    title_romaji: string | null;
+    artist_string: string;
+    youtube_id: string | null;
+    youtube_url: string | null;
+    thumb_url: string | null;
+    view_count: bigint | null;
+    view_count_updated_at: Date | null;
+    publish_date: Date | null;
+    song_type: string | null;
+    favorited_times: number | null;
+    rating_score: number | null;
+    length_seconds: number | null;
+    daily_increase: bigint | null;
+    weekly_increase: bigint | null;
+    ranking_type: string;
+  }>>`
     WITH included_songs AS (
       SELECT DISTINCT song_id
       FROM song_artists
@@ -763,7 +785,7 @@ export async function getUnifiedRankings(limit: number = 7): Promise<UnifiedRank
   const newRanking: RankingItem[] = [];
 
   result.forEach((row) => {
-    const song = {
+    const song: RankingItem = {
       rank: row.rank,
       vocadbId: row.vocadb_id,
       defaultName: row.default_name,
@@ -779,11 +801,11 @@ export async function getUnifiedRankings(limit: number = 7): Promise<UnifiedRank
       viewCountUpdatedAt: row.view_count_updated_at,
       publishDate: row.publish_date,
       songType: row.song_type,
-      favoritedTimes: row.favorited_times,
-      ratingScore: row.rating_score,
+      favoritedTimes: row.favorited_times ?? 0,
+      ratingScore: row.rating_score ?? 0,
       lengthSeconds: row.length_seconds,
-      dailyIncrease: row.daily_increase,
-      weeklyIncrease: row.weekly_increase,
+      dailyIncrease: row.daily_increase ?? undefined,
+      weeklyIncrease: row.weekly_increase ?? undefined,
     };
 
     if (row.ranking_type === 'total') {
@@ -1276,7 +1298,15 @@ export async function getSongStatistics(vocadbId: number): Promise<SongStatistic
   if (cached !== undefined) return cached;
 
   try {
-    const result = await prisma.$queryRaw<any[]>`
+    const result = await prisma.$queryRaw<Array<{
+      viewsToday: bigint | null;
+      viewsYesterday: bigint | null;
+      viewsThisWeek: bigint | null;
+      viewsLastWeek: bigint | null;
+      avgDailyViews: number | null;
+      peakDailyIncrease: bigint | null;
+      peakDate: Date | null;
+    }>>`
       WITH pv_ids AS (
         SELECT id FROM pvs WHERE song_id = ${vocadbId} AND service = 'Youtube'
       ),
@@ -1319,7 +1349,7 @@ export async function getSongStatistics(vocadbId: number): Promise<SongStatistic
       viewsYesterday: result[0].viewsYesterday,
       viewsThisWeek: result[0].viewsThisWeek,
       viewsLastWeek: result[0].viewsLastWeek,
-      avgDailyViews: result[0].avgDailyViews,
+      avgDailyViews: result[0].avgDailyViews !== null ? BigInt(Math.round(result[0].avgDailyViews)) : null,
       peakDailyIncrease: result[0].peakDailyIncrease,
       peakDate: result[0].peakDate,
     };
@@ -1363,26 +1393,46 @@ export async function getCachedUnifiedRankings(limit: number = 7): Promise<Unifi
     }),
   ]);
 
-  const mapToRankingItem = (item: any): RankingItem => ({
-    rank: item.rank,
+  const mapToRankingItem = (item: {
+    rank?: number;
+    song_id: number;
+    default_name: string;
+    title_korean: string | null;
+    title_english: string | null;
+    title_japanese: string | null;
+    title_romaji: string | null;
+    artist_string: string | null;
+    youtube_id: string | null;
+    youtube_url: string | null;
+    thumb_url: string | null;
+    view_count: bigint | null;
+    view_count_updated_at: Date | null;
+    publish_date?: Date | null;
+    song_type?: string | null;
+    favorited_times?: number | null;
+    rating_score?: number | null;
+    length_seconds?: number | null;
+    weekly_increase?: bigint | null;
+  }): RankingItem => ({
+    rank: item.rank ?? 0,
     vocadbId: item.song_id,
     defaultName: item.default_name,
     titleKorean: item.title_korean,
     titleEnglish: item.title_english,
     titleJapanese: item.title_japanese,
     titleRomaji: item.title_romaji,
-    artistString: item.artist_string,
+    artistString: item.artist_string ?? '',
     youtubeId: item.youtube_id,
     youtubeUrl: item.youtube_url,
     thumbUrl: item.thumb_url,
     viewCount: item.view_count,
     viewCountUpdatedAt: item.view_count_updated_at,
-    publishDate: item.publish_date,
-    songType: item.song_type,
-    favoritedTimes: item.favorited_times || 0,
-    ratingScore: item.rating_score || 0,
-    lengthSeconds: item.length_seconds,
-    weeklyIncrease: item.weekly_increase,
+    publishDate: item.publish_date ?? null,
+    songType: item.song_type ?? null,
+    favoritedTimes: item.favorited_times ?? 0,
+    ratingScore: item.rating_score ?? 0,
+    lengthSeconds: item.length_seconds ?? null,
+    weeklyIncrease: item.weekly_increase ?? undefined,
   });
 
   return {
