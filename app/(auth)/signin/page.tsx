@@ -120,22 +120,6 @@ export default function SignInPage() {
           </Link>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 0.1;
-          }
-          50% {
-            transform: translateY(-20px) rotate(5deg);
-            opacity: 0.3;
-          }
-        }
-        .animate-float {
-          animation: float 4s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 }
