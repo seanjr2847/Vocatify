@@ -22,7 +22,7 @@ jobs:
   vocadb-crawler:
     name: VocaDB Crawler
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && github.event.schedule == '0 2 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
 
     steps:
       - name: Trigger VocaDB Cron Endpoint
@@ -51,7 +51,7 @@ jobs:
     name: YouTube Update (Chunk ${{ matrix.chunk }})
     runs-on: ubuntu-latest
     timeout-minutes: 240  # 4시간 per chunk
-    if: github.event_name == 'schedule' && github.event.schedule == '0 15 * * *' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
 
     strategy:
       matrix:
