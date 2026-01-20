@@ -18,6 +18,7 @@ interface PlayerState {
   playlistSource: string; // "PLAYING FROM:" 표시용
   // Radio mode
   isRadioMode: boolean;
+  radioChannel: { slug: string; name: string } | null; // 현재 라디오 채널
   radioTags: string[]; // 라디오 태그 목록
   radioPlayedIds: number[]; // 이미 재생된 곡 ID들
 }
@@ -81,6 +82,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     playlistSource: 'Queue', // 기본 소스
     // Radio mode
     isRadioMode: false,
+    radioChannel: null,
     radioTags: [],
     radioPlayedIds: [],
     ...loadPlaylistFromSession(), // Session Storage에서 복원
@@ -98,12 +100,16 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         playlist: state.playlist,
         playlistSource: state.playlistSource,
         currentSong: state.currentSong,
+        isRadioMode: state.isRadioMode,
+        radioChannel: state.radioChannel,
+        radioTags: state.radioTags,
+        radioPlayedIds: state.radioPlayedIds,
       };
       sessionStorage.setItem('vocatify_playlist', JSON.stringify(dataToSave));
     } catch (error) {
       console.error('Failed to save playlist to session storage:', error);
     }
-  }, [state.playlist, state.playlistSource, state.currentSong]);
+  }, [state.playlist, state.playlistSource, state.currentSong, state.isRadioMode, state.radioChannel, state.radioTags, state.radioPlayedIds]);
 
   // Update current time while playing
   useEffect(() => {
@@ -256,7 +262,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return;
       }
 
-      const { seedSong, tags, playlist } = data;
+      const { seedSong, tags, playlist, channel } = data;
 
       // API response type
       interface ApiSong {
@@ -304,8 +310,9 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         ...prev,
         currentSong: convertToSong(seedSong),
         playlist: playlist.map(convertToSong),
-        playlistSource: '라디오',
+        playlistSource: channel?.name || '라디오',
         isRadioMode: true,
+        radioChannel: channel,
         radioTags: tags,
         radioPlayedIds: [seedSong.vocadbId],
         isPlaying: false, // YouTube onStateChange will set to true
@@ -322,6 +329,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     setState(prev => ({
       ...prev,
       isRadioMode: false,
+      radioChannel: null,
       radioTags: [],
       radioPlayedIds: [],
       playlistSource: 'Queue',

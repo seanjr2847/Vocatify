@@ -139,7 +139,10 @@
       "mcp__plugin_serena_serena__write_memory",
       "Bash(openssl rand:*)",
       "Bash(npx shadcn@latest add avatar:*)",
-      "Skill(frontend-design)"
+      "Skill(frontend-design)",
+      "mcp__plugin_serena_serena__read_memory",
+      "Bash(cmd.exe /c \"taskkill /PID 44900 /F\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 44900 -Force\")"
     ]
   }
 }

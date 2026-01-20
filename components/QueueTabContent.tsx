@@ -2,7 +2,7 @@
 
 import React, { memo, useCallback, useMemo } from 'react';
 import Image from 'next/image';
-import { X, GripVertical } from 'lucide-react';
+import { X, GripVertical, Radio } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import {
   DndContext,
@@ -112,7 +112,7 @@ const SortableSongItem = memo(function SortableSongItem({
 });
 
 export function QueueTabContent() {
-  const { state, playSong, removeFromPlaylist, reorderPlaylist } = useMusicPlayer();
+  const { state, playSong, removeFromPlaylist, reorderPlaylist, stopRadio } = useMusicPlayer();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -145,6 +145,31 @@ export function QueueTabContent() {
 
   return (
     <div className="p-8">
+      {/* Radio Mode Indicator */}
+      {state.isRadioMode && state.radioChannel && (
+        <div className="px-4 py-3 mb-4 bg-gradient-to-r from-[#39c5bb]/10 to-transparent border-l-2 border-[#39c5bb] rounded-r-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Radio className="w-4 h-4 text-[#39c5bb] animate-pulse" />
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  {state.radioChannel.name}
+                </p>
+                <p className="text-xs text-white/50">
+                  {state.playlist.length}곡 대기 중 • 자동 재생 중
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={stopRadio}
+              className="text-xs text-white/70 hover:text-white transition-colors px-3 py-1 rounded-full hover:bg-white/5"
+            >
+              라디오 중지
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* PLAYING FROM */}
       {state.currentSong && (
         <div className="mb-8">

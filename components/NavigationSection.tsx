@@ -2,13 +2,15 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Heart, Play, ChevronRight, Plus } from "lucide-react";
+import { Heart, Play, ChevronRight, Plus, Radio } from "lucide-react";
 import React, { memo, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { RankingItem } from "@/lib/db";
 import { useMusicPlayer } from "@/lib/MusicPlayerContext";
 import { formatNumber as formatViews, getYouTubeThumbnail, formatPublishDate } from "@/lib/utils/format-utils";
+import { RADIO_CHANNELS } from '@/lib/radio/channels';
+import RadioChannelCard from '@/components/radio/RadioChannelCard';
 
 interface NavigationSectionProps {
   topCharts: RankingItem[];
@@ -358,6 +360,31 @@ const NavigationSectionComponent = ({ topCharts, newReleases, popularSongs }: Na
           </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
+      </div>
+
+      {/* 라디오 채널 */}
+      <div className="mt-[57px]">
+        <div className="flex items-center justify-between mb-[15px]">
+          <div className="flex items-center gap-3">
+            <Radio className="w-6 h-6 text-[#39c5bb]" />
+            <h2 className="font-bold-24px font-[number:var(--bold-24px-font-weight)] text-light text-[length:var(--bold-24px-font-size)] tracking-[var(--bold-24px-letter-spacing)] leading-[var(--bold-24px-line-height)] whitespace-nowrap [font-style:var(--bold-24px-font-style)]">
+              라디오 채널
+            </h2>
+          </div>
+          <button
+            onClick={() => router.push('/radio')}
+            className="text-white/60 hover:text-white transition-colors flex items-center gap-1"
+          >
+            <span className="text-sm">모두 보기</span>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {RADIO_CHANNELS.slice(0, 3).map(channel => (
+            <RadioChannelCard key={channel.slug} channel={channel} />
+          ))}
+        </div>
       </div>
     </section>
   );

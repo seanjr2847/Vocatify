@@ -260,7 +260,7 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
               </form>
 
               {/* User Menu - always visible on all screen sizes */}
-              <div className="flex items-center lg:hidden">
+              <div className="flex items-center">
                 <UserMenu />
               </div>
             </div>

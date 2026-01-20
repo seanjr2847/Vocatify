@@ -240,14 +240,17 @@ export class UnifiedYouTubeCrawler {
           });
         }
 
-        if (pvsProcessed >= this.options.maxPVsPerRun) {
-          console.log(`✅ Reached max PVs limit (${this.options.maxPVsPerRun})`);
+        // Check if we've reached the end of available data
+        if (pvs.length < this.options.batchSize) {
+          console.log(`✅ Processed all available PVs (partial batch: ${pvs.length})`);
+          completed = true;
           break;
         }
 
-        if (pvs.length < this.options.batchSize) {
-          console.log(`✅ Processed all available PVs`);
-          completed = true;
+        // Check if we've hit the per-run limit
+        if (pvsProcessed >= this.options.maxPVsPerRun) {
+          console.log(`⏸️  Reached max PVs limit (${this.options.maxPVsPerRun}) - will resume next run`);
+          // Don't set completed = true, this is a partial run
           break;
         }
       }
