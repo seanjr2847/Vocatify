@@ -141,7 +141,26 @@ export class VocaDBCrawler {
     let completed = false;
 
     try {
+      // Get latest publish_date from DB for incremental crawling
+      const latestSong = await this.prisma.songs.findFirst({
+        where: {
+          publish_date: { not: null },
+        },
+        orderBy: { publish_date: 'desc' },
+        select: { publish_date: true, default_name: true },
+      });
+
+      const afterDate = latestSong?.publish_date?.toISOString();
+
+      if (afterDate) {
+        console.log(`📅 Incremental crawl: fetching songs published after ${afterDate.split('T')[0]}`);
+        console.log(`   Latest song in DB: "${latestSong.default_name}"`);
+      } else {
+        console.log(`📥 Initial crawl: fetching all songs (no publish_date filter)`);
+      }
+
       // Initialize or resume progress
+      let resumedAfterDate: string | null = null;
       if (this.options.enableResume) {
         const existingProgress = await this.prisma.crawler_progress.findFirst({
           where: { crawler_type: 'vocadb', status: 'running' },
@@ -150,7 +169,12 @@ export class VocaDBCrawler {
         if (existingProgress) {
           this.progressId = existingProgress.id;
           currentOffset = existingProgress.last_offset;
+          // Use the same afterDate from the original session for consistency
+          resumedAfterDate = (existingProgress.metadata as { afterDate?: string | null })?.afterDate || null;
           console.log(`🔄 Resuming VocaDB crawler from offset ${currentOffset}`);
+          if (resumedAfterDate) {
+            console.log(`   Using original session filter: afterDate=${resumedAfterDate.split('T')[0]}`);
+          }
         } else {
           const progress = await this.prisma.crawler_progress.create({
             data: {
@@ -164,6 +188,7 @@ export class VocaDBCrawler {
                 batchSize: this.options.batchSize,
                 maxSongsPerRun: this.options.maxSongsPerRun,
                 songTypes: this.options.songTypes,
+                afterDate: afterDate || null,
               },
             },
           });
@@ -172,11 +197,19 @@ export class VocaDBCrawler {
         }
       }
 
+      // Use resumed afterDate if available, otherwise use current
+      const effectiveAfterDate = resumedAfterDate || afterDate;
+
       // Crawl loop
       while (songsProcessed < this.options.maxSongsPerRun) {
         // Request all fields including Lyrics
         const fields = 'Names,Artists,PVs,Tags,Lyrics,ThumbUrl,MainPicture';
-        const url = `${VOCADB_API_BASE}/songs?start=${currentOffset}&maxResults=${this.options.batchSize}&fields=${fields}&songTypes=${this.options.songTypes}&sort=AdditionDate`;
+        let url = `${VOCADB_API_BASE}/songs?start=${currentOffset}&maxResults=${this.options.batchSize}&fields=${fields}&songTypes=${this.options.songTypes}&sort=AdditionDate`;
+
+        // Add date filter for incremental crawling
+        if (effectiveAfterDate) {
+          url += `&afterDate=${effectiveAfterDate}`;
+        }
 
         console.log(`📥 Fetching batch at offset ${currentOffset}...`);
 

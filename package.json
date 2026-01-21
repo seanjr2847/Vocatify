@@ -24,7 +24,8 @@
     "db:migrate-daily": "tsx scripts/db/migrate-daily-counts.ts",
     "db:migrate-to-postgresql": "node scripts/db/migrate-to-postgresql.js",
     "db:cleanup": "tsx scripts/emergency-cleanup.ts",
-    "db:retention": "tsx scripts/implement-retention-policy.ts"
+    "db:retention": "tsx scripts/implement-retention-policy.ts",
+    "test:vocadb-filter": "tsx scripts/test-vocadb-date-filter.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
