@@ -192,6 +192,8 @@ export class UnifiedYouTubeCrawler {
       }
 
       // Crawl loop (use session counter, not cumulative)
+      let consecutiveZeroUpdates = 0;  // Track repeated zero-update batches (infinite loop detection)
+
       while (pvsProcessedThisSession < this.options.maxPVsPerRun) {
         const pvs = await this.getPVsByMode(currentOffset, this.options.batchSize, lastProcessedPvId);
 
@@ -201,7 +203,7 @@ export class UnifiedYouTubeCrawler {
           break;
         }
 
-        console.log(`📥 Processing batch: ${pvs.length} PVs (${useIdRange ? `after PV ID ${lastProcessedPvId}` : `offset ${currentOffset}`})...`);
+        console.log(`📥 Processing batch: ${pvs.length} PVs (${useIdRange ? `offset ${lastProcessedPvId}` : `offset ${currentOffset}`})...`);
 
         const batchResult = await this.processBatch(pvs);
         pvsProcessedThisSession += batchResult.processed;
@@ -216,25 +218,61 @@ export class UnifiedYouTubeCrawler {
         const percent = totalPVsToProcess > 0 ? ((cumulativePvsProcessed / totalPVsToProcess) * 100).toFixed(1) : '0';
         console.log(`   Total progress: ${cumulativePvsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
 
-        // Update offset for next batch BEFORE saving to DB
-        if (useIdRange) {
-          // Chunk mode: lastProcessedPvId is used as offset counter (not PV.id cursor)
-          lastProcessedPvId += pvs.length;  // Increment by actual processed count
+        // 🛡️ INFINITE LOOP DETECTION: If we get zero updates, we're processing already-updated items
+        if (batchResult.updated === 0) {
+          consecutiveZeroUpdates++;
+          console.log(`⚠️  Zero updates detected (${consecutiveZeroUpdates}/3) - possible duplicate processing`);
+
+          if (consecutiveZeroUpdates >= 3) {
+            console.log(`🛑 Stopping crawler: 3 consecutive batches with zero updates (infinite loop prevention)`);
+            completed = true;
+            break;
+          }
         } else {
-          // Sequential mode: increment offset
+          consecutiveZeroUpdates = 0;  // Reset counter on successful update
+        }
+
+        // ✅ COMPLETION CHECK: Detect last batch BEFORE incrementing offset
+        // Use <= instead of < to catch batches that exactly match batchSize
+        const isLastBatch = pvs.length <= this.options.batchSize &&
+                           (pvsProcessedThisSession + this.options.batchSize > this.options.maxPVsPerRun ||
+                            pvs.length < this.options.batchSize);
+
+        if (isLastBatch && pvs.length < this.options.batchSize) {
+          console.log(`✅ Processed all available PVs (partial batch: ${pvs.length})`);
+          completed = true;
+
+          // Update progress one last time before breaking
+          if (this.progressId) {
+            await this.prisma.crawler_progress.update({
+              where: { id: this.progressId },
+              data: {
+                total_processed: cumulativePvsProcessed,
+                last_offset: useIdRange ? lastProcessedPvId : currentOffset,
+              },
+            });
+          }
+          break;
+        }
+
+        // Update offset for next batch AFTER completion check
+        if (useIdRange) {
+          // Chunk mode: increment offset counter by batch size (not pvs.length!)
+          lastProcessedPvId += this.options.batchSize;
+        } else {
+          // Sequential mode: increment offset by batch size
           currentOffset += this.options.batchSize;
         }
 
+        // Save progress to DB
         if (this.progressId) {
           const updateData: { total_processed: number; last_offset?: number } = {
             total_processed: cumulativePvsProcessed
           };
 
-          // Update offset/cursor for both modes
           if (!useIdRange) {
             updateData.last_offset = currentOffset;
           } else {
-            // In ID-range mode, save cursor position for resumption
             updateData.last_offset = lastProcessedPvId;
           }
 
@@ -244,17 +282,9 @@ export class UnifiedYouTubeCrawler {
           });
         }
 
-        // Check if we've reached the end of available data
-        if (pvs.length < this.options.batchSize) {
-          console.log(`✅ Processed all available PVs (partial batch: ${pvs.length})`);
-          completed = true;
-          break;
-        }
-
         // Check if we've hit the per-run limit
         if (pvsProcessedThisSession >= this.options.maxPVsPerRun) {
           console.log(`⏸️  Reached max PVs limit (${this.options.maxPVsPerRun}) - will resume next run`);
-          // Don't set completed = true, this is a partial run
           break;
         }
       }
