@@ -125,7 +125,8 @@ export class UnifiedYouTubeCrawler {
 
   async crawl(): Promise<UnifiedYouTubeCrawlerResult> {
     const startTime = Date.now();
-    let pvsProcessed = 0;
+    let pvsProcessedThisSession = 0;  // PVs processed in THIS session only
+    let cumulativePvsProcessed = 0;    // Total PVs processed across all sessions
     let pvsUpdated = 0;
     let titlesUpdated = 0;
     let pvsFailed = 0;
@@ -158,7 +159,7 @@ export class UnifiedYouTubeCrawler {
         if (existingProgress) {
           this.progressId = existingProgress.id;
           currentOffset = existingProgress.last_offset;
-          pvsProcessed = existingProgress.total_processed;  // ✅ Restore cumulative count
+          cumulativePvsProcessed = existingProgress.total_processed;  // ✅ Restore cumulative count
 
           // In ID-range mode, restore offset position (not PV.id cursor)
           if (useIdRange) {
@@ -167,7 +168,7 @@ export class UnifiedYouTubeCrawler {
           } else {
             console.log(`🔄 Resuming from offset ${currentOffset}`);
           }
-          console.log(`📊 Cumulative progress: ${pvsProcessed.toLocaleString()} PVs processed so far`);
+          console.log(`📊 Cumulative progress: ${cumulativePvsProcessed.toLocaleString()} PVs processed so far`);
         } else {
           const progress = await this.prisma.crawler_progress.create({
             data: {
@@ -190,8 +191,8 @@ export class UnifiedYouTubeCrawler {
         }
       }
 
-      // Crawl loop
-      while (pvsProcessed < this.options.maxPVsPerRun) {
+      // Crawl loop (use session counter, not cumulative)
+      while (pvsProcessedThisSession < this.options.maxPVsPerRun) {
         const pvs = await this.getPVsByMode(currentOffset, this.options.batchSize, lastProcessedPvId);
 
         if (pvs.length === 0) {
@@ -203,7 +204,8 @@ export class UnifiedYouTubeCrawler {
         console.log(`📥 Processing batch: ${pvs.length} PVs (${useIdRange ? `after PV ID ${lastProcessedPvId}` : `offset ${currentOffset}`})...`);
 
         const batchResult = await this.processBatch(pvs);
-        pvsProcessed += batchResult.processed;
+        pvsProcessedThisSession += batchResult.processed;
+        cumulativePvsProcessed += batchResult.processed;
         pvsUpdated += batchResult.updated;
         titlesUpdated += batchResult.titlesUpdated;
         pvsFailed += batchResult.failed;
@@ -211,8 +213,8 @@ export class UnifiedYouTubeCrawler {
         console.log(`   Views updated: ${batchResult.updated} PVs`);
         console.log(`   Titles updated: ${batchResult.titlesUpdated} songs`);
         console.log(`   Failed: ${batchResult.failed} PVs`);
-        const percent = totalPVsToProcess > 0 ? ((pvsProcessed / totalPVsToProcess) * 100).toFixed(1) : '0';
-        console.log(`   Total progress: ${pvsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
+        const percent = totalPVsToProcess > 0 ? ((cumulativePvsProcessed / totalPVsToProcess) * 100).toFixed(1) : '0';
+        console.log(`   Total progress: ${cumulativePvsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
 
         // Update offset for next batch BEFORE saving to DB
         if (useIdRange) {
@@ -225,7 +227,7 @@ export class UnifiedYouTubeCrawler {
 
         if (this.progressId) {
           const updateData: { total_processed: number; last_offset?: number } = {
-            total_processed: pvsProcessed
+            total_processed: cumulativePvsProcessed
           };
 
           // Update offset/cursor for both modes
@@ -250,7 +252,7 @@ export class UnifiedYouTubeCrawler {
         }
 
         // Check if we've hit the per-run limit
-        if (pvsProcessed >= this.options.maxPVsPerRun) {
+        if (pvsProcessedThisSession >= this.options.maxPVsPerRun) {
           console.log(`⏸️  Reached max PVs limit (${this.options.maxPVsPerRun}) - will resume next run`);
           // Don't set completed = true, this is a partial run
           break;
@@ -264,14 +266,15 @@ export class UnifiedYouTubeCrawler {
             status: completed ? 'completed' : 'running',
             completed_at: completed ? new Date() : null,
             last_offset: useIdRange ? lastProcessedPvId : currentOffset,
-            total_processed: pvsProcessed,
+            total_processed: cumulativePvsProcessed,
           },
         });
       }
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`\n✅ Unified YouTube crawler completed in ${duration}s`);
-      console.log(`   PVs processed: ${pvsProcessed}`);
+      console.log(`   PVs processed (this session): ${pvsProcessedThisSession}`);
+      console.log(`   PVs processed (cumulative): ${cumulativePvsProcessed}`);
       console.log(`   Views updated: ${pvsUpdated} PVs`);
       console.log(`   Titles updated: ${titlesUpdated} songs`);
       console.log(`   PVs failed: ${pvsFailed}`);
@@ -279,7 +282,7 @@ export class UnifiedYouTubeCrawler {
 
       return {
         success: true,
-        pvsProcessed,
+        pvsProcessed: pvsProcessedThisSession,  // Return session count for API response
         pvsUpdated,
         titlesUpdated,
         pvsFailed,
@@ -300,7 +303,7 @@ export class UnifiedYouTubeCrawler {
 
       return {
         success: false,
-        pvsProcessed,
+        pvsProcessed: pvsProcessedThisSession,  // Return session count for API response
         pvsUpdated,
         titlesUpdated,
         pvsFailed,
