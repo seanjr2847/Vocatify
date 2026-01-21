@@ -104,6 +104,10 @@ cron/                     # Automated crawler endpoints (Vercel Cron + GitHub Ac
 
 **Modern Chunked Crawlers** (Production - PostgreSQL):
 - `vocadb-crawler.ts`: Fetches new songs from VocaDB API (max 1000/execution)
+  - **Date-based filtering**: Automatically queries only songs published after the latest `publish_date` in DB
+  - **Initial crawl**: No date filter when DB is empty (fetches all songs)
+  - **Incremental crawl**: Uses `afterDate` parameter to fetch only new songs
+  - **Resume support**: Preserves original session's `afterDate` filter when resuming
 - `youtube-crawler.ts`: Updates YouTube view counts (4 modes: new/old/top/all, max 500/execution)
 - `localized-titles-crawler.ts`: Fetches Korean titles from YouTube (max 200/execution)
 
@@ -112,6 +116,7 @@ cron/                     # Automated crawler endpoints (Vercel Cron + GitHub Ac
 - Chunk-based processing for serverless function limits
 - Batch API requests (VocaDB: 100/request, YouTube: 50/request)
 - Authorization via `CRON_SECRET` bearer token
+- Intelligent date filtering for efficient incremental updates
 
 **Legacy Scripts** (scripts/ - SQLite):
 - `scripts/crawler/sqlite-crawler.ts`: Original SQLite crawler
