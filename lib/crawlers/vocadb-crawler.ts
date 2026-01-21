@@ -218,6 +218,9 @@ export class VocaDBCrawler {
           console.log(`   Processed: ${batchResult.processed} songs (${batchResult.inserted} inserted, ${batchResult.skipped} skipped)`);
           console.log(`   Total progress: ${songsProcessed}/${this.options.maxSongsPerRun} songs\n`);
 
+          // Update offset BEFORE saving to DB (to prevent infinite loop on crash)
+          currentOffset += this.options.batchSize;
+
           if (this.progressId) {
             await this.prisma.crawler_progress.update({
               where: { id: this.progressId },
@@ -236,7 +239,6 @@ export class VocaDBCrawler {
             break;
           }
 
-          currentOffset += this.options.batchSize;
           await new Promise(resolve => setTimeout(resolve, 500));
 
         } catch (error) {

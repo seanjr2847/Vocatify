@@ -23,8 +23,7 @@ jobs:
     name: VocaDB Crawler
     runs-on: ubuntu-latest
     timeout-minutes: 120  # 2시간 timeout
-    # TEMPORARY: Removed if condition for debugging
-    # if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
 
     steps:
       - name: Run VocaDB Crawler with Auto-Retry
