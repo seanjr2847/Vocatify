@@ -154,7 +154,7 @@ export class VocaDBCrawler {
 
       if (afterDate) {
         console.log(`📅 Incremental crawl: fetching songs published after ${afterDate.split('T')[0]}`);
-        console.log(`   Latest song in DB: "${latestSong.default_name}"`);
+        console.log(`   Latest song in DB: "${latestSong?.default_name}"`);
       } else {
         console.log(`📥 Initial crawl: fetching all songs (no publish_date filter)`);
       }
