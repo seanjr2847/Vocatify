@@ -218,6 +218,16 @@ export class UnifiedYouTubeCrawler {
         const percent = totalPVsToProcess > 0 ? ((cumulativePvsProcessed / totalPVsToProcess) * 100).toFixed(1) : '0';
         console.log(`   Total progress: ${cumulativePvsProcessed.toLocaleString()}/${totalPVsToProcess.toLocaleString()} (${percent}%)\n`);
 
+        // 🔄 INCREMENT OFFSET IMMEDIATELY after processing batch (before any breaks)
+        // This ensures offset is always saved correctly even if we break early
+        if (useIdRange) {
+          // Chunk mode: increment offset counter by batch size (not pvs.length!)
+          lastProcessedPvId += this.options.batchSize;
+        } else {
+          // Sequential mode: increment offset by batch size
+          currentOffset += this.options.batchSize;
+        }
+
         // 🛡️ INFINITE LOOP DETECTION: If we get zero updates, we're processing already-updated items
         if (batchResult.updated === 0) {
           consecutiveZeroUpdates++;
@@ -232,36 +242,11 @@ export class UnifiedYouTubeCrawler {
           consecutiveZeroUpdates = 0;  // Reset counter on successful update
         }
 
-        // ✅ COMPLETION CHECK: Detect last batch BEFORE incrementing offset
-        // Use <= instead of < to catch batches that exactly match batchSize
-        const isLastBatch = pvs.length <= this.options.batchSize &&
-                           (pvsProcessedThisSession + this.options.batchSize > this.options.maxPVsPerRun ||
-                            pvs.length < this.options.batchSize);
-
-        if (isLastBatch && pvs.length < this.options.batchSize) {
+        // ✅ COMPLETION CHECK: Detect last batch (offset already incremented above)
+        if (pvs.length < this.options.batchSize) {
           console.log(`✅ Processed all available PVs (partial batch: ${pvs.length})`);
           completed = true;
-
-          // Update progress one last time before breaking
-          if (this.progressId) {
-            await this.prisma.crawler_progress.update({
-              where: { id: this.progressId },
-              data: {
-                total_processed: cumulativePvsProcessed,
-                last_offset: useIdRange ? lastProcessedPvId : currentOffset,
-              },
-            });
-          }
           break;
-        }
-
-        // Update offset for next batch AFTER completion check
-        if (useIdRange) {
-          // Chunk mode: increment offset counter by batch size (not pvs.length!)
-          lastProcessedPvId += this.options.batchSize;
-        } else {
-          // Sequential mode: increment offset by batch size
-          currentOffset += this.options.batchSize;
         }
 
         // Save progress to DB
