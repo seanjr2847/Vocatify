@@ -150,17 +150,12 @@ export class VocaDBCrawler {
         select: { publish_date: true, default_name: true },
       });
 
-      // Set afterDate to 1 day before latest to handle exclusive date filtering
-      // (VocaDB afterDate parameter is exclusive, so we need to go back 1 day)
-      const latestDate = latestSong?.publish_date;
-      const afterDate = latestDate
-        ? new Date(latestDate.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString()
-        : null;
+      // Use latest publish_date as-is for afterDate filter
+      const afterDate = latestSong?.publish_date?.toISOString();
 
       if (afterDate) {
         console.log(`📅 Incremental crawl: fetching songs published after ${afterDate.split('T')[0]}`);
-        console.log(`   Latest song in DB: "${latestSong?.default_name}" (${latestDate?.toISOString().split('T')[0]})`);
-        console.log(`   Using 1-day buffer for exclusive date parameter`);
+        console.log(`   Latest song in DB: "${latestSong?.default_name}"`);
       } else {
         console.log(`📥 Initial crawl: fetching all songs (no publish_date filter)`);
       }
