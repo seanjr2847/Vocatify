@@ -43,7 +43,7 @@ async function main() {
   const crawler = new UnifiedYouTubeCrawler(prisma, {
     mode,
     batchSize: 50,
-    maxPVsPerRun: 2000,  // No timeout limit in GitHub Actions (vs Vercel 600s)
+    maxPVsPerRun: 999999,  // No limit in GitHub Actions - process entire chunk
     enableResume: true,
     updateLocalizations: true,  // Also fetch Korean titles
     minVocadbId,
@@ -63,6 +63,13 @@ async function main() {
     console.log(`   Titles updated: ${result.titlesUpdated || 0}`);
     console.log(`   PVs failed: ${result.pvsFailed}`);
     console.log(`   Completed: ${result.completed}`);
+
+    // Exit with code 1 if not fully completed (will trigger retry in GitHub Actions)
+    if (!result.completed) {
+      console.log(`\n⏳ Chunk incomplete - needs another round`);
+      process.exit(1);
+    }
+
     process.exit(0);
   } else {
     console.error(`\n❌ Crawler failed: ${result.error}`);
