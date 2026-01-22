@@ -37,7 +37,7 @@ export async function getTagBasedPlaylist(
     ),
     combined_scores AS (
       SELECT
-        s.vocadb_id,
+        s.song_id as vocadb_id,
         s.default_name,
         s.title_korean,
         s.title_english,
@@ -57,8 +57,8 @@ export async function getTagBasedPlaylist(
           s.rating_score / 100.0 * 0.05
         ) as final_score
       FROM tag_matches tm
-      JOIN songs s ON tm.song_id = s.vocadb_id
-      WHERE s.view_count > 5000 AND s.artist_type = 'Vocaloid'
+      JOIN songs_enhanced s ON tm.song_id = s.song_id
+      WHERE s.view_count > 5000 AND s.is_vocaloid_song = true
     )
     SELECT * FROM combined_scores
     ORDER BY
@@ -103,10 +103,27 @@ export async function getRankingPlaylist(
     ...shuffle(tier3)
   ].slice(0, limit);
 
-  // 전체 곡 정보 가져오기
+  // 전체 곡 정보 가져오기 (songs_enhanced 사용)
   const songIds = shuffled.map((s) => s.song_id);
-  return prisma.songs.findMany({
-    where: { vocadb_id: { in: songIds } }
+  return prisma.songs_enhanced.findMany({
+    where: { song_id: { in: songIds } },
+    select: {
+      song_id: true,
+      default_name: true,
+      title_korean: true,
+      title_english: true,
+      title_japanese: true,
+      title_romaji: true,
+      artist_string: true,
+      youtube_id: true,
+      youtube_url: true,
+      thumb_url: true,
+      view_count: true,
+      favorited_times: true,
+      rating_score: true,
+      publish_date: true,
+      length_seconds: true,
+    }
   });
 }
 
@@ -132,10 +149,27 @@ export async function getPopularPlaylist(
   // 랜덤 셔플
   const shuffled = shuffle(cached).slice(0, limit);
 
-  // 전체 곡 정보 가져오기
+  // 전체 곡 정보 가져오기 (songs_enhanced 사용)
   const songIds = shuffled.map((s) => s.song_id);
-  return prisma.songs.findMany({
-    where: { vocadb_id: { in: songIds } }
+  return prisma.songs_enhanced.findMany({
+    where: { song_id: { in: songIds } },
+    select: {
+      song_id: true,
+      default_name: true,
+      title_korean: true,
+      title_english: true,
+      title_japanese: true,
+      title_romaji: true,
+      artist_string: true,
+      youtube_id: true,
+      youtube_url: true,
+      thumb_url: true,
+      view_count: true,
+      favorited_times: true,
+      rating_score: true,
+      publish_date: true,
+      length_seconds: true,
+    }
   });
 }
 

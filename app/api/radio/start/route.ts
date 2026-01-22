@@ -3,6 +3,21 @@ import { RADIO_CHANNELS } from '@/lib/radio/channels';
 import { getTagBasedPlaylist, getRankingPlaylist } from '@/lib/radio/algorithms';
 import { getSongById } from '@/lib/db';
 
+// Helper to serialize BigInt values for JSON
+function serializeBigInt(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'bigint') return obj.toString();
+  if (Array.isArray(obj)) return obj.map(serializeBigInt);
+  if (typeof obj === 'object') {
+    const serialized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      serialized[key] = serializeBigInt(value);
+    }
+    return serialized;
+  }
+  return obj;
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const channelSlug = params.get('channel');
@@ -26,9 +41,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         channel: null,
-        seedSong,
+        seedSong: serializeBigInt(seedSong),
         tags,
-        playlist,
+        playlist: serializeBigInt(playlist),
       });
     }
 
@@ -58,9 +73,9 @@ export async function GET(request: NextRequest) {
         slug: channel.slug,
         name: channel.nameKo,
       },
-      seedSong: playlistArray[0] || null,
+      seedSong: serializeBigInt(playlistArray[0]) || null,
       tags: channel.config.tags || [],
-      playlist: playlistArray.slice(1), // 첫 곡 제외
+      playlist: serializeBigInt(playlistArray.slice(1)), // 첫 곡 제외
     });
   } catch (error) {
     console.error('Radio start error:', error);
