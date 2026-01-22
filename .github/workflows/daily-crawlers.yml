@@ -97,10 +97,21 @@ jobs:
       fail-fast: false  # Continue other chunks if one fails
 
     steps:
-      - name: Process Chunk ${{ matrix.chunk }} with Auto-Retry
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run YouTube Crawler (Chunk ${{ matrix.chunk }}) with Auto-Retry
         env:
-          VERCEL_URL: ${{ secrets.VERCEL_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
           COMPLETED="false"
           ROUND=1
@@ -113,31 +124,29 @@ jobs:
             echo ""
             echo "===== Round $ROUND/$MAX_ROUNDS ====="
 
-            response=$(curl -L -X POST "$VERCEL_URL/api/cron/youtube?mode=all&chunk=$CHUNK&totalChunks=10" \
-              -H "Authorization: Bearer $CRON_SECRET" \
-              -H "Content-Type: application/json" \
-              -w "\n%{http_code}" \
-              -s)
+            # Run crawler directly (no HTTP overhead)
+            set +e  # Don't exit on error
+            npx tsx scripts/youtube-crawler-direct.ts \
+              --chunk=$CHUNK \
+              --totalChunks=10 \
+              --mode=all
+            EXIT_CODE=$?
+            set -e
 
-            http_code=$(echo "$response" | tail -n1)
-            body=$(echo "$response" | sed '$d')
+            echo "Exit Code: $EXIT_CODE"
 
-            echo "HTTP Status: $http_code"
-            echo "Response: $body"
-
-            if [ "$http_code" != "200" ]; then
-              echo "❌ Round $ROUND failed with status $http_code"
-              exit 1
-            fi
-
-            # Check if chunk is fully completed
-            if echo "$body" | grep -q '"completed":true'; then
+            # Check exit code (0 = success, 1 = failure)
+            if [ $EXIT_CODE -eq 0 ]; then
               COMPLETED="true"
               echo "✅ Chunk $CHUNK fully completed in $ROUND rounds!"
             else
-              echo "⏳ Chunk $CHUNK incomplete, continuing..."
+              echo "⚠️ Round $ROUND exited with code $EXIT_CODE"
               ROUND=$((ROUND + 1))
-              sleep 3  # 3초 대기 (API rate limit 방지)
+
+              if [ $ROUND -le $MAX_ROUNDS ]; then
+                echo "⏳ Retrying in 10 seconds..."
+                sleep 10
+              fi
             fi
           done
 
