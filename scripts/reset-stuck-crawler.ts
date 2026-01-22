@@ -3,7 +3,7 @@
  * Use this when crawler is stuck in "running" state
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

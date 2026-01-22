@@ -6,7 +6,7 @@
  * Usage:
  *   npx tsx scripts/youtube-crawler-direct.ts --chunk=0 --totalChunks=10 --mode=all
  */
-import { PrismaClient } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { UnifiedYouTubeCrawler, UnifiedCrawlerMode } from '@/lib/crawlers/unified-youtube-crawler';
 
 const prisma = new PrismaClient();

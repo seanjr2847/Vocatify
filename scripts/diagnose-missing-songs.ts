@@ -3,7 +3,7 @@
  * Checks crawler progress, tag filtering, and database state
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

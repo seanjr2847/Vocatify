@@ -7,7 +7,7 @@
  * 3. Resume scenario (interrupted session)
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { VocaDBCrawler } from '@/lib/crawlers/vocadb-crawler';
 
 const prisma = new PrismaClient();
