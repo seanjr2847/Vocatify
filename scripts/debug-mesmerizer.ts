@@ -2,7 +2,7 @@
  * 메스머라이저 조회수 불일치 디버깅 스크립트
  */
 
-import { PrismaClient } from '../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

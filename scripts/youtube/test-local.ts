@@ -7,7 +7,7 @@
  * Usage: npx tsx scripts/youtube/test-local.ts
  */
 
-import { PrismaClient } from '../../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { UnifiedYouTubeCrawler } from '../../lib/crawlers/unified-youtube-crawler';
 
 const prisma = new PrismaClient();

@@ -1,4 +1,4 @@
-import { PrismaClient } from '../../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { getTotalRanking, getDailyRanking, getWeeklyRanking } from '../../lib/db';
 import { cache } from '../../lib/cache';
 

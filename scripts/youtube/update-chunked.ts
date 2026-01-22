@@ -16,7 +16,7 @@
  *   YOUTUBE_API_KEY - YouTube Data API v3 key
  */
 
-import { PrismaClient } from '../../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { UnifiedYouTubeCrawler } from '../../lib/crawlers/unified-youtube-crawler';
 
 const prisma = new PrismaClient();

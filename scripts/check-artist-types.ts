@@ -3,7 +3,7 @@
  * Check all artist types in the database
  */
 
-import { PrismaClient } from '../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

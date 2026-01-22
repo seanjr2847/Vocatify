@@ -8,7 +8,7 @@
  * Usage: npx tsx scripts/vocadb-full-crawl.ts
  */
 
-import { PrismaClient } from '../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { VocaDBCrawler } from '../lib/crawlers/vocadb-crawler';
 
 async function main() {

@@ -2,7 +2,7 @@
  * Test script to verify artist display improvements
  */
 
-import { PrismaClient } from '../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

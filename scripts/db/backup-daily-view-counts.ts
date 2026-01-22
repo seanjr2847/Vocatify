@@ -5,7 +5,7 @@
  * youtube_id를 포함하여 나중에 새 PV 테이블과 매칭할 수 있게 합니다.
  */
 
-import { PrismaClient } from '../../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

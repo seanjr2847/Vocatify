@@ -6,7 +6,7 @@
  * Use this when crawlers are stuck in infinite loops or need to restart.
  */
 
-import { PrismaClient } from '../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

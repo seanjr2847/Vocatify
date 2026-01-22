@@ -2,7 +2,7 @@
  * OtherVoiceSynthesizer 필터 검증 스크립트
  */
 
-import { PrismaClient } from '../lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { getTotalRanking } from '../lib/db';
 
 const prisma = new PrismaClient();
