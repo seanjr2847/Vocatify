@@ -3,7 +3,7 @@
  * PostgreSQL 데이터베이스 연결 관리
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 // PrismaClient 싱글톤 인스턴스
 const globalForPrisma = globalThis as unknown as {

@@ -15,7 +15,7 @@ import crypto from 'crypto';
  * - Smart selection modes (new, old, top, all)
  */
 
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import pLimit from 'p-limit';
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;

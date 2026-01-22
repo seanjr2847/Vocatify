@@ -1,6 +1,5 @@
 generator client {
   provider        = "prisma-client-js"
-  output          = "../lib/generated/prisma"
   previewFeatures = ["fullTextSearchPostgres"]
 }
 
@@ -203,6 +202,61 @@ model song_weekly_stats {
 
   @@index([weekly_increase(sort: Desc)])
   @@index([updated_at])
+}
+
+// ============================================
+// Performance Optimization: Denormalized View
+// ============================================
+
+/// songs_enhanced: Denormalized table for optimized ranking queries
+/// Combines data from songs, song_names, song_artists, pvs tables
+/// Updated by triggers on source tables
+/// Expected performance gain: 70-80% on ranking queries
+model songs_enhanced {
+  song_id               Int       @id
+
+  // Basic song info (from songs table)
+  default_name          String
+  song_type             String?
+  publish_date          DateTime? @db.Date
+  favorited_times       Int       @default(0)
+  rating_score          Int       @default(0)
+  length_seconds        Int?
+  thumb_url             String?
+
+  // Denormalized titles (from song_names table)
+  title_korean          String?
+  title_english         String?
+  title_japanese        String?
+  title_romaji          String?
+
+  // Denormalized artist info (from song_artists + artists tables)
+  artist_string         String?
+  artist_type_primary   String?   // Primary artist's type
+  is_vocaloid_song      Boolean   @default(false)
+
+  // Denormalized YouTube info (from pvs table)
+  youtube_pv_id         Int?
+  youtube_id            String?
+  youtube_url           String?
+  view_count            BigInt?
+  view_count_updated_at DateTime?
+
+  // Cached statistics (pre-computed for rankings)
+  daily_increase        BigInt?
+  daily_increase_date   DateTime? @db.Date
+  weekly_increase       BigInt?
+  weekly_increase_date  DateTime? @db.Date
+
+  // Metadata
+  last_synced_at        DateTime  @default(now()) @updatedAt
+
+  // Basic indexes (partial indexes with WHERE clauses will be added in migration SQL)
+  @@index([view_count(sort: Desc)])
+  @@index([daily_increase(sort: Desc), daily_increase_date])
+  @@index([weekly_increase(sort: Desc), weekly_increase_date])
+  @@index([view_count(sort: Desc), publish_date(sort: Desc)])
+  @@index([is_vocaloid_song])
 }
 
 // ============================================

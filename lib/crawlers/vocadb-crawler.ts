@@ -11,7 +11,7 @@ import crypto from 'crypto';
  * - Designed for Vercel Cron jobs
  */
 
-import { PrismaClient } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import {
   batchUpsertSongs,
   batchUpsertSongNames,

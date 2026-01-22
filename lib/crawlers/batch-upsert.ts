@@ -5,7 +5,7 @@
  * Significantly faster than individual Prisma upserts
  */
 
-import { PrismaClient, Prisma } from '../generated/prisma';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 // Chunk size to avoid Neon memory limits
 const CHUNK_SIZE = 25;
