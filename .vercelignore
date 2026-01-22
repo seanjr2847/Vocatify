@@ -1,7 +1,0 @@
-# Exclude Prisma Client from Vercel cache
-# Always regenerate to ensure latest schema types
-lib/generated/
-
-# Exclude other build artifacts that should be regenerated
-.next/
-node_modules/.prisma/
