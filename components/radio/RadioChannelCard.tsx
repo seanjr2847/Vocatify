@@ -1,19 +1,17 @@
 'use client';
 
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
-import { Play, Radio, Waves } from 'lucide-react';
-import { useState } from 'react';
+import { Play, Radio, Waves, TrendingUp, Tag } from 'lucide-react';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import type { RadioChannel } from '@/lib/radio/channels';
 
 interface RadioChannelCardProps {
-  channel: {
-    slug: string;
-    nameKo: string;
-    description: string;
-    icon: string;
-    color: string;
-  };
+  channel: RadioChannel;
 }
+
+// Deterministic waveform heights to avoid SSR hydration mismatch
+const WAVEFORM_HEIGHTS = [28, 45, 35, 52, 40];
 
 export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
   const { startRadio } = useMusicPlayer();
@@ -40,9 +38,27 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
     }
   };
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!isLoading) {
+        handleStart();
+      }
+    }
+  }, [isLoading]);
+
+  // Get algorithm display info
+  const algorithmInfo = channel.algorithm === 'tag-based'
+    ? { icon: Tag, label: '태그 기반' }
+    : { icon: TrendingUp, label: '랭킹 기반' };
+
   return (
-    <div
-      className="relative group overflow-hidden rounded-3xl transition-all duration-700 ease-out hover:scale-[1.02]"
+    <article
+      role="article"
+      aria-label={`${channel.nameKo} 라디오 채널`}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      className="relative group overflow-hidden rounded-2xl md:rounded-3xl transition-all duration-700 ease-out hover:scale-[1.02] radio-card-transition radio-focus-visible focus:outline-none"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
@@ -51,29 +67,29 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
       }}
     >
       {/* Glassmorphic container with depth */}
-      <div className="relative bg-gradient-to-br from-[#1a1a1a]/90 to-[#0a0a0a]/90 backdrop-blur-xl border border-white/[0.08] rounded-3xl p-8 transition-all duration-700">
+      <div className="relative bg-gradient-to-br from-[#1a1a1a]/90 to-[#0a0a0a]/90 backdrop-blur-xl border border-white/[0.08] rounded-2xl md:rounded-3xl p-6 md:p-8 transition-all duration-700">
 
         {/* Animated gradient background */}
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-3xl"
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl md:rounded-3xl"
           style={{
             background: `radial-gradient(circle at 30% 20%, ${channel.color}15, transparent 50%),
                          radial-gradient(circle at 70% 80%, ${channel.color}10, transparent 50%)`,
           }}
+          aria-hidden="true"
         />
 
-        {/* Animated waveform particles */}
-        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
-          {[...Array(5)].map((_, i) => (
+        {/* SSR-Safe animated waveform particles */}
+        <div className="absolute inset-0 overflow-hidden rounded-2xl md:rounded-3xl pointer-events-none" aria-hidden="true">
+          {WAVEFORM_HEIGHTS.map((height, i) => (
             <div
               key={i}
-              className="absolute w-1 rounded-full opacity-0 group-hover:opacity-30 transition-all duration-1000"
+              className={`absolute w-1 rounded-full opacity-0 group-hover:opacity-30 transition-all duration-1000 ${isHovered ? 'radio-animate-wave' : ''}`}
               style={{
-                height: `${20 + Math.random() * 40}px`,
+                height: `${height}px`,
                 left: `${20 + i * 15}%`,
                 bottom: '20%',
                 background: channel.color,
-                animation: isHovered ? `wave ${1.5 + i * 0.2}s ease-in-out infinite` : 'none',
                 animationDelay: `${i * 0.1}s`,
                 filter: `blur(${1 + i * 0.5}px)`,
               }}
@@ -85,39 +101,40 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
         <div className="relative mb-6 flex items-center justify-center">
           {/* Outer glow ring */}
           <div
-            className="absolute w-28 h-28 rounded-full opacity-0 group-hover:opacity-40 transition-all duration-700 blur-2xl"
+            className="absolute w-24 h-24 md:w-28 md:h-28 rounded-full opacity-0 group-hover:opacity-40 transition-all duration-700 blur-2xl"
             style={{ backgroundColor: channel.color }}
+            aria-hidden="true"
           />
 
           {/* Pulsing ring */}
           <div
-            className="absolute w-24 h-24 rounded-full border-2 opacity-0 group-hover:opacity-60 transition-all duration-500"
-            style={{
-              borderColor: channel.color,
-              animation: isHovered ? 'pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none',
-            }}
+            className={`absolute w-20 h-20 md:w-24 md:h-24 rounded-full border-2 opacity-0 group-hover:opacity-60 transition-all duration-500 ${isHovered ? 'radio-animate-pulse-ring' : ''}`}
+            style={{ borderColor: channel.color }}
+            aria-hidden="true"
           />
 
           {/* Icon container */}
           <div
-            className="relative w-20 h-20 rounded-full flex items-center justify-center text-4xl transition-all duration-700 group-hover:scale-110 group-hover:rotate-12"
+            className="relative w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center text-3xl md:text-4xl transition-all duration-700 group-hover:scale-110 group-hover:rotate-12"
             style={{
               background: `linear-gradient(135deg, ${channel.color}25, ${channel.color}15)`,
               boxShadow: `0 0 40px ${channel.color}20, inset 0 0 20px ${channel.color}10`,
             }}
           >
-            <span className="relative z-10 drop-shadow-2xl">{channel.icon}</span>
+            <span className="relative z-10 drop-shadow-2xl" role="img" aria-label={channel.nameKo}>
+              {channel.icon}
+            </span>
 
             {/* Rotating radio icon badge */}
             <div
-              className="absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500"
+              className={`absolute -top-2 -right-2 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 ${isHovered ? 'radio-animate-spin-slow' : ''}`}
               style={{
                 backgroundColor: channel.color,
                 boxShadow: `0 0 20px ${channel.color}60`,
-                animation: isHovered ? 'spin-slow 8s linear infinite' : 'none',
               }}
+              aria-hidden="true"
             >
-              <Radio className="w-4 h-4 text-white" />
+              <Radio className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
             </div>
           </div>
         </div>
@@ -127,7 +144,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
           {/* Channel name */}
           <div className="overflow-hidden">
             <h3
-              className="text-2xl font-bold text-white transition-all duration-500 group-hover:translate-x-1"
+              className="text-xl md:text-2xl font-bold text-white transition-all duration-500 group-hover:translate-x-1"
               style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 letterSpacing: '-0.02em',
@@ -148,18 +165,31 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
             {channel.description}
           </p>
 
-          {/* Frequency display (decorative) */}
-          <div className="flex items-center gap-2 text-xs font-mono text-white/40 group-hover:text-white/60 transition-colors duration-500">
-            <Waves className="w-3 h-3" />
-            <span>{(88.0 + Math.random() * 20).toFixed(1)} MHz</span>
+          {/* Algorithm type & min views display (meaningful info instead of random frequency) */}
+          <div className="flex items-center gap-3 text-xs font-mono text-white/40 group-hover:text-white/60 transition-colors duration-500">
+            <div className="flex items-center gap-1.5">
+              <algorithmInfo.icon className="w-3 h-3" aria-hidden="true" />
+              <span>{algorithmInfo.label}</span>
+            </div>
+            {channel.config.minViews && (
+              <>
+                <span className="text-white/20">•</span>
+                <div className="flex items-center gap-1.5">
+                  <Waves className="w-3 h-3" aria-hidden="true" />
+                  <span>{channel.config.minViews.toLocaleString()}+ 조회수</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Enhanced play button */}
+        {/* Enhanced play button with improved touch target */}
         <button
           onClick={handleStart}
           disabled={isLoading}
-          className="relative mt-6 w-full group/btn overflow-hidden rounded-2xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-busy={isLoading}
+          aria-label={isLoading ? '연결 중...' : `${channel.nameKo} 지금 듣기`}
+          className="relative mt-6 w-full group/btn overflow-hidden rounded-xl md:rounded-2xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[48px] md:min-h-[56px] active:scale-[0.98]"
           style={{
             background: isLoading
               ? `linear-gradient(135deg, ${channel.color}60, ${channel.color}40)`
@@ -177,16 +207,27 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
               transform: isHovered ? 'translateX(100%)' : 'translateX(-100%)',
               transition: 'transform 0.8s ease-in-out',
             }}
+            aria-hidden="true"
           />
 
           {/* Button content */}
-          <div className="relative flex items-center justify-center gap-3 px-6 py-4">
+          <div className="relative flex items-center justify-center gap-3 px-6 py-3 md:py-4">
             {isLoading ? (
               <>
-                <div
-                  className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"
-                  style={{ borderWidth: '3px' }}
-                />
+                {/* Improved loading state with spinner + pulsing center */}
+                <div className="relative">
+                  <div
+                    className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"
+                    style={{ borderWidth: '3px' }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
+                    aria-hidden="true"
+                  >
+                    <div className="w-2 h-2 bg-white rounded-full radio-animate-live-pulse" />
+                  </div>
+                </div>
                 <span className="font-bold text-white text-sm tracking-wide">
                   연결 중...
                 </span>
@@ -194,10 +235,11 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
             ) : (
               <>
                 <div className="relative">
-                  <Play className="w-5 h-5 fill-white text-white transition-transform duration-300 group-hover/btn:scale-110" />
+                  <Play className="w-5 h-5 fill-white text-white transition-transform duration-300 group-hover/btn:scale-110" aria-hidden="true" />
                   <div
                     className="absolute inset-0 blur-md opacity-0 group-hover/btn:opacity-100 transition-opacity"
                     style={{ background: 'white' }}
+                    aria-hidden="true"
                   />
                 </div>
                 <span
@@ -217,40 +259,18 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
           style={{
             background: `linear-gradient(90deg, transparent, ${channel.color}, transparent)`,
           }}
+          aria-hidden="true"
         />
       </div>
 
       {/* Outer glow effect */}
       <div
-        className="absolute -inset-[1px] rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10 blur-xl"
+        className="absolute -inset-[1px] rounded-2xl md:rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10 blur-xl"
         style={{
           background: `linear-gradient(135deg, ${channel.color}20, transparent)`,
         }}
+        aria-hidden="true"
       />
-
-      {/* Custom CSS animations */}
-      <style jsx>{`
-        @keyframes wave {
-          0%, 100% { transform: scaleY(0.5); }
-          50% { transform: scaleY(1.5); }
-        }
-
-        @keyframes pulse-ring {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 0.6;
-          }
-          50% {
-            transform: scale(1.1);
-            opacity: 0.3;
-          }
-        }
-
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
+    </article>
   );
 }
