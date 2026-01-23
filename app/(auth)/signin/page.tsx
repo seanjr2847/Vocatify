@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { SignInButton } from "@/components/auth/SignInButton";
-import { Music, Sparkles, TrendingUp, Radio, Headphones } from "lucide-react";
+import { Music, Sparkles} from "lucide-react";
 
 export const metadata: Metadata = {
   title: "로그인 | Vocatify",
@@ -77,22 +77,6 @@ export default function SignInPage() {
               </div>
 
               <SignInButton />
-
-              {/* Features */}
-              <div className="grid grid-cols-3 gap-3 pt-4">
-                <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#39c5bb]/5 border border-[#39c5bb]/10">
-                  <TrendingUp className="h-5 w-5 text-[#39c5bb]" />
-                  <span className="text-xs text-white/60 font-medium">차트</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#39c5bb]/5 border border-[#39c5bb]/10">
-                  <Radio className="h-5 w-5 text-[#39c5bb]" />
-                  <span className="text-xs text-white/60 font-medium">라디오</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 p-3 rounded-xl bg-[#39c5bb]/5 border border-[#39c5bb]/10">
-                  <Headphones className="h-5 w-5 text-[#39c5bb]" />
-                  <span className="text-xs text-white/60 font-medium">플레이리스트</span>
-                </div>
-              </div>
 
               <p className="text-center text-xs text-white/40 leading-relaxed">
                 로그인하면{" "}

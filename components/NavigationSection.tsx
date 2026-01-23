@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Heart, Play, ChevronRight, Plus, Radio } from "lucide-react";
+import { Play, ChevronRight, Plus, Radio, Music } from "lucide-react";
 import React, { memo, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -21,64 +21,26 @@ interface NavigationSectionProps {
 const NavigationSectionComponent = ({ topCharts, newReleases, popularSongs }: NavigationSectionProps): JSX.Element => {
   const router = useRouter();
   const { playSong, addToPlaylist } = useMusicPlayer();
-  const topSong = topCharts[0];
 
   // Memoize computed values
-  const totalFavorites = useMemo(
-    () => topCharts.reduce((sum, song) => sum + (song.favoritedTimes || 0), 0),
-    [topCharts]
-  );
   const topThreeCharts = useMemo(() => topCharts.slice(0, 3), [topCharts]);
   const topSixReleases = useMemo(() => newReleases.slice(0, 6), [newReleases]);
 
   return (
     <section className="relative w-full h-auto px-6">
       <div className="grid grid-cols-1 lg:grid-cols-[686px_1fr] gap-6">
-        {/* 추천 플레이리스트 카드 */}
+        {/* 큐레이션 플레이리스트 - 준비중 */}
         <div className="relative">
-          <div className="absolute top-[95px] left-[89px] w-[507px] h-[287px] bg-[#7a8f95] blur-[25.58px] mix-blend-color-dodge opacity-45" />
-
-          <Card className="relative w-full h-[373px] bg-[#5f9eaf] rounded-[40px] overflow-hidden border-0">
-            <CardContent className="relative p-0 h-full">
-              <div className="absolute top-[38px] left-[45px] font-regular-12px font-[number:var(--regular-12px-font-weight)] text-white text-[length:var(--regular-12px-font-size)] tracking-[var(--regular-12px-letter-spacing)] leading-[var(--regular-12px-line-height)] whitespace-nowrap [font-style:var(--regular-12px-font-style)]">
-                큐레이션 플레이리스트
-              </div>
-
-              <div className="absolute top-[137px] left-[45px] flex flex-col gap-1.5 z-10">
-                <h2 className="font-bold-35px font-[number:var(--bold-35px-font-weight)] text-white text-[length:var(--bold-35px-font-size)] tracking-[var(--bold-35px-letter-spacing)] leading-[var(--bold-35px-line-height)] whitespace-nowrap [font-style:var(--bold-35px-font-style)]">
-                  {topSong ? (topSong.titleKorean ?? topSong.titleEnglish ?? topSong.defaultName) : '보컬로이드 히트곡'}
-                </h2>
-
-                <p className="[font-family:'Quicksand-Regular',Helvetica] font-normal text-white text-sm tracking-[0] leading-[16.8px] max-w-[300px]">
-                  {topCharts.slice(0, 3).map(song => song.titleKorean ?? song.titleEnglish ?? song.defaultName).join(', ')}
-                  {topCharts.length > 3 && ', 그 외 다수'}
-                </p>
-              </div>
-
-              <div className="absolute top-[312px] left-[54px] flex items-center gap-[11px] z-10">
-                <div className="flex items-center gap-2">
-                  <div className="relative w-4 h-4">
-                    <Heart className="w-[13px] h-[13px] absolute top-0.5 left-px text-white fill-white" />
-                  </div>
-
-                  <span className="font-regular-14px font-[number:var(--regular-14px-font-weight)] text-white text-[length:var(--regular-14px-font-size)] tracking-[var(--regular-14px-letter-spacing)] leading-[var(--regular-14px-line-height)] whitespace-nowrap [font-style:var(--regular-14px-font-style)]">
-                    좋아요 {formatViews(totalFavorites)}
-                  </span>
+          <Card className="relative w-full h-[373px] bg-gradient-to-br from-[#2a3a3d] to-[#1d2123] rounded-[40px] overflow-hidden border border-white/5">
+            <CardContent className="relative p-0 h-full flex flex-col items-center justify-center">
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#39c5bb]/10 flex items-center justify-center">
+                  <Music className="w-8 h-8 text-[#39c5bb]/50" />
                 </div>
+                <div className="text-white/40 text-sm mb-2">큐레이션 플레이리스트</div>
+                <h2 className="text-white/60 text-2xl font-semibold">준비중입니다</h2>
+                <p className="text-white/30 text-sm mt-2">곧 다양한 큐레이션 플레이리스트를 만나보세요</p>
               </div>
-
-              {topSong && topSong.thumbUrl && (
-                <div className="absolute top-[-50px] right-[-50px] w-[400px] h-[500px] opacity-30">
-                  <Image
-                    src={topSong.thumbUrl}
-                    alt="추천 아티스트"
-                    fill
-                    className="object-cover"
-                    sizes="400px"
-                    priority
-                  />
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
