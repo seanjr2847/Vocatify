@@ -26,7 +26,11 @@ export async function GET(request: NextRequest) {
   try {
     // 시드 모드: 특정 곡에서 시작
     if (seedSongId) {
-      const seedSong = await getSongById(parseInt(seedSongId));
+      const parsedSongId = parseInt(seedSongId, 10);
+      if (isNaN(parsedSongId)) {
+        return NextResponse.json({ error: 'Invalid songId' }, { status: 400 });
+      }
+      const seedSong = await getSongById(parsedSongId);
       if (!seedSong) {
         return NextResponse.json({ error: 'Song not found' }, { status: 404 });
       }

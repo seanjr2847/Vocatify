@@ -9,7 +9,7 @@ import { prisma } from './prisma';
 import { Prisma } from '@prisma/client';
 import { INCLUDED_VOICE_SYNTHESIZER_TYPES } from './constants';
 
-const RANKING_LIMIT = 100; // Store top 100 for each ranking type
+const RANKING_LIMIT = 1000; // Store top 1000 for each ranking type
 
 /**
  * Raw query result type from Prisma
