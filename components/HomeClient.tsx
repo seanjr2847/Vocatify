@@ -20,7 +20,7 @@ interface SearchSong extends Song {
 const navigationItems = [
   { icon: Home, alt: "홈", href: "/" },
   { icon: Music, alt: "차트", href: "/charts" },
-  { icon: Radio, alt: "라디오", href: null },
+  { icon: Radio, alt: "라디오", href: "/radio" },
   { icon: Video, alt: "비디오", href: null },
 ];
 
