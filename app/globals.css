@@ -376,3 +376,111 @@
 .animate-loader-spinner {
   animation: loader-spinner 1.2s linear infinite;
 }
+
+/* ============================================
+   Radio Channel Page Animations
+   ============================================ */
+
+/* Floating particle animation */
+@keyframes radio-float {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.2);
+    opacity: 0.4;
+  }
+}
+
+/* Waveform animation for card decorations */
+@keyframes radio-wave {
+  0%, 100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1.5);
+  }
+}
+
+/* Pulsing ring animation for icons */
+@keyframes radio-pulse-ring {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.3;
+  }
+}
+
+/* Slow spin for decorative elements */
+@keyframes radio-spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Live indicator pulse */
+@keyframes radio-live-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+}
+
+/* Animation utility classes */
+.radio-animate-float {
+  animation: radio-float 8s ease-in-out infinite;
+}
+
+.radio-animate-wave {
+  animation: radio-wave 1.5s ease-in-out infinite;
+}
+
+.radio-animate-pulse-ring {
+  animation: radio-pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.radio-animate-spin-slow {
+  animation: radio-spin-slow 8s linear infinite;
+}
+
+.radio-animate-live-pulse {
+  animation: radio-live-pulse 2s ease-in-out infinite;
+}
+
+/* Reduced motion preferences - disable all radio animations */
+@media (prefers-reduced-motion: reduce) {
+  .radio-animate-float,
+  .radio-animate-wave,
+  .radio-animate-pulse-ring,
+  .radio-animate-spin-slow,
+  .radio-animate-live-pulse {
+    animation: none !important;
+  }
+
+  /* Also disable transition-based animations */
+  .radio-card-transition {
+    transition: none !important;
+  }
+}
+
+/* Touch optimization for mobile */
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Focus visible styles for accessibility */
+.radio-focus-visible:focus-visible {
+  outline: 2px solid var(--accent-primary, #39c5bb);
+  outline-offset: 2px;
+}
