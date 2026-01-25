@@ -5,6 +5,7 @@ on:
     # Daily crawlers (UTC time)
     - cron: '0 2 * * *'   # VocaDB crawler - 2:00 AM UTC (11:00 AM KST)
     - cron: '0 15 * * *'  # YouTube crawler - 15:00 UTC (00:00 KST, 자정)
+    - cron: '0 19 * * *'  # Ranking cache - 19:00 UTC (YouTube 완료 후)
 
   # Allow manual trigger
   workflow_dispatch:
@@ -16,6 +17,7 @@ on:
         options:
           - vocadb
           - youtube
+          - ranking-cache
           - all
 
 jobs:
@@ -23,7 +25,9 @@ jobs:
     name: VocaDB Crawler
     runs-on: ubuntu-latest
     timeout-minutes: 120  # 2시간 timeout
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
+    if: |
+      (github.event.schedule == '0 2 * * *') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'vocadb' || github.event.inputs.crawler == 'all'))
 
     steps:
       - name: Run VocaDB Crawler with Auto-Retry
@@ -89,7 +93,9 @@ jobs:
     name: YouTube Update (Chunk ${{ matrix.chunk }})
     runs-on: ubuntu-latest
     timeout-minutes: 240  # 4시간 per chunk
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
+    if: |
+      (github.event.schedule == '0 15 * * *') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'youtube' || github.event.inputs.crawler == 'all'))
 
     strategy:
       matrix:
@@ -154,3 +160,38 @@ jobs:
             echo "⚠️ Max rounds ($MAX_ROUNDS) reached but chunk incomplete"
             exit 1
           fi
+
+  ranking-cache:
+    name: Update Ranking Cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      (github.event.schedule == '0 19 * * *') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'ranking-cache' || github.event.inputs.crawler == 'all'))
+
+    steps:
+      - name: Update Ranking Cache
+        env:
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "📊 Updating ranking cache..."
+
+          response=$(curl -L -X POST "$VERCEL_URL/api/cron/ranking-cache" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -w "\n%{http_code}" \
+            -s)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "❌ Ranking cache update failed"
+            exit 1
+          fi
+
+          echo "✅ Ranking cache updated successfully!"
