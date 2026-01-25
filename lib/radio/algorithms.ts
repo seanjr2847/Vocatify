@@ -1,176 +1,184 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { INCLUDED_VOICE_SYNTHESIZER_TYPES } from '@/lib/constants';
 
-/**
- * 태그 기반 곡 추천 알고리즘
- * 점수 = (태그매칭*0.5 + log(조회수)*0.3 + 인기도*0.15 + 평점*0.05)
- */
-export async function getTagBasedPlaylist(
-  tags: string[],
-  excludeIds: number[],
-  limit: number = 10
-) {
-  // 1단계: 태그 ID 조회
-  const tagRecords = await prisma.tags.findMany({
-    where: { name: { in: tags } },
-    select: { vocadb_id: true }
-  });
-  const tagIds = tagRecords.map(t => t.vocadb_id);
-
-  if (tagIds.length === 0) {
-    // 태그 없으면 인기곡으로 대체
-    return getPopularPlaylist(excludeIds, limit);
-  }
-
-  // 2단계: 태그 점수 계산 (CTE) - 최적화: FILTER 사용
-  const query = Prisma.sql`
-    WITH tag_matches AS (
-      SELECT
-        song_id,
-        COUNT(*) FILTER (WHERE tag_id = ANY(${tagIds}::int[])) as matched_tags,
-        SUM(count) FILTER (WHERE tag_id = ANY(${tagIds}::int[])) as tag_weight
-      FROM song_tags
-      WHERE song_id != ALL(${excludeIds}::int[])
-        AND tag_id = ANY(${tagIds}::int[])
-      GROUP BY song_id
-      HAVING COUNT(*) FILTER (WHERE tag_id = ANY(${tagIds}::int[])) > 0
-    ),
-    combined_scores AS (
-      SELECT
-        s.song_id as vocadb_id,
-        s.default_name,
-        s.title_korean,
-        s.title_english,
-        s.title_japanese,
-        s.title_romaji,
-        s.artist_string,
-        s.youtube_id,
-        s.thumb_url,
-        s.view_count,
-        s.favorited_times,
-        s.rating_score,
-        s.publish_date,
-        (
-          tm.tag_weight * 0.5 +
-          LOG(GREATEST(s.view_count::numeric / 1000000, 1)) * 0.3 +
-          s.favorited_times * 0.00015 +
-          s.rating_score / 100.0 * 0.05
-        ) as final_score
-      FROM tag_matches tm
-      JOIN songs_enhanced s ON tm.song_id = s.song_id
-      WHERE s.view_count > 5000 AND s.is_vocaloid_song = true
-    )
-    SELECT * FROM combined_scores
-    ORDER BY
-      CASE
-        WHEN final_score >= 8 THEN 1
-        WHEN final_score >= 5 THEN 2
-        ELSE 3
-      END,
-      RANDOM()
-    LIMIT ${limit};
-  `;
-
-  return prisma.$queryRaw(query);
+export interface RadioSong {
+  vocadbId: number;
+  defaultName: string;
+  titleKorean: string | null;
+  titleEnglish: string | null;
+  titleJapanese: string | null;
+  titleRomaji: string | null;
+  artistString: string | null;
+  youtubeId: string | null;
+  youtubeUrl: string | null;
+  thumbUrl: string | null;
+  viewCount: bigint | null;
+  lengthSeconds: number | null;
 }
 
 /**
- * 랭킹 기반 재생목록
+ * 인기곡 기반 재생목록 (조회수 순)
  */
-export async function getRankingPlaylist(
-  rankingType: 'weekly' | 'daily' | 'total',
+export async function getPopularPlaylist(
+  minViews: number,
   excludeIds: number[],
-  limit: number = 10
-) {
-  const cached = await prisma.ranking_cache.findMany({
-    where: {
-      ranking_type: rankingType,
-      rank: { lte: 100 },
-      song_id: { notIn: excludeIds }
-    },
-    take: limit * 3, // 3배 가져와서 랜덤화
-    orderBy: { rank: 'asc' }
-  });
+  limit: number = 15
+): Promise<RadioSong[]> {
+  const artistTypes = INCLUDED_VOICE_SYNTHESIZER_TYPES;
 
-  // 티어별 랜덤화
-  const tier1 = cached.filter((c) => c.rank <= 30);
-  const tier2 = cached.filter((c) => c.rank > 30 && c.rank <= 70);
-  const tier3 = cached.filter((c) => c.rank > 70);
+  const songs = await prisma.$queryRaw<RadioSong[]>`
+    WITH included_songs AS (
+      SELECT DISTINCT song_id
+      FROM song_artists
+      JOIN artists ON song_artists.artist_id = artists.vocadb_id
+      WHERE artists.artist_type = ANY(${artistTypes}::text[])
+    ),
+    song_views AS (
+      SELECT
+        song_id,
+        MAX(view_count) as total_view_count,
+        MAX(pv_id) as youtube_id,
+        MAX(url) as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artist_names AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    )
+    SELECT
+      s.vocadb_id as "vocadbId",
+      s.default_name as "defaultName",
+      st.title_korean as "titleKorean",
+      st.title_english as "titleEnglish",
+      st.title_japanese as "titleJapanese",
+      st.title_romaji as "titleRomaji",
+      san.artist_string as "artistString",
+      sv.youtube_id as "youtubeId",
+      sv.youtube_url as "youtubeUrl",
+      s.thumb_url as "thumbUrl",
+      sv.total_view_count as "viewCount",
+      s.length_seconds as "lengthSeconds"
+    FROM songs s
+    INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
+    JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artist_names san ON s.vocadb_id = san.song_id
+    WHERE sv.total_view_count >= ${minViews}
+      AND s.vocadb_id != ALL(${excludeIds}::int[])
+    ORDER BY sv.total_view_count DESC
+    LIMIT ${limit * 3}
+  `;
+
+  // 티어별 랜덤화 (항상 같은 곡만 나오는 것 방지)
+  const tier1 = songs.slice(0, Math.floor(songs.length / 3));
+  const tier2 = songs.slice(Math.floor(songs.length / 3), Math.floor(songs.length * 2 / 3));
+  const tier3 = songs.slice(Math.floor(songs.length * 2 / 3));
 
   const shuffled = [
     ...shuffle(tier1),
     ...shuffle(tier2),
-    ...shuffle(tier3)
+    ...shuffle(tier3),
   ].slice(0, limit);
 
-  // 전체 곡 정보 가져오기 (songs_enhanced 사용)
-  const songIds = shuffled.map((s) => s.song_id);
-  return prisma.songs_enhanced.findMany({
-    where: { song_id: { in: songIds } },
-    select: {
-      song_id: true,
-      default_name: true,
-      title_korean: true,
-      title_english: true,
-      title_japanese: true,
-      title_romaji: true,
-      artist_string: true,
-      youtube_id: true,
-      youtube_url: true,
-      thumb_url: true,
-      view_count: true,
-      favorited_times: true,
-      rating_score: true,
-      publish_date: true,
-      length_seconds: true,
-    }
-  });
+  return shuffled;
 }
 
 /**
- * 인기곡 플레이리스트 (태그 매칭 실패시 대체)
+ * 랜덤 재생목록 (조회수 범위 내에서 랜덤)
  */
-export async function getPopularPlaylist(
+export async function getRandomPlaylist(
+  minViews: number,
+  maxViews: number | undefined,
   excludeIds: number[],
-  limit: number = 10
-) {
-  // ranking_cache에서 인기곡 가져오기
-  const cached = await prisma.ranking_cache.findMany({
-    where: {
-      ranking_type: 'total',
-      rank: { lte: 200 },
-      song_id: { notIn: excludeIds },
-      view_count: { gt: 100000 }
-    },
-    take: limit * 2,
-    orderBy: { rank: 'asc' }
-  });
+  limit: number = 15
+): Promise<RadioSong[]> {
+  const artistTypes = INCLUDED_VOICE_SYNTHESIZER_TYPES;
 
-  // 랜덤 셔플
-  const shuffled = shuffle(cached).slice(0, limit);
+  // maxViews가 있으면 범위 쿼리, 없으면 최소값만
+  const viewCondition = maxViews
+    ? Prisma.sql`AND sv.total_view_count <= ${maxViews}`
+    : Prisma.sql``;
 
-  // 전체 곡 정보 가져오기 (songs_enhanced 사용)
-  const songIds = shuffled.map((s) => s.song_id);
-  return prisma.songs_enhanced.findMany({
-    where: { song_id: { in: songIds } },
-    select: {
-      song_id: true,
-      default_name: true,
-      title_korean: true,
-      title_english: true,
-      title_japanese: true,
-      title_romaji: true,
-      artist_string: true,
-      youtube_id: true,
-      youtube_url: true,
-      thumb_url: true,
-      view_count: true,
-      favorited_times: true,
-      rating_score: true,
-      publish_date: true,
-      length_seconds: true,
-    }
-  });
+  const songs = await prisma.$queryRaw<RadioSong[]>`
+    WITH included_songs AS (
+      SELECT DISTINCT song_id
+      FROM song_artists
+      JOIN artists ON song_artists.artist_id = artists.vocadb_id
+      WHERE artists.artist_type = ANY(${artistTypes}::text[])
+    ),
+    song_views AS (
+      SELECT
+        song_id,
+        MAX(view_count) as total_view_count,
+        MAX(pv_id) as youtube_id,
+        MAX(url) as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artist_names AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    )
+    SELECT
+      s.vocadb_id as "vocadbId",
+      s.default_name as "defaultName",
+      st.title_korean as "titleKorean",
+      st.title_english as "titleEnglish",
+      st.title_japanese as "titleJapanese",
+      st.title_romaji as "titleRomaji",
+      san.artist_string as "artistString",
+      sv.youtube_id as "youtubeId",
+      sv.youtube_url as "youtubeUrl",
+      s.thumb_url as "thumbUrl",
+      sv.total_view_count as "viewCount",
+      s.length_seconds as "lengthSeconds"
+    FROM songs s
+    INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
+    JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artist_names san ON s.vocadb_id = san.song_id
+    WHERE sv.total_view_count >= ${minViews}
+      ${viewCondition}
+      AND s.vocadb_id != ALL(${excludeIds}::int[])
+    ORDER BY RANDOM()
+    LIMIT ${limit}
+  `;
+
+  return songs;
 }
 
 function shuffle<T>(array: T[]): T[] {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
-import { Play, Radio, Waves, TrendingUp, Tag } from 'lucide-react';
+import { Play, Radio, Waves, TrendingUp, Shuffle } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import type { RadioChannel } from '@/lib/radio/channels';
@@ -21,15 +21,8 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
   const handleStart = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/radio/start?channel=${channel.slug}`);
-      const data = await response.json();
-
-      if (data.success && data.seedSong) {
-        startRadio(data.seedSong.vocadbId);
-        toast.success(`${channel.nameKo} 재생 시작`);
-      } else {
-        toast.error('라디오를 시작할 수 없습니다');
-      }
+      await startRadio(channel.slug);
+      toast.success(`${channel.nameKo} 재생 시작`);
     } catch (error) {
       console.error('Failed to start radio:', error);
       toast.error('라디오 시작 중 오류가 발생했습니다');
@@ -48,9 +41,9 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
   }, [isLoading]);
 
   // Get algorithm display info
-  const algorithmInfo = channel.algorithm === 'tag-based'
-    ? { icon: Tag, label: '태그 기반' }
-    : { icon: TrendingUp, label: '랭킹 기반' };
+  const algorithmInfo = channel.algorithm === 'popular'
+    ? { icon: TrendingUp, label: '인기순' }
+    : { icon: Shuffle, label: '랜덤' };
 
   return (
     <article
@@ -165,7 +158,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
             {channel.description}
           </p>
 
-          {/* Algorithm type & min views display (meaningful info instead of random frequency) */}
+          {/* Algorithm type & min views display */}
           <div className="flex items-center gap-3 text-xs font-mono text-white/40 group-hover:text-white/60 transition-colors duration-500">
             <div className="flex items-center gap-1.5">
               <algorithmInfo.icon className="w-3 h-3" aria-hidden="true" />
@@ -176,7 +169,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
                 <span className="text-white/20">•</span>
                 <div className="flex items-center gap-1.5">
                   <Waves className="w-3 h-3" aria-hidden="true" />
-                  <span>{channel.config.minViews.toLocaleString()}+ 조회수</span>
+                  <span>{(channel.config.minViews / 10000).toFixed(0)}만+ 조회수</span>
                 </div>
               </>
             )}

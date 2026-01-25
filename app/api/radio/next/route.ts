@@ -1,29 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTagBasedPlaylist } from '@/lib/radio/algorithms';
+import { RADIO_CHANNELS } from '@/lib/radio/channels';
+import { getPopularPlaylist, getRandomPlaylist } from '@/lib/radio/algorithms';
+
+// Helper to serialize BigInt values for JSON
+function serializeBigInt(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'bigint') return obj.toString();
+  if (Array.isArray(obj)) return obj.map(serializeBigInt);
+  if (typeof obj === 'object') {
+    const serialized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      serialized[key] = serializeBigInt(value);
+    }
+    return serialized;
+  }
+  return obj;
+}
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const tagsParam = params.get('tags');
+  const channelSlug = params.get('channel');
   const excludeIdsParam = params.get('excludeIds');
   const limit = parseInt(params.get('limit') || '10');
 
-  const tags = tagsParam ? tagsParam.split(',') : [];
   const excludeIds = excludeIdsParam
-    ? excludeIdsParam.split(',').map(Number)
+    ? excludeIdsParam.split(',').map(Number).filter(n => !isNaN(n))
     : [];
 
   try {
-    const playlist = await getTagBasedPlaylist(tags, excludeIds, limit);
+    // 채널 찾기 (기본값: 첫 번째 채널)
+    const channel = channelSlug
+      ? RADIO_CHANNELS.find(c => c.slug === channelSlug)
+      : RADIO_CHANNELS[0];
+
+    if (!channel) {
+      return NextResponse.json({ error: 'Channel not found' }, { status: 404 });
+    }
+
+    let playlist;
+
+    if (channel.algorithm === 'popular') {
+      playlist = await getPopularPlaylist(
+        channel.config.minViews,
+        excludeIds,
+        limit
+      );
+    } else {
+      playlist = await getRandomPlaylist(
+        channel.config.minViews,
+        channel.config.maxViews,
+        excludeIds,
+        limit
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      playlist,
-      meta: { hasMore: true }
+      playlist: serializeBigInt(playlist),
+      meta: { hasMore: playlist.length > 0 }
     });
   } catch (error) {
     console.error('Radio next error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch songs' },
+      { success: false, error: 'Failed to fetch songs' },
       { status: 500 }
     );
   }

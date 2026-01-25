@@ -38,8 +38,8 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
 
   const handleRadioClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    startRadio(song.vocadbId);
-  }, [startRadio, song.vocadbId]);
+    startRadio('popular'); // Start with popular channel
+  }, [startRadio]);
 
   const handleCardClick = useCallback(() => {
     router.push(`/songs/${song.vocadbId}`);

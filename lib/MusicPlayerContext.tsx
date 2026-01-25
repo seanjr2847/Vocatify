@@ -41,7 +41,7 @@ interface MusicPlayerContextValue {
   updatePlayingState: (isPlaying: boolean) => void;
   playerRef: React.MutableRefObject<YouTubePlayerType | null>;
   // Radio mode
-  startRadio: (songId: number) => Promise<void>;
+  startRadio: (channelSlug: string) => Promise<void>;
   stopRadio: () => void;
   playNextInQueue: () => void;
 }
@@ -251,10 +251,46 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     setState(prev => ({ ...prev, isPlaying }));
   }, []);
 
+  // API response type for radio songs
+  interface ApiSong {
+    vocadbId: number;
+    defaultName?: string;
+    titleEnglish?: string | null;
+    titleJapanese?: string | null;
+    titleRomaji?: string | null;
+    titleKorean?: string | null;
+    artistString?: string;
+    youtubeId?: string | null;
+    youtubeUrl?: string | null;
+    thumbUrl?: string | null;
+    viewCount?: string | null;
+    lengthSeconds?: number | null;
+  }
+
+  // Convert API response to Song type
+  const convertApiSongToSong = useCallback((s: ApiSong): Song => ({
+    vocadbId: s.vocadbId,
+    defaultName: s.defaultName || '',
+    titleEnglish: s.titleEnglish || null,
+    titleJapanese: s.titleJapanese || null,
+    titleRomaji: s.titleRomaji || null,
+    titleKorean: s.titleKorean || null,
+    artistString: s.artistString || '',
+    youtubeId: s.youtubeId || null,
+    youtubeUrl: s.youtubeUrl || null,
+    thumbUrl: s.thumbUrl || null,
+    favoritedTimes: 0,
+    ratingScore: 0,
+    publishDate: null,
+    songType: null,
+    viewCount: s.viewCount ? BigInt(s.viewCount) : null,
+    viewCountUpdatedAt: null,
+  }), []);
+
   // Radio mode functions
-  const startRadio = useCallback(async (songId: number) => {
+  const startRadio = useCallback(async (channelSlug: string) => {
     try {
-      const response = await fetch(`/api/radio/start?songId=${songId}`);
+      const response = await fetch(`/api/radio/start?channel=${channelSlug}`);
       const data = await response.json();
 
       if (!data.success) {
@@ -262,58 +298,16 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return;
       }
 
-      const { seedSong, tags, playlist, channel } = data;
-
-      // API response type
-      interface ApiSong {
-        vocadbId: number;
-        defaultName?: string;
-        title?: string;
-        titleEnglish?: string | null;
-        titleJapanese?: string | null;
-        titleRomaji?: string | null;
-        titleKorean?: string | null;
-        artistString?: string;
-        artist?: string;
-        youtubeId?: string | null;
-        youtubeUrl?: string | null;
-        thumbUrl?: string | null;
-        favoritedTimes?: number;
-        ratingScore?: number;
-        publishDate?: string | null;
-        songType?: string | null;
-        viewCount?: string | null;
-        viewCountUpdatedAt?: string | null;
-      }
-
-      // Convert API response to Song type
-      const convertToSong = (s: ApiSong): Song => ({
-        vocadbId: s.vocadbId,
-        defaultName: s.defaultName || s.title || '',
-        titleEnglish: s.titleEnglish || null,
-        titleJapanese: s.titleJapanese || null,
-        titleRomaji: s.titleRomaji || null,
-        titleKorean: s.titleKorean || null,
-        artistString: s.artistString || s.artist || '',
-        youtubeId: s.youtubeId || null,
-        youtubeUrl: s.youtubeUrl || null,
-        thumbUrl: s.thumbUrl || null,
-        favoritedTimes: s.favoritedTimes || 0,
-        ratingScore: s.ratingScore || 0,
-        publishDate: s.publishDate ? new Date(s.publishDate) : null,
-        songType: s.songType || null,
-        viewCount: s.viewCount ? BigInt(s.viewCount) : null,
-        viewCountUpdatedAt: s.viewCountUpdatedAt ? new Date(s.viewCountUpdatedAt) : null,
-      });
+      const { seedSong, playlist, channel } = data;
 
       setState(prev => ({
         ...prev,
-        currentSong: convertToSong(seedSong),
-        playlist: playlist.map(convertToSong),
+        currentSong: convertApiSongToSong(seedSong),
+        playlist: playlist.map(convertApiSongToSong),
         playlistSource: channel?.name || '라디오',
         isRadioMode: true,
         radioChannel: channel,
-        radioTags: tags,
+        radioTags: [], // No longer using tags
         radioPlayedIds: [seedSong.vocadbId],
         isPlaying: false, // YouTube onStateChange will set to true
         currentTime: 0,
@@ -323,7 +317,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     } catch (error) {
       console.error('Radio start error:', error);
     }
-  }, []);
+  }, [convertApiSongToSong]);
 
   const stopRadio = useCallback(() => {
     setState(prev => ({
@@ -364,58 +358,19 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   // Fetch more radio songs when queue is low
   useEffect(() => {
     const fetchMoreRadioSongs = async () => {
-      if (!state.isRadioMode || state.radioTags.length === 0) return;
+      if (!state.isRadioMode || !state.radioChannel) return;
       if (state.playlist.length > 5) return; // Still have enough songs
 
       try {
-        const tags = state.radioTags.join(',');
         const excludeIds = state.radioPlayedIds.join(',');
 
         const response = await fetch(
-          `/api/radio/next?tags=${encodeURIComponent(tags)}&excludeIds=${encodeURIComponent(excludeIds)}&limit=10`
+          `/api/radio/next?channel=${state.radioChannel.slug}&excludeIds=${encodeURIComponent(excludeIds)}&limit=10`
         );
         const data = await response.json();
 
         if (data.success && data.playlist.length > 0) {
-          interface ApiSong {
-            vocadbId: number;
-            defaultName?: string;
-            title?: string;
-            titleEnglish?: string | null;
-            titleJapanese?: string | null;
-            titleRomaji?: string | null;
-            titleKorean?: string | null;
-            artistString?: string;
-            artist?: string;
-            youtubeId?: string | null;
-            youtubeUrl?: string | null;
-            thumbUrl?: string | null;
-            favoritedTimes?: number;
-            ratingScore?: number;
-            publishDate?: string | null;
-            songType?: string | null;
-            viewCount?: string | null;
-            viewCountUpdatedAt?: string | null;
-          }
-
-          const newSongs: Song[] = data.playlist.map((s: ApiSong) => ({
-            vocadbId: s.vocadbId,
-            defaultName: s.defaultName || s.title || '',
-            titleEnglish: s.titleEnglish || null,
-            titleJapanese: s.titleJapanese || null,
-            titleRomaji: s.titleRomaji || null,
-            titleKorean: s.titleKorean || null,
-            artistString: s.artistString || s.artist || '',
-            youtubeId: s.youtubeId || null,
-            youtubeUrl: s.youtubeUrl || null,
-            thumbUrl: s.thumbUrl || null,
-            favoritedTimes: s.favoritedTimes || 0,
-            ratingScore: s.ratingScore || 0,
-            publishDate: s.publishDate || null,
-            songType: s.songType || null,
-            viewCount: s.viewCount || null,
-            viewCountUpdatedAt: s.viewCountUpdatedAt || null,
-          }));
+          const newSongs: Song[] = data.playlist.map(convertApiSongToSong);
 
           setState(prev => ({
             ...prev,
@@ -428,7 +383,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     };
 
     fetchMoreRadioSongs();
-  }, [state.isRadioMode, state.playlist.length, state.radioTags, state.radioPlayedIds]);
+  }, [state.isRadioMode, state.playlist.length, state.radioChannel, state.radioPlayedIds, convertApiSongToSong]);
 
   const value: MusicPlayerContextValue = {
     state,

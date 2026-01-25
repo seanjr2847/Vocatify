@@ -4,49 +4,50 @@ export interface RadioChannel {
   description: string;
   icon: string;
   color: string;
-  algorithm: 'tag-based' | 'ranking';
+  algorithm: 'popular' | 'random';
   config: {
-    tags?: string[];           // 태그 기반
-    rankingType?: string;      // 랭킹 기반
-    minViews?: number;
+    minViews: number;
+    maxViews?: number;  // 조회수 상한 (다양성 위해)
+    limit?: number;     // 초기 로드 곡 수
   };
 }
 
 export const RADIO_CHANNELS: RadioChannel[] = [
   {
-    slug: 'emotional-ballad',
-    nameKo: '라디오: 감성 발라드',
-    description: '마음을 울리는 서정적인 발라드',
-    icon: '💙',
-    color: '#4A90E2',
-    algorithm: 'tag-based',
+    slug: 'chill',
+    nameKo: '잔잔한 노동요',
+    description: '집중하며 작업할 때 듣기 좋은 곡들',
+    icon: '🌙',
+    color: '#6B7FD7',
+    algorithm: 'random',
     config: {
-      tags: ['ballad', 'emotional', 'melancholic', 'gentle', 'piano', 'acoustic'],
-      minViews: 10000,
+      minViews: 100000,
+      maxViews: 5000000,  // 너무 유명하지 않은 곡들
+      limit: 15,
     }
   },
   {
-    slug: 'energetic',
-    nameKo: '라디오: 에너제틱',
-    description: '에너지 넘치는 업비트 음악',
-    icon: '🎉',
+    slug: 'upbeat',
+    nameKo: '신나는 노동요',
+    description: '에너지 충전이 필요할 때',
+    icon: '⚡',
     color: '#F5A623',
-    algorithm: 'tag-based',
+    algorithm: 'random',
     config: {
-      tags: ['energetic', 'upbeat', 'dance', 'electronic', 'fast'],
-      minViews: 10000,
+      minViews: 500000,
+      limit: 15,
     }
   },
   {
-    slug: 'trending-hits',
-    nameKo: '라디오: 지금 핫한 곡',
-    description: '실시간 트렌딩 히트곡',
+    slug: 'popular',
+    nameKo: '인기 노동요',
+    description: '조회수 높은 인기곡 위주',
     icon: '🔥',
     color: '#E74C3C',
-    algorithm: 'ranking',
+    algorithm: 'popular',
     config: {
-      rankingType: 'weekly',
-      minViews: 50000,
+      minViews: 1000000,
+      limit: 15,
     }
   },
 ];

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RADIO_CHANNELS } from '@/lib/radio/channels';
-import { getTagBasedPlaylist, getRankingPlaylist } from '@/lib/radio/algorithms';
-import { getSongById } from '@/lib/db';
+import { getPopularPlaylist, getRandomPlaylist, RadioSong } from '@/lib/radio/algorithms';
 
 // Helper to serialize BigInt values for JSON
 function serializeBigInt(obj: unknown): unknown {
@@ -21,55 +20,46 @@ function serializeBigInt(obj: unknown): unknown {
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const channelSlug = params.get('channel');
-  const seedSongId = params.get('songId');
 
   try {
-    // 시드 모드: 특정 곡에서 시작
-    if (seedSongId) {
-      const parsedSongId = parseInt(seedSongId, 10);
-      if (isNaN(parsedSongId)) {
-        return NextResponse.json({ error: 'Invalid songId' }, { status: 400 });
-      }
-      const seedSong = await getSongById(parsedSongId);
-      if (!seedSong) {
-        return NextResponse.json({ error: 'Song not found' }, { status: 404 });
-      }
+    // 채널 찾기 (기본값: 첫 번째 채널)
+    const channel = channelSlug
+      ? RADIO_CHANNELS.find(c => c.slug === channelSlug)
+      : RADIO_CHANNELS[0];
 
-      // 곡의 태그 추출 (상위 5개)
-      const tags = seedSong.tags
-        ?.slice(0, 5)
-        .map(t => t.name) || [];
-
-      const playlist = await getTagBasedPlaylist(tags, [seedSong.vocadbId], 10);
-
-      return NextResponse.json({
-        success: true,
-        channel: null,
-        seedSong: serializeBigInt(seedSong),
-        tags,
-        playlist: serializeBigInt(playlist),
-      });
-    }
-
-    // 채널 모드
-    const channel = RADIO_CHANNELS.find(c => c.slug === channelSlug);
     if (!channel) {
       return NextResponse.json({ error: 'Channel not found' }, { status: 404 });
     }
 
-    let playlist: unknown;
-    if (channel.algorithm === 'tag-based') {
-      playlist = await getTagBasedPlaylist(channel.config.tags || [], [], 10);
-    } else if (channel.algorithm === 'ranking') {
-      const rankingType = channel.config.rankingType as 'weekly' | 'daily' | 'total';
-      playlist = await getRankingPlaylist(
-        rankingType,
+    const limit = channel.config.limit || 15;
+    let playlist: RadioSong[];
+
+    // 알고리즘에 따라 재생목록 생성
+    if (channel.algorithm === 'popular') {
+      playlist = await getPopularPlaylist(
+        channel.config.minViews,
         [],
-        10
+        limit
+      );
+    } else {
+      // random
+      playlist = await getRandomPlaylist(
+        channel.config.minViews,
+        channel.config.maxViews,
+        [],
+        limit
       );
     }
 
-    const playlistArray = Array.isArray(playlist) ? playlist : [];
+    if (playlist.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'No songs found for this channel',
+      }, { status: 404 });
+    }
+
+    // 첫 곡 = seedSong, 나머지 = playlist
+    const [seedSong, ...remainingPlaylist] = playlist;
 
     return NextResponse.json({
       success: true,
@@ -77,14 +67,13 @@ export async function GET(request: NextRequest) {
         slug: channel.slug,
         name: channel.nameKo,
       },
-      seedSong: serializeBigInt(playlistArray[0]) || null,
-      tags: channel.config.tags || [],
-      playlist: serializeBigInt(playlistArray.slice(1)), // 첫 곡 제외
+      seedSong: serializeBigInt(seedSong),
+      playlist: serializeBigInt(remainingPlaylist),
     });
   } catch (error) {
     console.error('Radio start error:', error);
     return NextResponse.json(
-      { error: 'Failed to start radio' },
+      { success: false, error: 'Failed to start radio' },
       { status: 500 }
     );
   }
