@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Home, Music, Radio, Search, User, Video } from "lucide-react";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { ChartsTabNavigation, type TabType } from "@/components/charts/ChartsTabNavigation";
 import { RankingSongCard } from "@/components/charts/RankingSongCard";
+import { RankingSongTableRow } from "@/components/charts/RankingSongTableRow";
 import { LoadMoreButton } from "@/components/charts/LoadMoreButton";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import type { RankingItem, SearchSong } from "@/lib/db";
@@ -88,6 +90,14 @@ export function ChartsClient({
       isLoading: false,
     },
   });
+
+  // Update activeTab when URL tab parameter changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as TabType;
+    if (tabParam && ['total', 'daily', 'weekly', 'new'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   // Debounced search for suggestions with caching
   useEffect(() => {
@@ -267,14 +277,14 @@ export function ChartsClient({
   const currentTabData = tabsData[activeTab];
 
   return (
-    <div className="bg-[#1d2123] overflow-hidden w-full flex flex-col min-h-screen">
+    <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
       <div className="flex flex-1">
         <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6">
           <div className="w-[34px] h-[34px] flex items-center justify-center">
             {/* 로고 플레이스홀더 */}
           </div>
 
-          <nav className="flex flex-col items-center bg-dark-alt rounded-[32px] p-4 gap-[30px] mt-10">
+          <nav className="flex flex-col items-center bg-white/5 rounded-[32px] p-4 gap-[30px] mt-10">
             {navigationItems.map((item, index) => (
               <Button
                 key={index}
@@ -306,7 +316,7 @@ export function ChartsClient({
         </aside>
 
         <main className="flex-1 flex flex-col">
-          <header className="h-[73px] bg-[#1d2123] flex items-center px-[27px]">
+          <header className="h-[73px] bg-black/95 flex items-center px-[27px]">
             <form onSubmit={handleSearch} className="flex items-center gap-[22px] w-full relative">
               <Search className="w-4 h-4 text-white/25" />
               <div className="flex-1 relative">
@@ -349,11 +359,43 @@ export function ChartsClient({
               <ChartsTabNavigation activeTab={activeTab} onChange={handleTabChange} />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 mt-6">
-              {currentTabData.data.map((song) => (
-                <RankingSongCard key={song.vocadbId} song={song} />
-              ))}
-            </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                {/* Mobile: Card Layout */}
+                <div className="grid grid-cols-1 gap-4 mt-6 lg:hidden">
+                  {currentTabData.data.map((song, index) => (
+                    <motion.div
+                      key={song.vocadbId}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.03, duration: 0.3 }}
+                    >
+                      <RankingSongCard song={song} />
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Desktop: Table Layout */}
+                <div className="hidden lg:block mt-6">
+                  {currentTabData.data.map((song, index) => (
+                    <motion.div
+                      key={song.vocadbId}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.02, duration: 0.2 }}
+                    >
+                      <RankingSongTableRow song={song} />
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            </AnimatePresence>
 
             {currentTabData.hasMore && (
               <LoadMoreButton onClick={loadMore} isLoading={currentTabData.isLoading} />

@@ -178,16 +178,22 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
     }
   };
 
+  const handlePlay = (song: RankingItem) => {
+    // TODO: Implement play functionality with music player
+    console.log("Playing song:", song.defaultName);
+    toast.success(`재생 중: ${song.titleKorean || song.defaultName}`);
+  };
+
   return (
-    <div className="bg-[#1d2123] overflow-hidden w-full flex flex-col min-h-screen">
+    <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
       <div className="flex flex-1">
         {/* Desktop Sidebar - hidden on mobile */}
-        <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6">
+        <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6 bg-black">
           <div className="w-[34px] h-[34px] flex items-center justify-center">
             {/* 로고 플레이스홀더 - 로고 이미지를 추가하세요 */}
           </div>
 
-          <nav className="flex flex-col items-center bg-dark-alt rounded-[32px] p-4 gap-[30px] mt-10">
+          <nav className="flex flex-col items-center bg-white/5 rounded-[32px] p-4 gap-[30px] mt-10">
             {navigationItems.map((item, index) => (
               <Button
                 key={index}
@@ -209,17 +215,17 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
 
         <main className="flex-1 flex flex-col">
           {/* Enhanced Responsive Header */}
-          <header className="sticky top-0 z-50 h-[73px] bg-[#1d2123]/95 backdrop-blur-md border-b border-white/5 flex items-center px-4 sm:px-6 lg:px-[27px]">
+          <header className="sticky top-0 z-50 h-[73px] bg-black/95 backdrop-blur-md border-b border-white/5 flex items-center px-4 sm:px-6 lg:px-[27px]">
             <div className="flex items-center gap-3 sm:gap-[22px] w-full">
               {/* Mobile Navigation Button - visible only on mobile */}
               <div className="flex lg:hidden items-center gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-full hover:bg-[#39c5bb]/10"
+                  className="h-9 w-9 rounded-full hover:bg-[#CDFF00]/10"
                   onClick={() => toast.info("모바일 메뉴 준비 중")}
                 >
-                  <Music className="h-5 w-5 text-[#39c5bb]" />
+                  <Music className="h-5 w-5 text-[#CDFF00]" />
                 </Button>
               </div>
 
@@ -266,7 +272,7 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
             </div>
           </header>
 
-          <section className="flex-1 relative w-full py-6 pb-[150px]">
+          <section className="flex-1 relative w-full pb-[150px]">
             <NavigationSection
               topCharts={topCharts}
               newReleases={newReleases}

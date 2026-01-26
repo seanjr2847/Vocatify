@@ -1,6 +1,8 @@
 "use client";
 
 import React from 'react';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 export type TabType = 'total' | 'daily' | 'weekly' | 'new';
 
@@ -9,33 +11,58 @@ interface ChartsTabNavigationProps {
   onChange: (tab: TabType) => void;
 }
 
+interface TabConfig {
+  id: TabType;
+  labelEn: string;
+  labelKo: string;
+}
+
 export function ChartsTabNavigation({ activeTab, onChange }: ChartsTabNavigationProps) {
-  const tabs: { id: TabType; label: string }[] = [
-    { id: 'total', label: '전체 랭킹 (Total Rankings)' },
-    { id: 'daily', label: '일간 트렌딩 (Daily Trending)' },
-    { id: 'weekly', label: '주간 트렌딩 (Weekly Trending)' },
-    { id: 'new', label: '최신 발매 (New Releases)' },
+  const tabs: TabConfig[] = [
+    { id: 'total', labelEn: 'TOTAL RANKINGS', labelKo: '전체 랭킹' },
+    { id: 'daily', labelEn: 'DAILY TRENDING', labelKo: '일간 트렌딩' },
+    { id: 'weekly', labelEn: 'WEEKLY TRENDING', labelKo: '주간 트렌딩' },
+    { id: 'new', labelEn: 'NEW RELEASES', labelKo: '최신 발매' },
   ];
 
   return (
     <div className="border-b border-white/10">
-      <div className="flex gap-8">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onChange(tab.id)}
-            className={`relative pb-4 text-sm font-semibold transition-colors ${
-              activeTab === tab.id
-                ? 'text-white'
-                : 'text-white/60 hover:text-white/80'
-            }`}
-          >
-            {tab.label}
-            {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#39c5bb]" />
-            )}
-          </button>
-        ))}
+      <div className="flex gap-2">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+
+          return (
+            <motion.button
+              key={tab.id}
+              onClick={() => onChange(tab.id)}
+              className={cn(
+                "relative px-6 py-3 rounded-t-lg transition-all duration-300",
+                isActive
+                  ? "bg-[#CDFF00]/10 text-[#CDFF00]"
+                  : "text-white/60 hover:text-white/80 hover:bg-white/5"
+              )}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-sm uppercase tracking-wider font-semibold">
+                  {tab.labelEn}
+                </span>
+                <span className="text-xs text-white/40">
+                  {tab.labelKo}
+                </span>
+              </div>
+
+              {isActive && (
+                <motion.div
+                  layoutId="activeTab"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#CDFF00]"
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              )}
+            </motion.button>
+          );
+        })}
       </div>
     </div>
   );

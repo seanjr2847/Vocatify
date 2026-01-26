@@ -51,13 +51,15 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
   return (
     <div
       onClick={handleCardClick}
-      className="bg-[#1a1a1a] rounded-[20px] hover:bg-[#2a2a2a] transition-colors cursor-pointer group p-4"
+      className={`bg-white/5 rounded-[20px] hover:bg-white/10 transition-all cursor-pointer group p-4 ${
+        isTopThree ? 'shadow-[0_0_20px_rgba(205,255,0,0.15)]' : ''
+      }`}
     >
       <div className="flex items-center gap-4">
         {/* Rank Number */}
         <div
           className={`text-2xl font-bold w-12 text-center ${
-            isTopThree ? 'text-[#facd66]' : 'text-white/40'
+            isTopThree ? 'text-[#CDFF00] drop-shadow-[0_0_8px_rgba(205,255,0,0.5)]' : 'text-white/40'
           }`}
         >
           #{song.rank}
@@ -91,19 +93,19 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
             {song.dailyIncrease && song.dailyIncrease > 0 && (
               <>
                 <span>•</span>
-                <span className="text-[#39c5bb]">+{formatNumber(song.dailyIncrease)} 일간</span>
+                <span className="text-[#CDFF00]">+{formatNumber(song.dailyIncrease)} 일간</span>
               </>
             )}
             {song.weeklyIncrease && song.weeklyIncrease > 0 && (
               <>
                 <span>•</span>
-                <span className="text-[#39c5bb]">+{formatNumber(song.weeklyIncrease)} 주간</span>
+                <span className="text-[#CDFF00]">+{formatNumber(song.weeklyIncrease)} 주간</span>
               </>
             )}
             {song.publishDate && !song.dailyIncrease && !song.weeklyIncrease && (
               <>
                 <span>•</span>
-                <span className="text-[#39c5bb]">{formatPublishDateWithSuffix(song.publishDate)}</span>
+                <span className="text-[#CDFF00]">{formatPublishDateWithSuffix(song.publishDate)}</span>
               </>
             )}
           </div>
@@ -120,7 +122,7 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
           </button>
           <button
             onClick={handleRadioClick}
-            className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-[#39c5bb] transition-colors rounded-full hover:bg-white/10"
+            className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-[#CDFF00] transition-colors rounded-full hover:bg-white/10"
             aria-label="라디오 시작"
             title="이 곡 기반 라디오"
           >
@@ -128,7 +130,7 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
           </button>
           <button
             onClick={handlePlayClick}
-            className="w-12 h-12 flex items-center justify-center bg-[#facd66] hover:bg-[#facd66]/90 text-black rounded-full transition-all hover:scale-105"
+            className="w-12 h-12 flex items-center justify-center bg-[#CDFF00] hover:bg-[#CDFF00]/90 text-black rounded-full transition-all hover:scale-105"
             aria-label="재생"
           >
             <Play className="w-5 h-5 fill-current" />
