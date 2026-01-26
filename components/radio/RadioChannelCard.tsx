@@ -60,14 +60,14 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
       }}
     >
       {/* Glassmorphic container with depth */}
-      <div className="relative bg-gradient-to-br from-[#1a1a1a]/90 to-[#0a0a0a]/90 backdrop-blur-xl border border-white/[0.08] rounded-2xl md:rounded-3xl p-6 md:p-8 transition-all duration-700">
+      <div className="relative bg-gradient-to-br from-[#1a1a1a]/90 to-[#0a0a0a]/90 backdrop-blur-xl border border-white/5 rounded-2xl md:rounded-3xl p-6 md:p-8 transition-all duration-700">
 
         {/* Animated gradient background */}
         <div
           className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 rounded-2xl md:rounded-3xl"
           style={{
-            background: `radial-gradient(circle at 30% 20%, ${channel.color}15, transparent 50%),
-                         radial-gradient(circle at 70% 80%, ${channel.color}10, transparent 50%)`,
+            background: `radial-gradient(circle at 30% 20%, #CDFF0015, transparent 50%),
+                         radial-gradient(circle at 70% 80%, #CDFF0010, transparent 50%)`,
           }}
           aria-hidden="true"
         />
@@ -82,7 +82,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
                 height: `${height}px`,
                 left: `${20 + i * 15}%`,
                 bottom: '20%',
-                background: channel.color,
+                background: '#CDFF00',
                 animationDelay: `${i * 0.1}s`,
                 filter: `blur(${1 + i * 0.5}px)`,
               }}
@@ -95,14 +95,14 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
           {/* Outer glow ring */}
           <div
             className="absolute w-24 h-24 md:w-28 md:h-28 rounded-full opacity-0 group-hover:opacity-40 transition-all duration-700 blur-2xl"
-            style={{ backgroundColor: channel.color }}
+            style={{ backgroundColor: '#CDFF00' }}
             aria-hidden="true"
           />
 
           {/* Pulsing ring */}
           <div
             className={`absolute w-20 h-20 md:w-24 md:h-24 rounded-full border-2 opacity-0 group-hover:opacity-60 transition-all duration-500 ${isHovered ? 'radio-animate-pulse-ring' : ''}`}
-            style={{ borderColor: channel.color }}
+            style={{ borderColor: '#CDFF00' }}
             aria-hidden="true"
           />
 
@@ -110,8 +110,8 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
           <div
             className="relative w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center text-3xl md:text-4xl transition-all duration-700 group-hover:scale-110 group-hover:rotate-12"
             style={{
-              background: `linear-gradient(135deg, ${channel.color}25, ${channel.color}15)`,
-              boxShadow: `0 0 40px ${channel.color}20, inset 0 0 20px ${channel.color}10`,
+              background: `linear-gradient(135deg, #CDFF0025, #CDFF0015)`,
+              boxShadow: `0 0 40px #CDFF0020, inset 0 0 20px #CDFF0010`,
             }}
           >
             <span className="relative z-10 drop-shadow-2xl" role="img" aria-label={channel.nameKo}>
@@ -122,8 +122,8 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
             <div
               className={`absolute -top-2 -right-2 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 ${isHovered ? 'radio-animate-spin-slow' : ''}`}
               style={{
-                backgroundColor: channel.color,
-                boxShadow: `0 0 20px ${channel.color}60`,
+                backgroundColor: '#CDFF00',
+                boxShadow: `0 0 20px #CDFF0060`,
               }}
               aria-hidden="true"
             >
@@ -141,7 +141,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
               style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 letterSpacing: '-0.02em',
-                textShadow: `0 0 20px ${channel.color}40`,
+                textShadow: `0 0 20px #CDFF0040`,
               }}
             >
               {channel.nameKo}
@@ -185,18 +185,18 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
           className="relative mt-6 w-full group/btn overflow-hidden rounded-xl md:rounded-2xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[48px] md:min-h-[56px] active:scale-[0.98]"
           style={{
             background: isLoading
-              ? `linear-gradient(135deg, ${channel.color}60, ${channel.color}40)`
-              : `linear-gradient(135deg, ${channel.color}, ${channel.color}dd)`,
+              ? `linear-gradient(135deg, #CDFF0060, #CDFF0040)`
+              : `linear-gradient(135deg, #CDFF00, #CDFF00dd)`,
             boxShadow: isHovered && !isLoading
-              ? `0 8px 32px ${channel.color}40, 0 0 0 1px ${channel.color}30`
-              : `0 4px 16px ${channel.color}20`,
+              ? `0 8px 32px #CDFF0040, 0 0 0 1px #CDFF0030`
+              : `0 4px 16px #CDFF0020`,
           }}
         >
           {/* Button shine effect */}
           <div
             className="absolute inset-0 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-500"
             style={{
-              background: `linear-gradient(90deg, transparent, ${channel.color}40, transparent)`,
+              background: `linear-gradient(90deg, transparent, #CDFF0040, transparent)`,
               transform: isHovered ? 'translateX(100%)' : 'translateX(-100%)',
               transition: 'transform 0.8s ease-in-out',
             }}
@@ -210,7 +210,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
                 {/* Improved loading state with spinner + pulsing center */}
                 <div className="relative">
                   <div
-                    className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"
+                    className="w-5 h-5 border-3 border-black/30 border-t-black rounded-full animate-spin"
                     style={{ borderWidth: '3px' }}
                     aria-hidden="true"
                   />
@@ -218,25 +218,25 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
                     className="absolute inset-0 flex items-center justify-center"
                     aria-hidden="true"
                   >
-                    <div className="w-2 h-2 bg-white rounded-full radio-animate-live-pulse" />
+                    <div className="w-2 h-2 bg-black rounded-full radio-animate-live-pulse" />
                   </div>
                 </div>
-                <span className="font-bold text-white text-sm tracking-wide">
+                <span className="font-bold text-black text-sm tracking-wide">
                   연결 중...
                 </span>
               </>
             ) : (
               <>
                 <div className="relative">
-                  <Play className="w-5 h-5 fill-white text-white transition-transform duration-300 group-hover/btn:scale-110" aria-hidden="true" />
+                  <Play className="w-5 h-5 fill-black text-black transition-transform duration-300 group-hover/btn:scale-110" aria-hidden="true" />
                   <div
                     className="absolute inset-0 blur-md opacity-0 group-hover/btn:opacity-100 transition-opacity"
-                    style={{ background: 'white' }}
+                    style={{ background: 'black' }}
                     aria-hidden="true"
                   />
                 </div>
                 <span
-                  className="font-bold text-white text-sm tracking-wide transition-transform duration-300 group-hover/btn:translate-x-0.5"
+                  className="font-bold text-black text-sm tracking-wide transition-transform duration-300 group-hover/btn:translate-x-0.5"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   지금 듣기
@@ -250,7 +250,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
         <div
           className="absolute bottom-0 left-0 right-0 h-1 opacity-0 group-hover:opacity-100 transition-opacity duration-700"
           style={{
-            background: `linear-gradient(90deg, transparent, ${channel.color}, transparent)`,
+            background: `linear-gradient(90deg, transparent, #CDFF00, transparent)`,
           }}
           aria-hidden="true"
         />
@@ -260,7 +260,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
       <div
         className="absolute -inset-[1px] rounded-2xl md:rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10 blur-xl"
         style={{
-          background: `linear-gradient(135deg, ${channel.color}20, transparent)`,
+          background: `linear-gradient(135deg, #CDFF0020, transparent)`,
         }}
         aria-hidden="true"
       />

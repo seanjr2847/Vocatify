@@ -2,7 +2,7 @@
 
 import { RADIO_CHANNELS } from '@/lib/radio/channels';
 import RadioChannelCard from '@/components/radio/RadioChannelCard';
-import { Radio, Sparkles, Waves, Zap, Home, Music, Video, Search } from "lucide-react";
+import { Radio, Sparkles, Home, Music, Video, Search } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
@@ -180,7 +180,7 @@ export default function RadioPage() {
   };
 
   return (
-    <div className="bg-[#1d2123] overflow-hidden w-full flex flex-col min-h-screen">
+    <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
         <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6">
@@ -198,7 +198,7 @@ export default function RadioPage() {
                 onClick={() => handleNavClick(item.href, item.alt)}
                 title={item.alt}
               >
-                <item.icon className={`w-[22px] h-[22px] ${item.href ? 'text-white/60 hover:text-white' : 'text-white/40'} ${item.alt === '라디오' ? '!text-[#39c5bb]' : ''}`} />
+                <item.icon className={`w-[22px] h-[22px] ${item.href ? 'text-white/60 hover:text-white' : 'text-white/40'} ${item.alt === '라디오' ? '!text-[#CDFF00]' : ''}`} />
               </Button>
             ))}
           </nav>
@@ -210,17 +210,17 @@ export default function RadioPage() {
 
         <main className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="sticky top-0 z-50 h-[73px] bg-[#1d2123]/95 backdrop-blur-md border-b border-white/5 flex items-center px-4 sm:px-6 lg:px-[27px]">
+          <header className="sticky top-0 z-50 h-[73px] bg-black/95 backdrop-blur-md border-b border-white/5 flex items-center px-4 sm:px-6 lg:px-[27px]">
             <div className="flex items-center gap-3 sm:gap-[22px] w-full">
               {/* Mobile Navigation Button */}
               <div className="flex lg:hidden items-center gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-full hover:bg-[#39c5bb]/10"
+                  className="h-9 w-9 rounded-full hover:bg-[#CDFF00]/10"
                   onClick={() => toast.info("모바일 메뉴 준비 중")}
                 >
-                  <Music className="h-5 w-5 text-[#39c5bb]" />
+                  <Music className="h-5 w-5 text-[#CDFF00]" />
                 </Button>
               </div>
 
@@ -277,9 +277,9 @@ export default function RadioPage() {
             <div className="relative">
               {/* Ambient Background Elements */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#39c5bb]/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#4A90E2]/5 rounded-full blur-3xl" />
-                <div className="absolute top-1/3 right-1/3 w-72 h-72 bg-[#F5A623]/5 rounded-full blur-3xl" />
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#CDFF00]/5 rounded-full blur-3xl" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#CDFF00]/3 rounded-full blur-3xl" />
+                <div className="absolute top-1/3 right-1/3 w-72 h-72 bg-[#CDFF00]/4 rounded-full blur-3xl" />
 
                 {/* SSR-Safe animated particles with deterministic positions */}
                 {mounted && PARTICLE_POSITIONS.map((pos, i) => (
@@ -303,18 +303,18 @@ export default function RadioPage() {
                   <div className="flex items-center gap-4 mb-4">
                     <div className="relative">
                       {/* Pulsing glow */}
-                      <div className="absolute inset-0 bg-[#39c5bb]/30 rounded-2xl blur-xl animate-pulse" aria-hidden="true" />
+                      <div className="absolute inset-0 bg-[#CDFF00]/30 rounded-2xl blur-xl animate-pulse" aria-hidden="true" />
 
                       {/* Icon container with Live indicator */}
-                      <div className="relative bg-gradient-to-br from-[#39c5bb]/20 to-[#39c5bb]/10 p-4 rounded-2xl border border-[#39c5bb]/30">
-                        <Radio className="h-8 w-8 md:h-10 md:w-10 text-[#39c5bb]" />
+                      <div className="relative bg-gradient-to-br from-[#CDFF00]/20 to-[#CDFF00]/10 p-4 rounded-2xl border border-[#CDFF00]/30">
+                        <Radio className="h-8 w-8 md:h-10 md:w-10 text-[#CDFF00]" />
 
                         {/* Live indicator dot */}
                         <div
-                          className="absolute -top-1 -right-1 w-3 h-3 bg-[#39c5bb] rounded-full radio-animate-live-pulse"
+                          className="absolute -top-1 -right-1 w-3 h-3 bg-[#CDFF00] rounded-full radio-animate-live-pulse"
                           aria-label="라이브"
                         >
-                          <div className="absolute inset-0 bg-[#39c5bb] rounded-full animate-ping opacity-75" />
+                          <div className="absolute inset-0 bg-[#CDFF00] rounded-full animate-ping opacity-75" />
                         </div>
                       </div>
                     </div>
@@ -324,13 +324,13 @@ export default function RadioPage() {
                         className="text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight"
                         style={{
                           fontFamily: "'Plus Jakarta Sans', sans-serif",
-                          textShadow: '0 0 40px rgba(57, 197, 187, 0.3)',
+                          textShadow: '0 0 40px rgba(205, 255, 0, 0.3)',
                         }}
                       >
                         라디오 채널
                       </h1>
                       <div className="flex items-center gap-2 mt-2">
-                        <Sparkles className="w-4 h-4 text-[#39c5bb]/70" aria-hidden="true" />
+                        <Sparkles className="w-4 h-4 text-[#CDFF00]/70" aria-hidden="true" />
                         <p
                           className="text-white/50 text-xs sm:text-sm tracking-wide uppercase"
                           style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.1em' }}
@@ -350,7 +350,7 @@ export default function RadioPage() {
                   </p>
 
                   {/* Decorative line */}
-                  <div className="mt-6 ml-0 md:ml-[88px] h-[1px] w-48 md:w-64 bg-gradient-to-r from-[#39c5bb]/50 via-[#39c5bb]/20 to-transparent" aria-hidden="true" />
+                  <div className="mt-6 ml-0 md:ml-[88px] h-[1px] w-48 md:w-64 bg-gradient-to-r from-[#CDFF00]/50 via-[#CDFF00]/20 to-transparent" aria-hidden="true" />
                 </div>
 
                 {/* Channel Grid with Staggered Animation - improved spacing */}
@@ -387,75 +387,7 @@ export default function RadioPage() {
                     <div className="absolute inset-0 border border-white/[0.08] rounded-2xl md:rounded-3xl" />
 
                     {/* Subtle gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#39c5bb]/5 via-transparent to-[#4A90E2]/5" aria-hidden="true" />
-
-                    {/* Content */}
-                    <div className="relative p-6 md:p-10">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 rounded-lg bg-[#39c5bb]/10">
-                          <Waves className="w-5 h-5 text-[#39c5bb]" aria-hidden="true" />
-                        </div>
-                        <h2
-                          className="text-xl md:text-2xl font-bold text-white"
-                          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                        >
-                          라디오 채널이란?
-                        </h2>
-                      </div>
-
-                      <div className="grid md:grid-cols-3 gap-6">
-                        {/* Feature 1 */}
-                        <div className="group">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-1 p-2 rounded-lg bg-[#39c5bb]/10 group-hover:bg-[#39c5bb]/20 transition-colors">
-                              <Radio className="w-4 h-4 text-[#39c5bb]" aria-hidden="true" />
-                            </div>
-                            <div>
-                              <h3 className="text-white font-semibold mb-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                무한 재생
-                              </h3>
-                              <p className="text-white/60 text-sm leading-relaxed" style={{ fontFamily: "'Inter', sans-serif" }}>
-                                끝없이 이어지는 큐레이션된 음악 스트림
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Feature 2 */}
-                        <div className="group">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-1 p-2 rounded-lg bg-[#4A90E2]/10 group-hover:bg-[#4A90E2]/20 transition-colors">
-                              <Sparkles className="w-4 h-4 text-[#4A90E2]" aria-hidden="true" />
-                            </div>
-                            <div>
-                              <h3 className="text-white font-semibold mb-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                스마트 추천
-                              </h3>
-                              <p className="text-white/60 text-sm leading-relaxed" style={{ fontFamily: "'Inter', sans-serif" }}>
-                                태그 기반 알고리즘으로 비슷한 곡 자동 선곡
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Feature 3 */}
-                        <div className="group">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-1 p-2 rounded-lg bg-[#F5A623]/10 group-hover:bg-[#F5A623]/20 transition-colors">
-                              <Zap className="w-4 h-4 text-[#F5A623]" aria-hidden="true" />
-                            </div>
-                            <div>
-                              <h3 className="text-white font-semibold mb-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                                반복 방지
-                              </h3>
-                              <p className="text-white/60 text-sm leading-relaxed" style={{ fontFamily: "'Inter', sans-serif" }}>
-                                이미 들은 곡은 제외하고 새로운 곡 발견
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#CDFF00]/5 via-transparent to-[#CDFF00]/3" aria-hidden="true" />
                   </div>
                 </div>
               </div>
