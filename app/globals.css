@@ -138,6 +138,25 @@
   --border-subtle: #2a2a2a;
   --border-default: #3a3a3a;
   --border-emphasis: #4a4a4a;
+
+  /* ============================================
+     Tidal Design System
+     ============================================ */
+
+  /* Tidal Core Colors */
+  --tidal-black: #000000;
+  --tidal-neon: #CDFF00;
+  --tidal-white: #FFFFFF;
+  --tidal-gray: rgba(255, 255, 255, 0.6);
+  --tidal-gray-dark: rgba(255, 255, 255, 0.1);
+  --tidal-gray-darker: rgba(255, 255, 255, 0.05);
+
+  /* Tidal Typography Sizes */
+  --tidal-hero-size: 4.5rem;      /* 72px */
+  --tidal-heading-size: 2rem;      /* 32px */
+  --tidal-body-size: 1rem;         /* 16px */
+  --tidal-small-size: 0.875rem;    /* 14px */
+  --tidal-tiny-size: 0.75rem;      /* 12px */
 }
 
 .pb-player-offset {
@@ -483,4 +502,56 @@
 .radio-focus-visible:focus-visible {
   outline: 2px solid var(--accent-primary, #39c5bb);
   outline-offset: 2px;
+}
+
+/* ============================================
+   Tidal Design Utilities
+   ============================================ */
+
+/* Tidal Buttons */
+.tidal-btn-primary {
+  @apply px-8 py-4 bg-[#CDFF00] text-black font-bold rounded-full;
+  @apply hover:bg-white transition-colors duration-200;
+}
+
+.tidal-btn-secondary {
+  @apply px-8 py-4 bg-white/10 text-white font-bold rounded-full;
+  @apply border border-white/20 hover:bg-white/20 transition-colors duration-200;
+}
+
+/* Tidal Typography */
+.tidal-hero {
+  @apply text-7xl font-bold;
+}
+
+.tidal-h1 {
+  @apply text-5xl font-bold;
+}
+
+.tidal-h2 {
+  @apply text-3xl font-bold;
+}
+
+.tidal-h3 {
+  @apply text-2xl font-bold;
+}
+
+.tidal-body {
+  @apply text-base;
+}
+
+.tidal-small {
+  @apply text-sm;
+}
+
+/* Tidal Table */
+.tidal-table-header {
+  @apply grid gap-6 py-3 px-6;
+  @apply text-white/40 text-xs uppercase tracking-wider;
+  @apply border-b border-white/10;
+}
+
+/* Tidal Background */
+.tidal-bg {
+  background-color: var(--tidal-black);
 }

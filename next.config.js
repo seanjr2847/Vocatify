@@ -26,6 +26,11 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'static.vocadb.net',
       },
+      {
+        protocol: 'https',
+        hostname: 'i1.sndcdn.com',
+        pathname: '/artworks-**',
+      },
     ],
   },
 }
