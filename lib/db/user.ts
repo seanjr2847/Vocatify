@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '../prisma';
+import { Prisma } from '@prisma/client';
 
 // ============================================================
 // Interfaces
@@ -662,7 +663,7 @@ export async function getPublicPlaylists(options: {
   const { search, sortBy = "recent", limit = 50, offset = 0 } = options;
 
   // Build where clause
-  const where: any = {
+  const where: Prisma.UserPlaylistWhereInput = {
     isPublic: true,
   };
 
@@ -674,7 +675,7 @@ export async function getPublicPlaylists(options: {
   }
 
   // Build orderBy clause
-  let orderBy: any;
+  let orderBy: Prisma.UserPlaylistOrderByWithRelationInput;
   switch (sortBy) {
     case "songs":
       // Order by song count (we'll handle this after query)
