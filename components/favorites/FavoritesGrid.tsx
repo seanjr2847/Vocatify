@@ -214,7 +214,9 @@ export function FavoritesGrid({ favorites }: FavoritesGridProps) {
                   youtubeId: favorite.song.youtubeId,
                   youtubeUrl: favorite.song.youtubeUrl,
                   thumbUrl: favorite.song.thumbUrl,
-                  viewCount: favorite.song.viewCount ? BigInt(favorite.song.viewCount) : null,
+                  viewCount: favorite.song.viewCount && favorite.song.viewCount !== ''
+                    ? BigInt(favorite.song.viewCount)
+                    : null,
                   viewCountUpdatedAt: null,
                   publishDate: favorite.song.publishDate,
                   songType: favorite.song.songType,
