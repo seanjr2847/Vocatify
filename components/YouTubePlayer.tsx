@@ -113,8 +113,8 @@ export function YouTubePlayer() {
     }
   }, [state.currentSong?.youtubeId, isReady]);
 
-  // Don't render player if no song is selected
-  if (!state.currentSong) {
+  // Don't render player if no song is selected or no YouTube ID
+  if (!state.currentSong || !state.currentSong.youtubeId) {
     return null;
   }
 

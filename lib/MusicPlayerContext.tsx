@@ -135,6 +135,12 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   }, [state.isPlaying]);
 
   const playSong = useCallback((song: Song) => {
+    // Don't play if no YouTube ID available
+    if (!song.youtubeId) {
+      console.warn('Cannot play song without YouTube ID:', song.defaultName);
+      return;
+    }
+
     setState(prev => {
       // If there's a current song playing, insert it at front of playlist
       let newPlaylist = prev.playlist;
