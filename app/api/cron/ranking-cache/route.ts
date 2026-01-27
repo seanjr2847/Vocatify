@@ -15,8 +15,32 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max
 
 export async function POST(request: NextRequest) {
+  // DEPRECATED: This endpoint is deprecated in favor of split endpoints
+  // Please use the following endpoints instead:
+  //   POST /api/cron/weekly-stats
+  //   POST /api/cron/ranking/total
+  //   POST /api/cron/ranking/weekly
+  //   POST /api/cron/ranking/new
+  //   POST /api/cron/ranking/daily
+
+  return NextResponse.json(
+    {
+      error: 'Deprecated endpoint',
+      message: 'This endpoint has been split into separate endpoints to avoid timeout issues.',
+      newEndpoints: {
+        weeklyStats: '/api/cron/weekly-stats',
+        totalRanking: '/api/cron/ranking/total',
+        weeklyRanking: '/api/cron/ranking/weekly',
+        newRanking: '/api/cron/ranking/new',
+        dailyRanking: '/api/cron/ranking/daily',
+      },
+      documentation: 'Please update your cron jobs to call these endpoints sequentially.',
+    },
+    { status: 410 } // 410 Gone - resource is no longer available
+  );
+
+  /* DEPRECATED CODE - Kept for reference
   try {
-    // Verify authorization
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
 
@@ -57,6 +81,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+  */
 }
 
 // GET endpoint to check last update status

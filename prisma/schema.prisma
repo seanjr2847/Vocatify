@@ -204,6 +204,17 @@ model song_weekly_stats {
   @@index([updated_at])
 }
 
+model song_daily_stats {
+  song_id        Int      @id
+  daily_increase BigInt
+  current_views  BigInt
+  previous_views BigInt
+  updated_at     DateTime @default(now())
+
+  @@index([daily_increase(sort: Desc)])
+  @@index([updated_at])
+}
+
 // ============================================
 // Performance Optimization: Denormalized View
 // ============================================

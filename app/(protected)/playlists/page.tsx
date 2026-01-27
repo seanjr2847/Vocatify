@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { PlaylistCard } from "@/components/user/PlaylistCard";
 import { Plus, ListMusic } from "lucide-react";
 import Link from "next/link";
-import { getUserPlaylists, UserPlaylistSummary } from "@/lib/db/user";
+import { getUserPlaylists } from "@/lib/db/user";
+import { EmptyState } from "@/components/playlists/EmptyState";
 
 export const metadata: Metadata = {
   title: "플레이리스트 | Vocatify",
@@ -22,19 +23,34 @@ export default async function PlaylistsPage() {
   const playlists = await getUserPlaylists(session.user.id);
 
   return (
-    <div className="min-h-screen bg-[#1d2123]">
-      {/* Header */}
-      <div className="border-b border-neutral-800 bg-[#1a1a1a]">
+    <div className="min-h-screen bg-black">
+      {/* Header - Tidal Design */}
+      <div className="border-b border-white/10 bg-black">
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-white">플레이리스트</h1>
-              <p className="mt-2 text-neutral-400">
+              <h1
+                className="text-4xl font-bold text-white mb-2"
+                style={{ fontFamily: "Quicksand, sans-serif" }}
+              >
+                플레이리스트
+              </h1>
+              <p className="text-white/60 text-lg">
                 {playlists.length}개의 플레이리스트
               </p>
             </div>
             <Link href="/playlists/create">
-              <button className="flex items-center gap-2 rounded-lg bg-[#39c5bb] px-4 py-2 text-white transition-colors hover:bg-[#2da59a]">
+              <button
+                className={`
+                  flex items-center gap-2
+                  rounded-full px-6 py-3
+                  bg-[#CDFF00] text-black font-bold
+                  transition-all duration-300
+                  hover:bg-[#CDFF00]/90 hover:scale-105
+                  active:scale-95
+                  shadow-lg hover:shadow-[#CDFF00]/20
+                `}
+              >
                 <Plus className="h-5 w-5" />
                 새 플레이리스트
               </button>
@@ -46,20 +62,13 @@ export default async function PlaylistsPage() {
       {/* Playlists Grid */}
       <div className="container mx-auto px-4 py-8">
         {playlists.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-neutral-800 bg-[#1a1a1a] py-20">
-            <ListMusic className="mb-4 h-16 w-16 text-neutral-700" />
-            <p className="mb-2 text-lg font-semibold text-neutral-400">
-              플레이리스트가 없습니다
-            </p>
-            <p className="text-sm text-neutral-500">
-              나만의 플레이리스트를 만들어보세요
-            </p>
-            <Link href="/playlists/create">
-              <button className="mt-6 rounded-lg bg-[#39c5bb] px-6 py-2 text-white transition-colors hover:bg-[#2da59a]">
-                새 플레이리스트 만들기
-              </button>
-            </Link>
-          </div>
+          <EmptyState
+            icon={ListMusic}
+            title="아직 플레이리스트가 없습니다"
+            description="나만의 플레이리스트를 만들어보세요"
+            actionLabel="새 플레이리스트 만들기"
+            actionHref="/playlists/create"
+          />
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {playlists.map((playlist) => (

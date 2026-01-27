@@ -19,21 +19,37 @@ interface WeeklyStatsRow {
 }
 
 export async function updateWeeklyStatsCache() {
-  console.log('[Weekly Stats] Starting update...');
+  console.log('[Weekly Stats] Starting optimized update (top 1000 only)...');
   const startTime = Date.now();
 
   try {
-    // Calculate weekly increases from daily_view_counts table
-    // Use yesterday's data since today's data may not be recorded yet
-    const weeklyStats = await prisma.$queryRaw<WeeklyStatsRow[]>`
-      WITH weekly_data AS (
+    // ✅ OPTIMIZED: Calculate weekly increases for TOP 1000 songs only
+    // 7-day period (today-1 vs today-8)
+
+    // Step 1: Clear existing data
+    await prisma.$executeRaw`TRUNCATE TABLE song_weekly_stats`;
+
+    // Step 2: Insert new data
+    await prisma.$executeRaw`
+      INSERT INTO song_weekly_stats (song_id, weekly_increase, current_views, previous_views, updated_at)
+      WITH top_songs AS (
+        -- ✅ Get top 1000 songs by current view count (99% data reduction)
+        SELECT song_id, MAX(view_count) as max_view_count
+        FROM pvs
+        WHERE service = 'Youtube' AND view_count IS NOT NULL
+        GROUP BY song_id
+        ORDER BY max_view_count DESC
+        LIMIT 1000
+      ),
+      weekly_data AS (
         SELECT
           pv.song_id,
           dvc.recorded_date,
           dvc.total_views
         FROM daily_view_counts dvc
-        JOIN pvs pv ON dvc.pv_id = pv.id
-        WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '9 days'
+        INNER JOIN pvs pv ON dvc.pv_id = pv.id
+        INNER JOIN top_songs ts ON pv.song_id = ts.song_id
+        WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '8 days'
           AND dvc.recorded_date <= CURRENT_DATE - INTERVAL '1 day'
           AND pv.service = 'Youtube'
       ),
@@ -47,51 +63,24 @@ export async function updateWeeklyStatsCache() {
       )
       SELECT
         song_id,
+        (current_views - previous_views) as weekly_increase,
         current_views,
         previous_views,
-        (current_views - previous_views) as weekly_increase
+        NOW() as updated_at
       FROM weekly_changes
       WHERE current_views > 0
         AND (current_views - previous_views) > 0
     `;
 
-    console.log(`[Weekly Stats] Calculated ${weeklyStats.length} weekly increases`);
-
-    if (weeklyStats.length === 0) {
-      console.log('[Weekly Stats] No data to update');
-      return {
-        success: true,
-        count: 0,
-        duration: Date.now() - startTime,
-      };
-    }
-
-    // First, truncate the table for clean slate
-    await prisma.$executeRaw`TRUNCATE TABLE song_weekly_stats`;
-
-    // Use batch createMany for fast insertion
-    // Process in chunks of 500 records
-    const batchSize = 500;
-    for (let i = 0; i < weeklyStats.length; i += batchSize) {
-      const batch = weeklyStats.slice(i, i + batchSize);
-      console.log(`[Weekly Stats] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(weeklyStats.length / batchSize)} (${batch.length} records)`);
-
-      await prisma.song_weekly_stats.createMany({
-        data: batch.map((stat) => ({
-          song_id: stat.song_id,
-          weekly_increase: stat.weekly_increase,
-          current_views: stat.current_views,
-          previous_views: stat.previous_views,
-        })),
-      });
-    }
-
+    // Get final count
+    const count = await prisma.song_weekly_stats.count();
     const duration = Date.now() - startTime;
-    console.log(`[Weekly Stats] Updated ${weeklyStats.length} records in ${duration}ms`);
+
+    console.log(`[Weekly Stats] Updated ${count} records in ${duration}ms`);
 
     return {
       success: true,
-      count: weeklyStats.length,
+      count,
       duration,
     };
   } catch (error) {

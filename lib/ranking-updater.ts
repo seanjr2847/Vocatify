@@ -170,6 +170,69 @@ export async function updateRankingCache() {
 }
 
 /**
+ * Update single ranking type in cache
+ */
+export async function updateSingleRankingCache(rankingType: 'total' | 'weekly' | 'new' | 'daily') {
+  console.log(`[Ranking Cache] Updating ${rankingType} ranking...`);
+  const startTime = Date.now();
+
+  try {
+    let rankings: RankingCacheRow[] = [];
+
+    switch (rankingType) {
+      case 'total':
+        rankings = await calculateTotalRanking();
+        break;
+      case 'weekly':
+        // Check if weekly stats exist before calculating
+        const hasWeeklyStats = await prisma.song_weekly_stats.findFirst();
+        if (!hasWeeklyStats) {
+          console.log('[Ranking Cache] Skipping weekly ranking (no weekly stats data)');
+          return { success: true, count: 0, duration: Date.now() - startTime, skipped: true };
+        }
+        rankings = await calculateWeeklyRanking();
+        break;
+      case 'new':
+        rankings = await calculateNewRanking();
+        break;
+      case 'daily':
+        // Check if daily stats exist before calculating
+        const hasDailyStats = await prisma.song_daily_stats.findFirst();
+        if (!hasDailyStats) {
+          console.log('[Ranking Cache] Skipping daily ranking (no daily stats data)');
+          return { success: true, count: 0, duration: Date.now() - startTime, skipped: true };
+        }
+        rankings = await calculateDailyRanking();
+        break;
+    }
+
+    console.log(`[Ranking Cache] Calculated ${rankings.length} ${rankingType} rankings`);
+
+    // Delete existing rankings of this type
+    await prisma.ranking_cache.deleteMany({
+      where: { ranking_type: rankingType },
+    });
+
+    // Insert new rankings in batches (larger batch size for better performance)
+    const batchSize = 500; // ✅ Increased from 100 to 500
+    for (let i = 0; i < rankings.length; i += batchSize) {
+      const batch = rankings.slice(i, i + batchSize);
+      await prisma.ranking_cache.createMany({
+        data: batch,
+      });
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`[Ranking Cache] ${rankingType} ranking updated in ${duration}ms`);
+
+    return { success: true, count: rankings.length, duration };
+  } catch (error) {
+    console.error(`[Ranking Cache] ${rankingType} ranking update failed:`, error);
+    throw error;
+  }
+}
+
+/**
  * Calculate Total Ranking (by total views)
  * Fast query (~1s) - no daily_view_counts scan
  */
@@ -330,7 +393,7 @@ async function calculateWeeklyRanking() {
 
 /**
  * Calculate Daily Ranking (by daily increase)
- * Slower query (~40s) - scans daily_view_counts with LAG window function
+ * Fast query (~1s) - uses pre-computed song_daily_stats cache
  */
 async function calculateDailyRanking() {
   const result = await prisma.$queryRaw<RawRankingRow[]>`
@@ -339,30 +402,6 @@ async function calculateDailyRanking() {
       FROM song_artists
       JOIN artists ON song_artists.artist_id = artists.vocadb_id
       WHERE artists.artist_type IN ('Vocaloid', 'UTAU', 'SynthesizerV', 'CeVIO', 'VOICEVOX', 'AIVOICE', 'VoiSona', 'Voiceroid', 'NEUTRINO', 'ACEVirtualSinger')
-    ),
-    daily_changes AS (
-      SELECT
-        pv.song_id,
-        dvc.pv_id,
-        dvc.recorded_date,
-        dvc.total_views,
-        dvc.total_views - LAG(dvc.total_views) OVER (
-          PARTITION BY dvc.pv_id
-          ORDER BY dvc.recorded_date
-        ) as daily_increase
-      FROM daily_view_counts dvc
-      JOIN pvs pv ON dvc.pv_id = pv.id
-      WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '3 days'
-        AND pv.service = 'Youtube'
-    ),
-    today_changes AS (
-      SELECT
-        song_id,
-        MAX(daily_increase) as daily_increase
-      FROM daily_changes
-      WHERE recorded_date::date = (CURRENT_DATE - INTERVAL '1 day')::date
-        AND daily_increase > 0
-      GROUP BY song_id
     ),
     song_views AS (
       SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
@@ -399,7 +438,7 @@ async function calculateDailyRanking() {
     )
     SELECT
       'daily' as ranking_type,
-      ROW_NUMBER() OVER (ORDER BY tc.daily_increase DESC) as rank,
+      ROW_NUMBER() OVER (ORDER BY ds.daily_increase DESC) as rank,
       s.vocadb_id as song_id,
       s.default_name,
       st.title_korean,
@@ -418,15 +457,15 @@ async function calculateDailyRanking() {
       s.rating_score,
       s.length_seconds,
       NULL::bigint as weekly_increase,
-      tc.daily_increase
-    FROM today_changes tc
-    JOIN songs s ON s.vocadb_id = tc.song_id
+      ds.daily_increase
+    FROM song_daily_stats ds
+    JOIN songs s ON s.vocadb_id = ds.song_id
     INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
     LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
     LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
     LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
     LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
-    ORDER BY tc.daily_increase DESC
+    ORDER BY ds.daily_increase DESC
     LIMIT ${RANKING_LIMIT}
   `;
 

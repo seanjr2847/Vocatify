@@ -40,6 +40,7 @@ export interface UserPlaylistSummary {
   createdAt: Date;
   updatedAt: Date;
   songCount: number;
+  userId: string;
 }
 
 export interface UserPlaylistDetail extends UserPlaylistSummary {
@@ -312,6 +313,7 @@ export async function getUserPlaylists(
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     songCount: p._count.songs,
+    userId: p.userId,
   }));
 }
 
@@ -410,6 +412,7 @@ export async function getPlaylistById(
     createdAt: playlist.createdAt,
     updatedAt: playlist.updatedAt,
     songCount: playlist.songs.length,
+    userId: playlist.userId,
     songs: playlist.songs.map((ps) => {
       const enrichedData = songDataMap.get(ps.songId);
       return {
@@ -645,4 +648,74 @@ export async function isSongInPlaylist(
     },
   });
   return playlistSong !== null;
+}
+
+/**
+ * Get public playlists with filtering and sorting
+ */
+export async function getPublicPlaylists(options: {
+  search?: string;
+  sortBy?: "recent" | "songs" | "name";
+  limit?: number;
+  offset?: number;
+}): Promise<UserPlaylistSummary[]> {
+  const { search, sortBy = "recent", limit = 50, offset = 0 } = options;
+
+  // Build where clause
+  const where: any = {
+    isPublic: true,
+  };
+
+  if (search) {
+    where.name = {
+      contains: search,
+      mode: 'insensitive',
+    };
+  }
+
+  // Build orderBy clause
+  let orderBy: any;
+  switch (sortBy) {
+    case "songs":
+      // Order by song count (we'll handle this after query)
+      orderBy = { updatedAt: 'desc' };
+      break;
+    case "name":
+      orderBy = { name: 'asc' };
+      break;
+    case "recent":
+    default:
+      orderBy = { updatedAt: 'desc' };
+      break;
+  }
+
+  const playlists = await prisma.userPlaylist.findMany({
+    where,
+    orderBy,
+    take: limit,
+    skip: offset,
+    include: {
+      _count: {
+        select: { songs: true },
+      },
+    },
+  });
+
+  let results = playlists.map((p) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    isPublic: p.isPublic,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+    songCount: p._count.songs,
+    userId: p.userId,
+  }));
+
+  // Sort by song count if requested (client-side sorting after fetch)
+  if (sortBy === "songs") {
+    results = results.sort((a, b) => b.songCount - a.songCount);
+  }
+
+  return results;
 }

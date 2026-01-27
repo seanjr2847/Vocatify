@@ -1118,6 +1118,11 @@ export async function searchSongs(
       orderClause = 'ORDER BY COALESCE(sv.total_view_count, 0) DESC';
   }
 
+  // Add search term parameters BEFORE limit/offset to match query order
+  const searchTermParam1 = paramIndex++;
+  const searchTermParam2 = paramIndex++;
+  const searchTermParam3 = paramIndex++;
+
   const limitParam = paramIndex++;
   const offsetParam = paramIndex++;
 
@@ -1127,16 +1132,11 @@ export async function searchSongs(
   if (artistType && artistTypeParam) params[artistTypeParam - 1] = artistType;
   if (queryExactParam) params[queryExactParam - 1] = query;
   if (queryStartsWithParam) params[queryStartsWithParam - 1] = `${query}%`;
-  params[limitParam - 1] = limit;
-  params[offsetParam - 1] = offset;
-
-  // Add search term parameters
-  const searchTermParam1 = paramIndex++;
-  const searchTermParam2 = paramIndex++;
-  const searchTermParam3 = paramIndex++;
   params[searchTermParam1 - 1] = searchTerm;
   params[searchTermParam2 - 1] = searchTerm;
   params[searchTermParam3 - 1] = searchTerm;
+  params[limitParam - 1] = limit;
+  params[offsetParam - 1] = offset;
 
   const songQuery = `
     WITH matching_songs AS (
@@ -1215,10 +1215,24 @@ export async function searchSongs(
 
   const songs = await prisma.$queryRawUnsafe<RankingItem[]>(songQuery, ...params);
 
-  // Count query with same filters
-  const countSearchParam1 = paramIndex++;
-  const countSearchParam2 = paramIndex++;
-  const countSearchParam3 = paramIndex++;
+  // Count query with same filters - rebuild parameter indices from scratch
+  let countParamIndex = 1;
+  const countTagIdParam = tagId ? countParamIndex++ : null;
+  const countTagWhere = tagId ? `AND st.tag_id = $${countTagIdParam}` : '';
+
+  const countArtistTypeParam = artistType ? countParamIndex++ : null;
+  const countArtistTypeWhere = artistType
+    ? `AND EXISTS (
+        SELECT 1 FROM song_artists sa2
+        JOIN artists a2 ON sa2.artist_id = a2.vocadb_id
+        WHERE sa2.song_id = s.vocadb_id
+          AND a2.artist_type = $${countArtistTypeParam}
+      )`
+    : '';
+
+  const countSearchParam1 = countParamIndex++;
+  const countSearchParam2 = countParamIndex++;
+  const countSearchParam3 = countParamIndex++;
 
   const countQuery = `
     SELECT COUNT(DISTINCT s.vocadb_id) as count
@@ -1230,13 +1244,13 @@ export async function searchSongs(
     WHERE (s.default_name ILIKE $${countSearchParam1}
        OR sn.value ILIKE $${countSearchParam2}
        OR a.name ILIKE $${countSearchParam3})
-      ${tagWhere}
-      ${artistTypeWhere}
+      ${countTagWhere}
+      ${countArtistTypeWhere}
   `;
 
   const countParams: unknown[] = [];
-  if (tagId && tagIdParam) countParams[tagIdParam - 1] = tagId;
-  if (artistType && artistTypeParam) countParams[artistTypeParam - 1] = artistType;
+  if (tagId && countTagIdParam) countParams[countTagIdParam - 1] = tagId;
+  if (artistType && countArtistTypeParam) countParams[countArtistTypeParam - 1] = artistType;
   countParams[countSearchParam1 - 1] = searchTerm;
   countParams[countSearchParam2 - 1] = searchTerm;
   countParams[countSearchParam3 - 1] = searchTerm;
