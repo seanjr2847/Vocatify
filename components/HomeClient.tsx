@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Home, Music, Radio, Search, Video } from "lucide-react";
+import { Home, Music, Radio, Search, Video, ListMusic, Heart } from "lucide-react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
@@ -20,6 +20,8 @@ interface SearchSong extends Song {
 const navigationItems = [
   { icon: Home, alt: "홈", href: "/" },
   { icon: Music, alt: "차트", href: "/charts" },
+  { icon: ListMusic, alt: "플레이리스트", href: "/playlists" },
+  { icon: Heart, alt: "즐겨찾기", href: "/favorites" },
   { icon: Radio, alt: "라디오", href: "/radio" },
   { icon: Video, alt: "비디오", href: null },
 ];
