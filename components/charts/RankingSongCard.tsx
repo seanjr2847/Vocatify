@@ -29,7 +29,7 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
 
   const handlePlayClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!song.youtubeId) {
+    if (song.youtubeId == null) {
       toast.error('YouTube 영상이 없는 곡입니다');
       return;
     }
@@ -135,14 +135,14 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
           </button>
           <button
             onClick={handlePlayClick}
-            disabled={!song.youtubeId}
+            disabled={song.youtubeId == null}
             className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${
-              song.youtubeId
+              song.youtubeId != null
                 ? 'bg-[#CDFF00] hover:bg-[#CDFF00]/90 text-black hover:scale-105 cursor-pointer'
                 : 'bg-white/10 text-white/40 cursor-not-allowed'
             }`}
             aria-label="재생"
-            title={song.youtubeId ? '재생' : 'YouTube 영상 없음'}
+            title={song.youtubeId != null ? '재생' : 'YouTube 영상 없음'}
           >
             <Play className="w-5 h-5 fill-current" />
           </button>
