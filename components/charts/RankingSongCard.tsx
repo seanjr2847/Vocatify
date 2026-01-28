@@ -3,11 +3,11 @@
 import React, { memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Play, Plus, Radio } from 'lucide-react';
+import { Plus, Radio } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
+import { PlayButton } from '@/components/PlayButton';
 import type { RankingItem } from '@/lib/db';
 import { formatNumber, getDisplayTitle, getYouTubeThumbnail, formatPublishDate, formatDuration } from '@/lib/utils/format-utils';
-import { toast } from 'sonner';
 
 interface RankingSongCardProps {
   song: RankingItem;
@@ -25,16 +25,8 @@ function formatPublishDateWithSuffix(date: Date | string | null | undefined): st
 
 const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
   const router = useRouter();
-  const { playSong, addToPlaylist, startRadio } = useMusicPlayer();
+  const { addToPlaylist, startRadio } = useMusicPlayer();
 
-  const handlePlayClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (song.youtubeId == null) {
-      toast.error('YouTube 영상이 없는 곡입니다');
-      return;
-    }
-    playSong(song);
-  }, [playSong, song]);
 
   const handleAddClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -133,19 +125,7 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
           >
             <Radio className="w-5 h-5" />
           </button>
-          <button
-            onClick={handlePlayClick}
-            disabled={song.youtubeId == null}
-            className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${
-              song.youtubeId != null
-                ? 'bg-[#CDFF00] hover:bg-[#CDFF00]/90 text-black hover:scale-105 cursor-pointer'
-                : 'bg-white/10 text-white/40 cursor-not-allowed'
-            }`}
-            aria-label="재생"
-            title={song.youtubeId != null ? '재생' : 'YouTube 영상 없음'}
-          >
-            <Play className="w-5 h-5 fill-current" />
-          </button>
+          <PlayButton song={song} />
         </div>
       </div>
     </div>

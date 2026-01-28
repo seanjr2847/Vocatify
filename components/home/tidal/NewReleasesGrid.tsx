@@ -3,14 +3,16 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { RankingItem } from '@/lib/db';
+import { useMusicPlayer } from '@/lib/MusicPlayerContext';
+import { Play } from 'lucide-react';
 
 interface NewReleasesGridProps {
   songs: RankingItem[];
-  onPlay?: (song: RankingItem) => void;
 }
 
-export default function NewReleasesGrid({ songs, onPlay }: NewReleasesGridProps) {
+export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
   const displaySongs = songs.slice(0, 8);
+  const { playSong } = useMusicPlayer();
 
   const formatViews = (views: bigint | number | null) => {
     if (!views) return '0';
@@ -42,7 +44,7 @@ export default function NewReleasesGrid({ songs, onPlay }: NewReleasesGridProps)
           <div
             key={song.vocadbId}
             className="group cursor-pointer"
-            onClick={() => onPlay && onPlay(song)}
+            onClick={() => song.youtubeId && playSong(song)}
           >
             {/* Album Cover */}
             <div className="relative aspect-square overflow-hidden bg-white/5 rounded-sm mb-4">
@@ -61,9 +63,7 @@ export default function NewReleasesGrid({ songs, onPlay }: NewReleasesGridProps)
               {/* Play Button Overlay */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-transform">
-                  <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+                  <Play className="w-6 h-6 fill-current ml-1" />
                 </button>
               </div>
             </div>

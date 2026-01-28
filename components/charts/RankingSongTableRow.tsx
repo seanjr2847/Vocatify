@@ -3,8 +3,9 @@
 import React, { memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Play, Radio } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
+import { PlayButton } from '@/components/PlayButton';
 import type { RankingItem } from '@/lib/db';
 import { formatNumber, getDisplayTitle, getYouTubeThumbnail } from '@/lib/utils/format-utils';
 
@@ -14,12 +15,7 @@ interface RankingSongTableRowProps {
 
 const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
   const router = useRouter();
-  const { playSong, startRadio } = useMusicPlayer();
-
-  const handlePlayClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    playSong(song);
-  }, [playSong, song]);
+  const { startRadio } = useMusicPlayer();
 
   const handleRadioClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -96,15 +92,9 @@ const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
       </button>
 
       {/* Play Button */}
-      <button
-        onClick={handlePlayClick}
-        className="opacity-0 group-hover:opacity-100 transition-opacity self-center
-                   w-9 h-9 flex items-center justify-center bg-[#CDFF00] hover:bg-[#CDFF00]/90
-                   text-black rounded-full transition-all hover:scale-105"
-        aria-label="재생"
-      >
-        <Play className="w-4 h-4 fill-current" />
-      </button>
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity self-center">
+        <PlayButton song={song} variant="small" />
+      </div>
     </div>
   );
 };

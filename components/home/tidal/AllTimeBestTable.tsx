@@ -6,10 +6,9 @@ import Link from 'next/link';
 
 interface AllTimeBestTableProps {
   songs: RankingItem[];
-  onPlay?: (song: RankingItem) => void;
 }
 
-export default function AllTimeBestTable({ songs, onPlay }: AllTimeBestTableProps) {
+export default function AllTimeBestTable({ songs }: AllTimeBestTableProps) {
   const displaySongs = songs.slice(0, 10);
 
   return (
@@ -42,7 +41,6 @@ export default function AllTimeBestTable({ songs, onPlay }: AllTimeBestTableProp
             key={song.vocadbId}
             song={song}
             rank={index + 1}
-            onPlay={onPlay}
           />
         ))}
       </div>

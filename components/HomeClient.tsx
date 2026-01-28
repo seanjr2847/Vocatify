@@ -164,12 +164,6 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
     setSelectedIndex(index);
   }, []);
 
-  const handlePlay = (song: RankingItem) => {
-    // TODO: Implement play functionality with music player
-    console.log("Playing song:", song.defaultName);
-    toast.success(`재생 중: ${song.titleKorean || song.defaultName}`);
-  };
-
   return (
     <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
       <div className="flex flex-1">

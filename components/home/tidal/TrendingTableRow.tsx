@@ -2,14 +2,14 @@
 
 import Image from 'next/image';
 import { RankingItem } from '@/lib/db';
+import { PlayButton } from '@/components/PlayButton';
 
 interface TrendingTableRowProps {
   song: RankingItem;
   rank: number;
-  onPlay?: (song: RankingItem) => void;
 }
 
-export default function TrendingTableRow({ song, rank, onPlay }: TrendingTableRowProps) {
+export default function TrendingTableRow({ song, rank }: TrendingTableRowProps) {
   const formatViews = (views: bigint | number | null) => {
     if (!views) return '0';
     const num = Number(views);
@@ -19,12 +19,6 @@ export default function TrendingTableRow({ song, rank, onPlay }: TrendingTableRo
       return `${(num / 1000).toFixed(1)}K`;
     }
     return num.toLocaleString();
-  };
-
-  const handlePlay = () => {
-    if (onPlay) {
-      onPlay(song);
-    }
   };
 
   return (
@@ -66,14 +60,7 @@ export default function TrendingTableRow({ song, rank, onPlay }: TrendingTableRo
 
       {/* Hover Play Button */}
       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
-        <button
-          onClick={handlePlay}
-          className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-transform"
-        >
-          <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </button>
+        <PlayButton song={song} variant="minimal" />
       </div>
     </div>
   );

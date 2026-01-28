@@ -20,11 +20,6 @@ const NavigationSectionComponent = ({
   newReleases,
   popularSongs,
 }: NavigationSectionProps): JSX.Element => {
-  const handlePlay = (song: RankingItem) => {
-    // TODO: Implement play functionality
-    console.log("Playing song:", song.defaultName);
-  };
-
   return (
     <section className="relative w-full h-auto tidal-bg">
       {/* The Hits - Category Grid */}
@@ -35,13 +30,13 @@ const NavigationSectionComponent = ({
       />
 
       {/* Weekly Trending - Table View */}
-      <TrendingTable songs={popularSongs} onPlay={handlePlay} />
+      <TrendingTable songs={popularSongs} />
 
       {/* All-Time Best - Table View */}
-      <AllTimeBestTable songs={topCharts} onPlay={handlePlay} />
+      <AllTimeBestTable songs={topCharts} />
 
       {/* New Releases - Grid View */}
-      <NewReleasesGrid songs={newReleases} onPlay={handlePlay} />
+      <NewReleasesGrid songs={newReleases} />
     </section>
   );
 };
