@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { UserAvatar } from "@/components/auth/UserAvatar";
-import { Heart, ListMusic, Music, Search, Sparkles, TrendingUp, Calendar, Award } from "lucide-react";
+import { Heart, ListMusic, Music, Search, TrendingUp, Award } from "lucide-react";
 import Link from "next/link";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -11,13 +11,35 @@ import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { useSearchSuggestions } from "@/lib/hooks/useSearchSuggestions";
 import { toast } from "sonner";
 
+interface FavoriteSong {
+  id: string;
+  songId: number;
+  createdAt: Date;
+  song: {
+    vocadbId: number;
+    defaultName: string;
+    titleKorean: string | null;
+    titleEnglish: string | null;
+    titleJapanese: string | null;
+    titleRomaji: string | null;
+    artistString: string | null;
+    youtubeId: string | null;
+    youtubeUrl: string | null;
+    thumbUrl: string | null;
+    viewCount: string | null;
+    publishDate: Date | null;
+    songType: string | null;
+    lengthSeconds: number | null;
+  };
+}
+
 interface PageProps {
   user: {
     name?: string | null;
     email?: string | null;
     image?: string | null;
   };
-  favorites: any[];
+  favorites: FavoriteSong[];
   totalFavorites: number;
 }
 

@@ -12,8 +12,17 @@ import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { useSearchSuggestions } from "@/lib/hooks/useSearchSuggestions";
 import { toast } from "sonner";
 
+interface Playlist {
+  id: string;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  songCount: number;
+  updatedAt: Date;
+}
+
 interface PageProps {
-  initialPlaylists: any[];
+  initialPlaylists: Playlist[];
   initialTotal: number;
 }
 
@@ -249,7 +258,7 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
                   {/* Sort Controls */}
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
+                    onChange={(e) => setSortBy(e.target.value as 'updated' | 'created' | 'name')}
                     className="px-3 sm:px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/80 text-xs sm:text-sm focus:outline-none focus:border-purple-500/50 transition-colors"
                   >
                     <option value="updated">최근 업데이트</option>

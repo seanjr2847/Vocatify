@@ -23,6 +23,15 @@ export default async function ProfilePage() {
     0
   );
 
+  // Serialize BigInt for client
+  const serializedFavorites = favorites.map((fav) => ({
+    ...fav,
+    song: {
+      ...fav.song,
+      viewCount: fav.song.viewCount?.toString() ?? null,
+    },
+  }));
+
   return (
     <ProfileClientPage
       user={{
@@ -30,7 +39,7 @@ export default async function ProfilePage() {
         email: session.user.email,
         image: session.user.image,
       }}
-      favorites={favorites}
+      favorites={serializedFavorites}
       totalFavorites={totalFavorites}
     />
   );

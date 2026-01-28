@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { Heart, Music, Search, Sparkles, Grid3x3, List, SortAsc } from "lucide-react";
+import { Heart, Music, Search, Sparkles, Grid3x3, List } from "lucide-react";
 import { FavoritesGrid } from "@/components/favorites/FavoritesGrid";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,30 @@ import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { useSearchSuggestions } from "@/lib/hooks/useSearchSuggestions";
 import { toast } from "sonner";
 
+interface FavoriteSong {
+  id: string;
+  songId: number;
+  createdAt: Date;
+  song: {
+    vocadbId: number;
+    defaultName: string;
+    titleKorean: string | null;
+    titleEnglish: string | null;
+    titleJapanese: string | null;
+    titleRomaji: string | null;
+    artistString: string | null;
+    youtubeId: string | null;
+    youtubeUrl: string | null;
+    thumbUrl: string | null;
+    viewCount: string | null;
+    publishDate: Date | null;
+    songType: string | null;
+    lengthSeconds: number | null;
+  };
+}
+
 interface PageProps {
-  favorites: any[];
+  favorites: FavoriteSong[];
 }
 
 // SSR-safe animated hearts for background
