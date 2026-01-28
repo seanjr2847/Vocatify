@@ -4,14 +4,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { RankingItem } from '@/lib/db';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
-import { Play } from 'lucide-react';
+import { Play, Eye } from 'lucide-react';
 
 interface NewReleasesGridProps {
   songs: RankingItem[];
 }
 
 export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
-  const displaySongs = songs.slice(0, 8);
+  const displaySongs = songs.slice(0, 12); // Show more albums
   const { playSong } = useMusicPlayer();
 
   const formatViews = (views: bigint | number | null) => {
@@ -26,63 +26,98 @@ export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
   };
 
   return (
-    <section className="py-16 px-8">
+    <section className="py-12 px-6 lg:px-8">
       {/* Section Header */}
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-white text-3xl font-bold">NEW RELEASES</h2>
+        <div>
+          <h2 className="text-white text-2xl lg:text-3xl font-bold tracking-tight mb-1">
+            New Releases
+          </h2>
+          <p className="text-white/50 text-sm">최신 보컬로이드 음악</p>
+        </div>
         <Link
           href="/charts?tab=new"
-          className="text-white/60 hover:text-white text-sm uppercase tracking-wider transition-colors"
+          className="text-white/60 hover:text-[#CDFF00] text-sm font-medium transition-colors group flex items-center gap-1"
         >
-          View all
+          전체 보기
+          <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </Link>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
-        {displaySongs.map((song) => (
+      {/* Compact Grid - More albums, smaller cards */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 lg:gap-5">
+        {displaySongs.map((song, index) => (
           <div
             key={song.vocadbId}
             className="group cursor-pointer"
             onClick={() => song.youtubeId && playSong(song)}
+            style={{
+              animation: 'fadeInUp 0.5s ease-out',
+              animationDelay: `${index * 0.05}s`,
+              animationFillMode: 'both',
+            }}
           >
-            {/* Album Cover */}
-            <div className="relative aspect-square overflow-hidden bg-white/5 rounded-sm mb-4">
+            {/* Compact Album Cover */}
+            <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-white/5 to-white/[0.02] rounded-lg mb-3 shadow-lg shadow-black/20 group-hover:shadow-xl group-hover:shadow-[#CDFF00]/10 transition-all duration-300">
               <Image
                 src={song.thumbUrl || '/default-album.png'}
                 fill
                 alt=""
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                className="object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
               />
 
-              {/* NEW Badge */}
-              <div className="absolute top-3 left-3 bg-[#CDFF00] text-black text-xs font-bold px-2 py-1 rounded">
+              {/* Subtle gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+              {/* Compact NEW Badge */}
+              <div className="absolute top-2 left-2 bg-[#CDFF00] text-black text-[10px] font-bold px-1.5 py-0.5 rounded shadow-md">
                 NEW
               </div>
 
-              {/* Play Button Overlay */}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <button className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 transition-transform">
-                  <Play className="w-6 h-6 fill-current ml-1" />
+              {/* Play Button Overlay - Smaller and more refined */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                <button
+                  className="w-10 h-10 rounded-full bg-white/95 backdrop-blur-sm text-black flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-all duration-300 hover:bg-[#CDFF00]"
+                  aria-label="Play song"
+                >
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
                 </button>
+              </div>
+
+              {/* View count badge - Bottom right */}
+              <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white/90 text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <Eye className="w-2.5 h-2.5" />
+                {formatViews(song.viewCount)}
               </div>
             </div>
 
-            {/* Song Info */}
-            <div>
-              <p className="text-white font-medium text-sm truncate mb-1">
+            {/* Compact Song Info */}
+            <div className="space-y-0.5">
+              <p className="text-white/90 font-medium text-xs lg:text-sm truncate group-hover:text-[#CDFF00] transition-colors">
                 {song.titleKorean || song.titleEnglish || song.titleJapanese || song.defaultName}
               </p>
-              <p className="text-white/60 text-xs truncate mb-1">
+              <p className="text-white/50 text-[10px] lg:text-xs truncate">
                 {song.artistString}
-              </p>
-              <p className="text-white/40 text-xs">
-                {formatViews(song.viewCount)} views
               </p>
             </div>
           </div>
         ))}
       </div>
+
+      <style jsx>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </section>
   );
 }

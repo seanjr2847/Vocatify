@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { PlaylistCard } from "@/components/user/PlaylistCard";
-import { Plus, ListMusic, Music, Search, Sparkles, Grid3x3, List } from "lucide-react";
-import Link from "next/link";
-import { EmptyState } from "@/components/playlists/EmptyState";
+import { Heart, Music, Search, Sparkles, Grid3x3, List, SortAsc } from "lucide-react";
+import { FavoritesGrid } from "@/components/favorites/FavoritesGrid";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,24 +11,23 @@ import { useSearchSuggestions } from "@/lib/hooks/useSearchSuggestions";
 import { toast } from "sonner";
 
 interface PageProps {
-  initialPlaylists: any[];
-  initialTotal: number;
+  favorites: any[];
 }
 
-// SSR-safe animated particles
-const PARTICLE_POSITIONS = [
-  { left: 15, top: 25 },
-  { left: 30, top: 60 },
-  { left: 45, top: 35 },
-  { left: 60, top: 70 },
-  { left: 75, top: 40 },
-  { left: 85, top: 65 },
+// SSR-safe animated hearts for background
+const HEART_POSITIONS = [
+  { left: 10, top: 15, scale: 0.8, delay: 0 },
+  { left: 25, top: 40, scale: 1.2, delay: 0.5 },
+  { left: 40, top: 25, scale: 0.9, delay: 1 },
+  { left: 55, top: 50, scale: 1.1, delay: 1.5 },
+  { left: 70, top: 30, scale: 0.85, delay: 2 },
+  { left: 85, top: 60, scale: 1, delay: 2.5 },
+  { left: 92, top: 20, scale: 0.95, delay: 3 },
 ];
 
-export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: PageProps) {
+export default function FavoritesClientPage({ favorites }: PageProps) {
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<'updated' | 'created' | 'name'>('updated');
 
   const {
     searchQuery,
@@ -52,13 +49,10 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
     setMounted(true);
   }, []);
 
-  const playlists = initialPlaylists;
-  const totalCount = initialTotal;
-
   return (
     <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
       <main className="flex-1 flex flex-col">
-        {/* Header - consistent with HomePage */}
+        {/* Header */}
         <header className="sticky top-0 z-50 h-[73px] bg-black/95 backdrop-blur-md border-b border-white/5 flex items-center px-4 sm:px-6 lg:px-[27px]">
           <div className="flex items-center gap-3 sm:gap-[22px] w-full">
             {/* Mobile Navigation Button */}
@@ -124,24 +118,28 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
           }}
         >
           <div className="relative">
-            {/* Ambient Background Elements */}
+            {/* Ambient Background Elements - Love Gallery Theme */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-              <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#CDFF00]/5 rounded-full blur-3xl" />
-              <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-[#CDFF00]/3 rounded-full blur-3xl" />
-              <div className="absolute top-1/2 right-1/3 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl" />
+              {/* Gradient orbs */}
+              <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-pink-500/10 via-rose-500/5 to-transparent rounded-full blur-3xl" />
+              <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-gradient-to-br from-rose-500/8 via-pink-500/4 to-transparent rounded-full blur-3xl" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-to-br from-pink-500/6 to-transparent rounded-full blur-3xl" />
 
-              {/* Animated particles */}
-              {mounted && PARTICLE_POSITIONS.map((pos, i) => (
+              {/* Animated floating hearts */}
+              {mounted && HEART_POSITIONS.map((pos, i) => (
                 <div
                   key={i}
-                  className="absolute w-1 h-1 bg-white/10 rounded-full"
+                  className="absolute text-pink-500/10"
                   style={{
                     left: `${pos.left}%`,
                     top: `${pos.top}%`,
-                    animation: `float ${10 + i * 1.5}s ease-in-out infinite`,
-                    animationDelay: `${i * 0.7}s`,
+                    transform: `scale(${pos.scale})`,
+                    animation: `float-heart ${12 + i}s ease-in-out infinite`,
+                    animationDelay: `${pos.delay}s`,
                   }}
-                />
+                >
+                  <Heart className="w-6 h-6 fill-current" />
+                </div>
               ))}
             </div>
 
@@ -155,11 +153,14 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-6 mb-6">
                   {/* Title Section */}
                   <div className="flex items-center gap-4 sm:gap-6">
-                    {/* Icon */}
+                    {/* Heart Icon with Gradient */}
                     <div className="relative">
-                      <div className="absolute inset-0 bg-purple-500/30 rounded-2xl blur-xl animate-pulse" aria-hidden="true" />
-                      <div className="relative bg-gradient-to-br from-purple-500/20 to-[#CDFF00]/10 p-3 sm:p-4 rounded-2xl border border-purple-500/30">
-                        <ListMusic className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 text-purple-400" />
+                      {/* Outer glow */}
+                      <div className="absolute inset-0 rounded-[24px] bg-gradient-to-br from-pink-500 to-rose-500 opacity-20 blur-xl animate-pulse" />
+
+                      {/* Icon container */}
+                      <div className="relative p-3 sm:p-4 md:p-5 rounded-[20px] sm:rounded-[24px] bg-gradient-to-br from-pink-500/20 to-rose-500/20 border-2 border-pink-500/30 shadow-2xl shadow-pink-500/20 transition-all duration-500 hover:scale-110 hover:shadow-pink-500/40">
+                        <Heart className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 text-pink-400 fill-pink-400" />
                       </div>
                     </div>
 
@@ -169,53 +170,23 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
                         className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight mb-1 sm:mb-2"
                         style={{
                           fontFamily: "'Quicksand', sans-serif",
-                          textShadow: '0 0 40px rgba(168, 85, 247, 0.3)',
+                          textShadow: '0 0 40px rgba(244, 114, 182, 0.3)',
                         }}
                       >
-                        플레이리스트
+                        즐겨찾기
                       </h1>
                       <div className="flex items-center gap-2">
-                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-purple-400/70" aria-hidden="true" />
+                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-pink-400/70" aria-hidden="true" />
                         <p
                           className="text-white/50 text-xs sm:text-sm tracking-wide uppercase"
                           style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.1em' }}
                         >
-                          {totalCount}개의 컬렉션
+                          {favorites.length}곡의 특별한 음악
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Create Button */}
-                  <Link href="/playlists/create">
-                    <Button
-                      className={`
-                        flex items-center gap-2
-                        rounded-full px-5 sm:px-6 py-2.5 sm:py-3 h-auto
-                        bg-gradient-to-r from-purple-500 to-[#CDFF00]
-                        text-black font-bold text-sm sm:text-base
-                        transition-all duration-300
-                        hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30
-                        active:scale-95
-                      `}
-                    >
-                      <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span className="hidden sm:inline">새 플레이리스트</span>
-                      <span className="sm:hidden">새로 만들기</span>
-                    </Button>
-                  </Link>
-                </div>
-
-                {/* Subtitle */}
-                <p
-                  className="text-base sm:text-lg md:text-xl text-white/70 max-w-2xl leading-relaxed ml-0 sm:ml-12 md:ml-[88px] mb-6"
-                  style={{ fontFamily: "'Inter', sans-serif" }}
-                >
-                  나만의 음악 세계를 만들어보세요
-                </p>
-
-                {/* View Controls */}
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4 ml-0 sm:ml-12 md:ml-[88px]">
                   {/* View Mode Toggle */}
                   <div className="flex items-center gap-1 p-1 rounded-lg bg-white/5 border border-white/10">
                     <button
@@ -223,7 +194,7 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
                       className={`
                         p-2 rounded-md transition-all duration-200
                         ${viewMode === 'grid'
-                          ? 'bg-purple-500/20 text-purple-400'
+                          ? 'bg-pink-500/20 text-pink-400'
                           : 'text-white/40 hover:text-white/60'
                         }
                       `}
@@ -236,7 +207,7 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
                       className={`
                         p-2 rounded-md transition-all duration-200
                         ${viewMode === 'list'
-                          ? 'bg-purple-500/20 text-purple-400'
+                          ? 'bg-pink-500/20 text-pink-400'
                           : 'text-white/40 hover:text-white/60'
                         }
                       `}
@@ -245,88 +216,51 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
                       <List className="w-4 h-4" />
                     </button>
                   </div>
-
-                  {/* Sort Controls */}
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="px-3 sm:px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/80 text-xs sm:text-sm focus:outline-none focus:border-purple-500/50 transition-colors"
-                  >
-                    <option value="updated">최근 업데이트</option>
-                    <option value="created">생성일</option>
-                    <option value="name">이름순</option>
-                  </select>
                 </div>
 
-                {/* Decorative line */}
-                <div
-                  className="mt-6 ml-0 sm:ml-12 md:ml-[88px] h-[1px] w-32 sm:w-48 md:w-64 bg-gradient-to-r from-purple-500/50 via-[#CDFF00]/30 to-transparent"
-                  aria-hidden="true"
-                />
+                {/* Subtitle */}
+                <p
+                  className="text-base sm:text-lg md:text-xl text-white/70 max-w-2xl leading-relaxed ml-0 sm:ml-12 md:ml-[88px] mb-6"
+                  style={{ fontFamily: "'Inter', sans-serif" }}
+                >
+                  마음에 담아둔 특별한 노래들
+                </p>
+
+                {/* Decorative accent line */}
+                <div className="ml-0 sm:ml-12 md:ml-[88px] h-1 w-24 sm:w-32 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 shadow-lg shadow-pink-500/50" />
               </div>
 
-              {/* Playlists Grid */}
-              {playlists.length === 0 ? (
-                <div
-                  className={`transition-all duration-700 ${
-                    mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-                  }`}
-                  style={{ transitionDelay: '200ms' }}
-                >
-                  <EmptyState
-                    icon={ListMusic}
-                    title="아직 플레이리스트가 없습니다"
-                    description="나만의 플레이리스트를 만들어보세요"
-                    actionLabel="새 플레이리스트 만들기"
-                    actionHref="/playlists/create"
-                  />
-                </div>
-              ) : (
-                <div
-                  className={`
-                    grid gap-4 sm:gap-6 md:gap-8 lg:gap-10 mb-12
-                    ${viewMode === 'grid'
-                      ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                      : 'grid-cols-1'
-                    }
-                  `}
-                >
-                  {playlists.map((playlist, idx) => (
-                    <div
-                      key={playlist.id}
-                      className={`transition-all duration-700 ${
-                        mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-                      }`}
-                      style={{
-                        transitionDelay: `${200 + idx * 100}ms`,
-                      }}
-                    >
-                      <PlaylistCard
-                        id={playlist.id}
-                        name={playlist.name}
-                        description={playlist.description}
-                        isPublic={playlist.isPublic}
-                        songCount={playlist.songCount}
-                        updatedAt={playlist.updatedAt}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Favorites Grid */}
+              <div
+                className={`transition-all duration-700 ${
+                  mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+                }`}
+                style={{ transitionDelay: '200ms' }}
+              >
+                <FavoritesGrid favorites={favorites} />
+              </div>
             </div>
           </div>
         </section>
       </main>
 
       <style jsx global>{`
-        @keyframes float {
+        @keyframes float-heart {
           0%, 100% {
-            transform: translateY(0) translateX(0);
-            opacity: 0.3;
+            transform: translateY(0) scale(1) rotate(0deg);
+            opacity: 0.1;
+          }
+          25% {
+            transform: translateY(-15px) scale(1.1) rotate(5deg);
+            opacity: 0.15;
           }
           50% {
-            transform: translateY(-20px) translateX(10px);
-            opacity: 0.6;
+            transform: translateY(-25px) scale(1.05) rotate(-5deg);
+            opacity: 0.2;
+          }
+          75% {
+            transform: translateY(-15px) scale(1.1) rotate(5deg);
+            opacity: 0.15;
           }
         }
       `}</style>
