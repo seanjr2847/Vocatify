@@ -162,9 +162,9 @@ export async function getUserFavorites(
       )
       SELECT
         ufs.id,
-        ufs.user_id as "userId",
-        ufs.song_id as "songId",
-        ufs.created_at as "createdAt",
+        ufs."userId" as "userId",
+        ufs."songId" as "songId",
+        ufs."createdAt" as "createdAt",
         s.vocadb_id as "song_vocadbId",
         s.default_name as "song_defaultName",
         st.title_korean as "song_titleKorean",
@@ -180,13 +180,13 @@ export async function getUserFavorites(
         s.song_type as "song_songType",
         s.length_seconds as "song_lengthSeconds"
       FROM user_favorite_songs ufs
-      JOIN songs s ON ufs.song_id = s.vocadb_id
+      JOIN songs s ON ufs."songId" = s.vocadb_id
       LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
       LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
       LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
       LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
-      WHERE ufs.user_id = ${userId}
-      ORDER BY ufs.created_at DESC
+      WHERE ufs."userId" = ${userId}
+      ORDER BY ufs."createdAt" DESC
       LIMIT ${limit} OFFSET ${offset}
     `,
     prisma.userFavoriteSong.count({ where: { userId } }),
