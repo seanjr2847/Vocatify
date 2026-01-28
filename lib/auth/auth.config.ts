@@ -20,18 +20,19 @@ export const authConfig: NextAuthConfig = {
   },
   trustHost: true,
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
-  cookies: {
-    sessionToken: {
-      name: `${process.env.NODE_ENV === "production" ? "__Secure-" : ""}next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
-  },
   callbacks: {
+    async jwt({ token, user, account }) {
+      // Initial sign in - add user id to token
+      if (user) {
+        token.id = user.id;
+      }
+      // Add OAuth tokens on sign in
+      if (account) {
+        token.accessToken = account.access_token;
+        token.refreshToken = account.refresh_token;
+      }
+      return token;
+    },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnProtectedRoute =
@@ -50,9 +51,10 @@ export const authConfig: NextAuthConfig = {
 
       return true;
     },
-    session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
+    async session({ session, token }) {
+      // Add user id from token to session
+      if (session.user && token.id) {
+        session.user.id = token.id as string;
       }
       return session;
     },
