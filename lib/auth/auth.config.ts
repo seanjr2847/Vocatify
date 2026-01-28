@@ -11,6 +11,8 @@ export const authConfig: NextAuthConfig = {
   pages: {
     signIn: "/signin",
   },
+  trustHost: true,
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
@@ -21,7 +23,11 @@ export const authConfig: NextAuthConfig = {
 
       if (isOnProtectedRoute) {
         if (isLoggedIn) return true;
-        return false; // Redirect unauthenticated users to sign-in page
+
+        // Redirect to sign-in with callback URL
+        const signInUrl = new URL("/signin", nextUrl.origin);
+        signInUrl.searchParams.set("callbackUrl", nextUrl.href);
+        return Response.redirect(signInUrl);
       }
 
       return true;
