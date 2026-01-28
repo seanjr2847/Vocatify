@@ -20,12 +20,11 @@ interface PlaylistPageProps {
 
 export default async function PlaylistDetailPage({ params }: PlaylistPageProps) {
   const session = await auth();
+  const { playlistId } = await params;
 
   if (!session?.user) {
-    redirect("/signin");
+    redirect(`/signin?callbackUrl=/playlists/${playlistId}`);
   }
-
-  const { playlistId } = await params;
 
   // Fetch playlist details directly from database (server-side)
   const playlist = await getPlaylistById(playlistId, session.user.id);

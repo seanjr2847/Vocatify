@@ -15,7 +15,7 @@ export default async function ProfilePage() {
   const session = await auth();
 
   if (!session?.user?.id) {
-    redirect("/signin");
+    redirect("/signin?callbackUrl=/profile");
   }
 
   // Fetch user favorites directly from database (server-side)

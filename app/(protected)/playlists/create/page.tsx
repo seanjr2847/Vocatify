@@ -24,7 +24,7 @@ export default async function CreatePlaylistPage() {
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/signin");
+    redirect("/signin?callbackUrl=/playlists/create");
   }
 
   return (

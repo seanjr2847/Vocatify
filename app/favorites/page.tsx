@@ -22,7 +22,7 @@ export default async function FavoritesPage() {
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/signin");
+    redirect("/signin?callbackUrl=/favorites");
   }
 
   // Fetch favorites directly from database (server-side)

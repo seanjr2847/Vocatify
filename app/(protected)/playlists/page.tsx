@@ -16,7 +16,7 @@ export default async function PlaylistsPage() {
   const session = await auth();
 
   if (!session?.user?.id) {
-    redirect("/signin");
+    redirect("/signin?callbackUrl=/playlists");
   }
 
   // Fetch user playlists directly from database (server-side)

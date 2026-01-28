@@ -4,11 +4,15 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { FcGoogle } from "react-icons/fc";
 import { Sparkles } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 export function SignInButton() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
+
   return (
     <Button
-      onClick={() => signIn("google", { callbackUrl: "/" })}
+      onClick={() => signIn("google", { callbackUrl })}
       className="relative w-full h-12 overflow-hidden group bg-gradient-to-r from-[#39c5bb] to-[#2da89e] hover:from-[#2da89e] hover:to-[#39c5bb] text-white font-semibold text-base shadow-2xl shadow-[#39c5bb]/30 transition-all duration-500 hover:shadow-[#39c5bb]/50 hover:scale-[1.02]"
     >
       {/* Animated background effect */}
