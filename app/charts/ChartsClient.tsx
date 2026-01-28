@@ -5,27 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Home, Music, Radio, Search, User, Video } from "lucide-react";
+import { Music, Search } from "lucide-react";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { ChartsTabNavigation, type TabType } from "@/components/charts/ChartsTabNavigation";
 import { RankingSongCard } from "@/components/charts/RankingSongCard";
 import { RankingSongTableRow } from "@/components/charts/RankingSongTableRow";
 import { LoadMoreButton } from "@/components/charts/LoadMoreButton";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
+import { UserMenu } from "@/components/auth/UserMenu";
+import { Sidebar } from "@/components/Sidebar";
 import type { RankingItem, SearchSong } from "@/lib/db";
 import { toast } from "sonner";
 
-const navigationItems = [
-  { icon: Home, alt: "홈", href: "/" },
-  { icon: Music, alt: "차트", href: "/charts" },
-  { icon: Radio, alt: "라디오", href: "/radio" },
-  { icon: Video, alt: "비디오", href: null },
-];
-
-const personalItems = [
-  { icon: User, alt: "프로필", href: null },
-  { icon: User, alt: "설정", href: null },
-];
+// Navigation items moved to Sidebar component
 
 interface TabData {
   data: RankingItem[];
@@ -217,14 +209,6 @@ export function ChartsClient({
     setSelectedIndex(index);
   }, []);
 
-  const handleNavClick = (href: string | null, alt: string) => {
-    if (href) {
-      router.push(href);
-    } else {
-      toast.info(`${alt} 기능은 준비 중입니다`);
-    }
-  };
-
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     // Update URL query param
@@ -279,45 +263,25 @@ export function ChartsClient({
   return (
     <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
       <div className="flex flex-1">
-        <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6">
-          <div className="w-[34px] h-[34px] flex items-center justify-center">
-            {/* 로고 플레이스홀더 */}
-          </div>
-
-          <nav className="flex flex-col items-center bg-white/5 rounded-[32px] p-4 gap-[30px] mt-10">
-            {navigationItems.map((item, index) => (
-              <Button
-                key={index}
-                variant="ghost"
-                size="icon"
-                className="w-[22px] h-[22px] p-0 hover:bg-transparent"
-                onClick={() => handleNavClick(item.href, item.alt)}
-                title={item.alt}
-              >
-                <item.icon className={`w-[22px] h-[22px] ${item.href ? 'text-white/60 hover:text-white' : 'text-white/40'}`} />
-              </Button>
-            ))}
-          </nav>
-
-          <div className="flex flex-col items-center gap-4 mt-auto">
-            {personalItems.map((item, index) => (
-              <Button
-                key={index}
-                variant="ghost"
-                size="icon"
-                className="w-[22px] h-[22px] p-0 hover:bg-transparent"
-                onClick={() => handleNavClick(item.href, item.alt)}
-                title={item.alt}
-              >
-                <item.icon className="w-[22px] h-[22px] text-white/40" />
-              </Button>
-            ))}
-          </div>
-        </aside>
+        {/* Desktop Sidebar */}
+        <Sidebar />
 
         <main className="flex-1 flex flex-col">
-          <header className="h-[73px] bg-black/95 flex items-center px-[27px]">
-            <form onSubmit={handleSearch} className="flex items-center gap-[22px] w-full relative">
+          <header className="h-[73px] bg-black/95 flex items-center px-4 sm:px-6 lg:px-[27px]">
+            <div className="flex items-center gap-3 sm:gap-[22px] w-full">
+              {/* Mobile Navigation Button */}
+              <div className="flex lg:hidden items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full hover:bg-[#CDFF00]/10"
+                  onClick={() => toast.info("모바일 메뉴 준비 중")}
+                >
+                  <Music className="h-5 w-5 text-[#CDFF00]" />
+                </Button>
+              </div>
+
+              <form onSubmit={handleSearch} className="flex items-center gap-2 sm:gap-[22px] flex-1 relative">
               <Search className="w-4 h-4 text-white/25" />
               <div className="flex-1 relative">
                 <Input
@@ -350,7 +314,13 @@ export function ChartsClient({
                   />
                 )}
               </div>
-            </form>
+              </form>
+
+              {/* User Menu */}
+              <div className="flex items-center">
+                <UserMenu />
+              </div>
+            </div>
           </header>
 
           <section className="flex-1 relative w-full px-6 py-6 pb-[150px] custom-scrollbar overflow-y-auto">

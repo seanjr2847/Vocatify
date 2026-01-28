@@ -1,8 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Home, Music, Radio, Search, Video, ListMusic, Heart } from "lucide-react";
+import { Music, Search } from "lucide-react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
@@ -11,22 +10,15 @@ import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { RankingItem, Song } from "@/lib/db";
 import { toast } from "sonner";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { Sidebar } from "@/components/Sidebar";
+import { Button } from "@/components/ui/button";
 
 interface SearchSong extends Song {
   matchedField?: 'title' | 'titleEnglish' | 'titleJapanese' | 'titleKorean' | 'titleRomaji' | 'artist';
   relevanceScore?: number;
 }
 
-const navigationItems = [
-  { icon: Home, alt: "홈", href: "/" },
-  { icon: Music, alt: "차트", href: "/charts" },
-  { icon: ListMusic, alt: "플레이리스트", href: "/playlists" },
-  { icon: Heart, alt: "즐겨찾기", href: "/favorites" },
-  { icon: Radio, alt: "라디오", href: "/radio" },
-  { icon: Video, alt: "비디오", href: null },
-];
-
-// Removed personalItems - replaced with UserMenu component
+// Navigation items moved to Sidebar component
 
 interface HomeClientProps {
   topCharts: RankingItem[];
@@ -172,14 +164,6 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
     setSelectedIndex(index);
   }, []);
 
-  const handleNavClick = (href: string | null, alt: string) => {
-    if (href) {
-      router.push(href);
-    } else {
-      toast.info(`${alt} 기능은 준비 중입니다`);
-    }
-  };
-
   const handlePlay = (song: RankingItem) => {
     // TODO: Implement play functionality with music player
     console.log("Playing song:", song.defaultName);
@@ -189,31 +173,8 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
   return (
     <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
       <div className="flex flex-1">
-        {/* Desktop Sidebar - hidden on mobile */}
-        <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6 bg-black">
-          <div className="w-[34px] h-[34px] flex items-center justify-center">
-            {/* 로고 플레이스홀더 - 로고 이미지를 추가하세요 */}
-          </div>
-
-          <nav className="flex flex-col items-center bg-white/5 rounded-[32px] p-4 gap-[30px] mt-10">
-            {navigationItems.map((item, index) => (
-              <Button
-                key={index}
-                variant="ghost"
-                size="icon"
-                className="w-[22px] h-[22px] p-0 hover:bg-transparent"
-                onClick={() => handleNavClick(item.href, item.alt)}
-                title={item.alt}
-              >
-                <item.icon className={`w-[22px] h-[22px] ${item.href ? 'text-white/60 hover:text-white' : 'text-white/40'}`} />
-              </Button>
-            ))}
-          </nav>
-
-          <div className="flex flex-col items-center gap-4 mt-auto">
-            <UserMenu />
-          </div>
-        </aside>
+        {/* Desktop Sidebar */}
+        <Sidebar />
 
         <main className="flex-1 flex flex-col">
           {/* Enhanced Responsive Header */}

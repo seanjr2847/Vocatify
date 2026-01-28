@@ -2,7 +2,7 @@
 
 import { RADIO_CHANNELS } from '@/lib/radio/channels';
 import RadioChannelCard from '@/components/radio/RadioChannelCard';
-import { Radio, Sparkles, Home, Music, Video, Search } from "lucide-react";
+import { Radio, Sparkles, Music, Search } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { Sidebar } from "@/components/Sidebar";
 import { toast } from "sonner";
 import type { Song } from "@/lib/db";
 
@@ -18,12 +19,7 @@ interface SearchSong extends Song {
   relevanceScore?: number;
 }
 
-const navigationItems = [
-  { icon: Home, alt: "홈", href: "/" },
-  { icon: Music, alt: "차트", href: "/charts" },
-  { icon: Radio, alt: "라디오", href: "/radio" },
-  { icon: Video, alt: "비디오", href: null },
-];
+// Navigation items moved to Sidebar component
 
 // SSR-safe deterministic particle positions based on index
 const PARTICLE_POSITIONS = [
@@ -171,42 +167,11 @@ export default function RadioPage() {
     setSelectedIndex(index);
   }, []);
 
-  const handleNavClick = (href: string | null, alt: string) => {
-    if (href) {
-      router.push(href);
-    } else {
-      toast.info(`${alt} 기능은 준비 중입니다`);
-    }
-  };
-
   return (
     <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
       <div className="flex flex-1">
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6">
-          <div className="w-[34px] h-[34px] flex items-center justify-center">
-            {/* 로고 플레이스홀더 */}
-          </div>
-
-          <nav className="flex flex-col items-center bg-dark-alt rounded-[32px] p-4 gap-[30px] mt-10">
-            {navigationItems.map((item, index) => (
-              <Button
-                key={index}
-                variant="ghost"
-                size="icon"
-                className="w-[22px] h-[22px] p-0 hover:bg-transparent"
-                onClick={() => handleNavClick(item.href, item.alt)}
-                title={item.alt}
-              >
-                <item.icon className={`w-[22px] h-[22px] ${item.href ? 'text-white/60 hover:text-white' : 'text-white/40'} ${item.alt === '라디오' ? '!text-[#CDFF00]' : ''}`} />
-              </Button>
-            ))}
-          </nav>
-
-          <div className="flex flex-col items-center gap-4 mt-auto">
-            <UserMenu />
-          </div>
-        </aside>
+        <Sidebar />
 
         <main className="flex-1 flex flex-col">
           {/* Header */}
