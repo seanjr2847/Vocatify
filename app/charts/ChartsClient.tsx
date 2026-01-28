@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,9 @@ import { RankingSongTableRow } from "@/components/charts/RankingSongTableRow";
 import { LoadMoreButton } from "@/components/charts/LoadMoreButton";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { UserMenu } from "@/components/auth/UserMenu";
-import type { RankingItem, SearchSong } from "@/lib/db";
+import { useSearchSuggestions } from "@/lib/hooks/useSearchSuggestions";
+import type { RankingItem } from "@/lib/db";
 import { toast } from "sonner";
-
-// Navigation items moved to Sidebar component
 
 interface TabData {
   data: RankingItem[];
@@ -39,15 +38,22 @@ export function ChartsClient({
 }: ChartsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<SearchSong[]>([]);
-  const [suggestionsTotal, setSuggestionsTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const searchCacheRef = useRef<Map<string, { data: SearchSong[]; total: number; timestamp: number }>>(new Map());
-  const CACHE_TTL = 5 * 60 * 1000;
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    suggestions,
+    suggestionsTotal,
+    isLoading,
+    showSuggestions,
+    setShowSuggestions,
+    selectedIndex,
+    inputRef,
+    handleSearch,
+    handleKeyDown,
+    handleCloseSuggestions,
+    handleSelectIndex,
+  } = useSearchSuggestions();
 
   // Get initial tab from URL query param
   const initialTab = (searchParams.get('tab') as TabType) || 'total';
@@ -89,123 +95,6 @@ export function ChartsClient({
     }
   }, [searchParams]);
 
-  // Debounced search for suggestions with caching
-  useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      setSelectedIndex(-1);
-      return;
-    }
-
-    const cached = searchCacheRef.current.get(searchQuery);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      setSuggestions(cached.data);
-      setSuggestionsTotal(cached.total);
-      setShowSuggestions(true);
-      setSelectedIndex(-1);
-      return;
-    }
-
-    setIsLoading(true);
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch(
-          `/api/songs?query=${encodeURIComponent(searchQuery)}&limit=7&sortBy=relevance`
-        );
-        const data = await response.json();
-
-        if (data.success) {
-          setSuggestions(data.data);
-          setSuggestionsTotal(data.pagination.total);
-          setShowSuggestions(true);
-          setSelectedIndex(-1);
-
-          searchCacheRef.current.set(searchQuery, {
-            data: data.data,
-            total: data.pagination.total,
-            timestamp: Date.now(),
-          });
-
-          if (searchCacheRef.current.size > 50) {
-            const entries = Array.from(searchCacheRef.current.entries());
-            entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-            entries.slice(0, 10).forEach(([key]) => searchCacheRef.current.delete(key));
-          }
-        }
-      } catch (error) {
-        console.error("검색 오류:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Handle keyboard navigation
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showSuggestions || suggestions.length === 0) {
-      if (e.key === 'Escape') {
-        setShowSuggestions(false);
-      }
-      return;
-    }
-
-    const maxIndex = suggestionsTotal > suggestions.length ? suggestions.length : suggestions.length - 1;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev < maxIndex ? prev + 1 : -1));
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev > -1 ? prev - 1 : maxIndex));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedIndex === -1) {
-          if (searchQuery.length >= 2) {
-            router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
-            setShowSuggestions(false);
-          }
-        } else if (selectedIndex === suggestions.length) {
-          router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
-          setShowSuggestions(false);
-        } else {
-          const song = suggestions[selectedIndex];
-          if (song) {
-            router.push(`/songs/${song.vocadbId}`);
-            setShowSuggestions(false);
-          }
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setShowSuggestions(false);
-        setSelectedIndex(-1);
-        inputRef.current?.blur();
-        break;
-    }
-  }, [showSuggestions, suggestions, suggestionsTotal, selectedIndex, searchQuery, router]);
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.length >= 2) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
-      setShowSuggestions(false);
-    }
-  };
-
-  const handleCloseSuggestions = useCallback(() => {
-    setShowSuggestions(false);
-    setSelectedIndex(-1);
-  }, []);
-
-  const handleSelectIndex = useCallback((index: number) => {
-    setSelectedIndex(index);
-  }, []);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
