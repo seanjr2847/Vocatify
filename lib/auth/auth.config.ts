@@ -6,6 +6,13 @@ export const authConfig: NextAuthConfig = {
     Google({
       clientId: process.env.AUTH_GOOGLE_ID!,
       clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
     }),
   ],
   pages: {
@@ -13,12 +20,23 @@ export const authConfig: NextAuthConfig = {
   },
   trustHost: true,
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+  cookies: {
+    sessionToken: {
+      name: `${process.env.NODE_ENV === "production" ? "__Secure-" : ""}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnProtectedRoute =
         nextUrl.pathname.startsWith("/profile") ||
-        nextUrl.pathname.startsWith("/playlists") ||
+        (nextUrl.pathname.startsWith("/playlists") && !nextUrl.pathname.startsWith("/playlists/public")) ||
         nextUrl.pathname.startsWith("/settings");
 
       if (isOnProtectedRoute) {
