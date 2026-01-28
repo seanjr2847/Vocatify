@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Radio } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import { PlayButton } from '@/components/PlayButton';
+import { AddToPlaylistButton } from '@/components/user/AddToPlaylistButton';
 import type { RankingItem } from '@/lib/db';
 import { formatNumber, getDisplayTitle, getYouTubeThumbnail } from '@/lib/utils/format-utils';
 
@@ -39,7 +40,7 @@ const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
   return (
     <div
       onClick={handleRowClick}
-      className={`grid grid-cols-[auto_2fr_1.5fr_1fr_auto_auto] gap-6 py-4 px-6
+      className={`grid grid-cols-[auto_2fr_1.5fr_1fr_auto_auto_auto] gap-6 py-4 px-6
                  hover:bg-white/5 border-b border-white/5 cursor-pointer group transition-all ${
                    isTopThree ? 'shadow-[0_0_20px_rgba(205,255,0,0.1)]' : ''
                  }`}
@@ -77,6 +78,19 @@ const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
       {/* Metric (Views/Increase) */}
       <div className="text-[#CDFF00] font-medium self-center" title={displayMetric.label}>
         {displayMetric.value}
+      </div>
+
+      {/* Playlist Button */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="opacity-0 group-hover:opacity-100 transition-opacity self-center"
+      >
+        <AddToPlaylistButton
+          songId={song.vocadbId}
+          songTitle={getDisplayTitle(song)}
+          variant="ghost"
+          size="icon"
+        />
       </div>
 
       {/* Radio Button */}
