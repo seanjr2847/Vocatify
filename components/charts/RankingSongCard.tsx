@@ -3,7 +3,7 @@
 import React, { memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Radio } from 'lucide-react';
+import { Radio, Plus } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import { PlayButton } from '@/components/PlayButton';
 import { AddToPlaylistButton } from '@/components/user/AddToPlaylistButton';
@@ -26,8 +26,13 @@ function formatPublishDateWithSuffix(date: Date | string | null | undefined): st
 
 const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
   const router = useRouter();
-  const { startRadio } = useMusicPlayer();
+  const { addToPlaylist, startRadio } = useMusicPlayer();
 
+
+  const handleAddToQueue = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    addToPlaylist(song);
+  }, [addToPlaylist, song]);
 
   const handleRadioClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -106,6 +111,14 @@ const RankingSongCardComponent = ({ song }: RankingSongCardProps) => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={handleAddToQueue}
+            className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10"
+            aria-label="재생 큐에 추가"
+            title="재생 큐에 추가"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
           <div onClick={(e) => e.stopPropagation()}>
             <AddToPlaylistButton
               songId={song.vocadbId}

@@ -3,7 +3,7 @@
 import React, { memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Radio } from 'lucide-react';
+import { Radio, Plus } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import { PlayButton } from '@/components/PlayButton';
 import { AddToPlaylistButton } from '@/components/user/AddToPlaylistButton';
@@ -16,7 +16,12 @@ interface RankingSongTableRowProps {
 
 const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
   const router = useRouter();
-  const { startRadio } = useMusicPlayer();
+  const { addToPlaylist, startRadio } = useMusicPlayer();
+
+  const handleAddToQueue = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    addToPlaylist(song);
+  }, [addToPlaylist, song]);
 
   const handleRadioClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -40,7 +45,7 @@ const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
   return (
     <div
       onClick={handleRowClick}
-      className={`grid grid-cols-[auto_2fr_1.5fr_1fr_auto_auto_auto] gap-6 py-4 px-6
+      className={`grid grid-cols-[auto_2fr_1.5fr_1fr_auto_auto_auto_auto] gap-6 py-4 px-6
                  hover:bg-white/5 border-b border-white/5 cursor-pointer group transition-all ${
                    isTopThree ? 'shadow-[0_0_20px_rgba(205,255,0,0.1)]' : ''
                  }`}
@@ -79,6 +84,18 @@ const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
       <div className="text-[#CDFF00] font-medium self-center" title={displayMetric.label}>
         {displayMetric.value}
       </div>
+
+      {/* Add to Queue Button */}
+      <button
+        onClick={handleAddToQueue}
+        className="opacity-0 group-hover:opacity-100 transition-opacity self-center
+                   w-9 h-9 flex items-center justify-center text-white/60 hover:text-white
+                   rounded-full hover:bg-white/10"
+        aria-label="재생 큐에 추가"
+        title="재생 큐에 추가"
+      >
+        <Plus className="w-5 h-5" />
+      </button>
 
       {/* Playlist Button */}
       <div
