@@ -111,7 +111,9 @@ export function YouTubePlayer() {
       // Set initial video ID
       setCurrentVideoId(newVideoId);
     }
-  }, [state.currentSong?.youtubeId, isReady]);
+    // playerRef is a ref object and doesn't need to be in dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentSong?.youtubeId, isReady, currentVideoId, state.currentSong]);
 
   // Don't render player if no song is selected or no YouTube ID
   if (!state.currentSong || state.currentSong.youtubeId == null) {

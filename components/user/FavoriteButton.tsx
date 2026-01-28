@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,17 +29,7 @@ export function FavoriteButton({
   const [isFavorited, setIsFavorited] = useState(initialFavorited);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Check favorite status when user logs in
-  useEffect(() => {
-    if (status === "authenticated" && session?.user?.id) {
-      // Only check if we don't have initial state
-      if (!initialFavorited) {
-        checkFavoriteStatus();
-      }
-    }
-  }, [status, session?.user?.id]);
-
-  const checkFavoriteStatus = async () => {
+  const checkFavoriteStatus = useCallback(async () => {
     try {
       const response = await fetch(`/api/user/favorites`);
       if (response.ok) {
@@ -50,7 +40,17 @@ export function FavoriteButton({
     } catch (error) {
       console.error("Failed to check favorite status:", error);
     }
-  };
+  }, [songId]);
+
+  // Check favorite status when user logs in or songId changes
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.id) {
+      // Only check if we don't have initial state
+      if (!initialFavorited) {
+        checkFavoriteStatus();
+      }
+    }
+  }, [status, session?.user?.id, initialFavorited, checkFavoriteStatus]);
 
   const handleToggleFavorite = async () => {
     // Redirect to signin if not authenticated

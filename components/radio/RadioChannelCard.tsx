@@ -18,7 +18,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const handleStart = async () => {
+  const handleStart = useCallback(async () => {
     setIsLoading(true);
     try {
       await startRadio(channel.slug);
@@ -29,7 +29,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [startRadio, channel.slug, channel.nameKo]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -38,7 +38,7 @@ export default function RadioChannelCard({ channel }: RadioChannelCardProps) {
         handleStart();
       }
     }
-  }, [isLoading]);
+  }, [isLoading, handleStart]);
 
   // Get algorithm display info
   const algorithmInfo = channel.algorithm === 'popular'
