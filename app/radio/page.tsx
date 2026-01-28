@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { UserMenu } from "@/components/auth/UserMenu";
-import { Sidebar } from "@/components/Sidebar";
 import { toast } from "sonner";
 import type { Song } from "@/lib/db";
 
@@ -169,11 +168,7 @@ export default function RadioPage() {
 
   return (
     <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
-      <div className="flex flex-1">
-        {/* Desktop Sidebar */}
-        <Sidebar />
-
-        <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col">
           {/* Header */}
           <header className="sticky top-0 z-50 h-[73px] bg-black/95 backdrop-blur-md border-b border-white/5 flex items-center px-4 sm:px-6 lg:px-[27px]">
             <div className="flex items-center gap-3 sm:gap-[22px] w-full">
@@ -359,7 +354,6 @@ export default function RadioPage() {
             </div>
           </section>
         </main>
-      </div>
 
       {/* Music Player */}
       <section className="relative w-full">

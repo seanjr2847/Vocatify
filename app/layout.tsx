@@ -4,6 +4,7 @@ import "./globals.css";
 import { MusicPlayerProvider } from "@/lib/MusicPlayerContext";
 import { Toaster } from "sonner";
 import { SessionProvider } from "next-auth/react";
+import { RootLayoutClient } from "@/components/RootLayoutClient";
 
 const quicksand = Quicksand({
   subsets: ["latin"],
@@ -31,7 +32,9 @@ export default function RootLayout({
       <body className={`${quicksand.variable} ${notoSansKr.variable} font-sans`} style={{ fontFamily: 'var(--font-noto-sans-kr), var(--font-quicksand), sans-serif' }}>
         <SessionProvider>
           <MusicPlayerProvider>
-            {children}
+            <RootLayoutClient>
+              {children}
+            </RootLayoutClient>
             <Toaster richColors position="top-center" />
           </MusicPlayerProvider>
         </SessionProvider>

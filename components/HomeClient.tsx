@@ -10,7 +10,6 @@ import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { RankingItem, Song } from "@/lib/db";
 import { toast } from "sonner";
 import { UserMenu } from "@/components/auth/UserMenu";
-import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 
 interface SearchSong extends Song {
@@ -166,11 +165,7 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
 
   return (
     <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
-      <div className="flex flex-1">
-        {/* Desktop Sidebar */}
-        <Sidebar />
-
-        <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col">
           {/* Enhanced Responsive Header */}
           <header className="sticky top-0 z-50 h-[73px] bg-black/95 backdrop-blur-md border-b border-white/5 flex items-center px-4 sm:px-6 lg:px-[27px]">
             <div className="flex items-center gap-3 sm:gap-[22px] w-full">
@@ -237,7 +232,6 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
             />
           </section>
         </main>
-      </div>
 
       <section className="relative w-full">
         <MusicPlayerSection />
