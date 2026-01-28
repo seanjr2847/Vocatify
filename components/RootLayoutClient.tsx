@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
+import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { ReactNode } from "react";
 
 export function RootLayoutClient({ children }: { children: ReactNode }) {
@@ -11,11 +12,16 @@ export function RootLayoutClient({ children }: { children: ReactNode }) {
   const hidesSidebar = pathname === "/signin";
 
   return (
-    <div className="flex min-h-screen bg-black">
-      {!hidesSidebar && <Sidebar />}
-      <div className="flex-1">
-        {children}
+    <>
+      <div className="flex min-h-screen bg-black">
+        {!hidesSidebar && <Sidebar />}
+        <div className="flex-1">
+          {children}
+        </div>
       </div>
-    </div>
+
+      {/* Music Player - Always visible on all pages */}
+      <MusicPlayerSection />
+    </>
   );
 }

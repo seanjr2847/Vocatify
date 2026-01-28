@@ -7,7 +7,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { toast } from "sonner";
@@ -354,11 +353,6 @@ export default function RadioPage() {
             </div>
           </section>
         </main>
-
-      {/* Music Player */}
-      <section className="relative w-full">
-        <MusicPlayerSection />
-      </section>
     </div>
   );
 }

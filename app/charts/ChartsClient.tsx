@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Music, Search } from "lucide-react";
-import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { ChartsTabNavigation, type TabType } from "@/components/charts/ChartsTabNavigation";
 import { RankingSongCard } from "@/components/charts/RankingSongCard";
 import { RankingSongTableRow } from "@/components/charts/RankingSongTableRow";
@@ -373,10 +372,6 @@ export function ChartsClient({
             )}
           </section>
         </main>
-
-      <section className="relative w-full">
-        <MusicPlayerSection />
-      </section>
     </div>
   );
 }

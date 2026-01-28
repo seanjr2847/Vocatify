@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Music, Search } from "lucide-react";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { MusicPlayerSection } from "@/components/MusicPlayerSection";
 import { NavigationSection } from "@/components/NavigationSection";
 import { SearchSuggestions } from "@/components/SearchSuggestions";
 import { RankingItem, Song } from "@/lib/db";
@@ -232,10 +231,6 @@ export function HomeClient({ topCharts, newReleases, popularSongs }: HomeClientP
             />
           </section>
         </main>
-
-      <section className="relative w-full">
-        <MusicPlayerSection />
-      </section>
     </div>
   );
 }
