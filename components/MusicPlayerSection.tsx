@@ -19,7 +19,17 @@ import { FullscreenPlaylistView } from "./FullscreenPlaylistView";
 import { getDisplayTitle, getYouTubeThumbnail } from "@/lib/utils/format-utils";
 
 export const MusicPlayerSection = (): JSX.Element => {
-  const { state, togglePlay, seekTo, setVolume, toggleFullscreen } = useMusicPlayer();
+  const {
+    state,
+    togglePlay,
+    seekTo,
+    setVolume,
+    toggleFullscreen,
+    playPrevious,
+    playNextInQueue,
+    toggleShuffle,
+    toggleRepeat
+  } = useMusicPlayer();
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!state.duration) return;
@@ -81,16 +91,24 @@ export const MusicPlayerSection = (): JSX.Element => {
             <Button
               variant="ghost"
               size="icon"
-              className="h-auto w-auto p-0 hover:bg-transparent opacity-50 cursor-not-allowed"
-              disabled
+              className={`h-auto w-auto p-0 hover:bg-transparent transition-all duration-200 ${
+                state.isShuffleEnabled
+                  ? 'opacity-100 text-[#39c5bb]'
+                  : 'opacity-50 hover:opacity-100'
+              }`}
+              onClick={toggleShuffle}
+              disabled={!state.currentSong}
             >
-              <Shuffle className="w-[26px] h-[26px] text-white" />
+              <Shuffle className={`w-[26px] h-[26px] transition-colors ${
+                state.isShuffleEnabled ? 'text-[#39c5bb]' : 'text-white'
+              }`} />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-auto w-auto p-0 hover:bg-transparent opacity-50 cursor-not-allowed"
-              disabled
+              className="h-auto w-auto p-0 hover:bg-transparent opacity-50 hover:opacity-100 transition-opacity"
+              onClick={playPrevious}
+              disabled={!state.currentSong}
             >
               <SkipBack className="w-[26px] h-[26px] text-white" />
             </Button>
@@ -112,18 +130,33 @@ export const MusicPlayerSection = (): JSX.Element => {
             <Button
               variant="ghost"
               size="icon"
-              className="h-auto w-auto p-0 hover:bg-transparent opacity-50 cursor-not-allowed"
-              disabled
+              className="h-auto w-auto p-0 hover:bg-transparent opacity-50 hover:opacity-100 transition-opacity"
+              onClick={playNextInQueue}
+              disabled={!state.currentSong || state.playlist.length === 0}
             >
               <SkipForward className="w-[26px] h-[26px] text-white" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-auto w-auto p-0 hover:bg-transparent opacity-50 cursor-not-allowed"
-              disabled
+              className={`h-auto w-auto p-0 hover:bg-transparent transition-all duration-200 ${
+                state.repeatMode !== 'off'
+                  ? 'opacity-100 text-[#39c5bb]'
+                  : 'opacity-50 hover:opacity-100'
+              }`}
+              onClick={toggleRepeat}
+              disabled={!state.currentSong}
             >
-              <Repeat className="w-[26px] h-[26px] text-white" />
+              <div className="relative">
+                <Repeat className={`w-[26px] h-[26px] transition-colors ${
+                  state.repeatMode !== 'off' ? 'text-[#39c5bb]' : 'text-white'
+                }`} />
+                {state.repeatMode === 'one' && (
+                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold text-[#39c5bb]">
+                    1
+                  </span>
+                )}
+              </div>
             </Button>
           </div>
 

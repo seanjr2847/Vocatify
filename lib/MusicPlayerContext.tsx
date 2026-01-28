@@ -21,6 +21,9 @@ interface PlayerState {
   radioChannel: { slug: string; name: string } | null; // 현재 라디오 채널
   radioTags: string[]; // 라디오 태그 목록
   radioPlayedIds: number[]; // 이미 재생된 곡 ID들
+  // Playback controls
+  isShuffleEnabled: boolean;
+  repeatMode: 'off' | 'all' | 'one'; // off: 반복 없음, all: 전체 반복, one: 한 곡 반복
 }
 
 interface MusicPlayerContextValue {
@@ -44,6 +47,10 @@ interface MusicPlayerContextValue {
   startRadio: (channelSlug: string) => Promise<void>;
   stopRadio: () => void;
   playNextInQueue: () => void;
+  // Playback controls
+  playPrevious: () => void;
+  toggleShuffle: () => void;
+  toggleRepeat: () => void;
 }
 
 const MusicPlayerContext = createContext<MusicPlayerContextValue | undefined>(undefined);
@@ -85,6 +92,9 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     radioChannel: null,
     radioTags: [],
     radioPlayedIds: [],
+    // Playback controls
+    isShuffleEnabled: false,
+    repeatMode: 'off',
     ...loadPlaylistFromSession(), // Session Storage에서 복원
   }));
 
@@ -104,12 +114,24 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         radioChannel: state.radioChannel,
         radioTags: state.radioTags,
         radioPlayedIds: state.radioPlayedIds,
+        isShuffleEnabled: state.isShuffleEnabled,
+        repeatMode: state.repeatMode,
       };
       sessionStorage.setItem('vocatify_playlist', JSON.stringify(dataToSave));
     } catch (error) {
       console.error('Failed to save playlist to session storage:', error);
     }
-  }, [state.playlist, state.playlistSource, state.currentSong, state.isRadioMode, state.radioChannel, state.radioTags, state.radioPlayedIds]);
+  }, [
+    state.playlist,
+    state.playlistSource,
+    state.currentSong,
+    state.isRadioMode,
+    state.radioChannel,
+    state.radioTags,
+    state.radioPlayedIds,
+    state.isShuffleEnabled,
+    state.repeatMode
+  ]);
 
   // Update current time while playing
   useEffect(() => {
@@ -338,8 +360,25 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
   const playNextInQueue = useCallback(() => {
     setState(prev => {
+      // Repeat one song
+      if (prev.repeatMode === 'one' && prev.currentSong) {
+        // Replay current song
+        if (playerRef.current) {
+          playerRef.current.seekTo(0);
+          playerRef.current.playVideo();
+        }
+        return { ...prev, currentTime: 0 };
+      }
+
       if (prev.playlist.length === 0) {
         // No more songs in queue
+        if (prev.repeatMode === 'all' && prev.currentSong) {
+          // Add current song back to playlist to continue loop
+          return {
+            ...prev,
+            playlist: [prev.currentSong],
+          };
+        }
         if (prev.isRadioMode) {
           // Fetch more songs for radio mode (will be handled by useEffect)
           return prev;
@@ -347,12 +386,24 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return { ...prev, isPlaying: false };
       }
 
-      const [nextSong, ...remainingPlaylist] = prev.playlist;
+      // Shuffle: pick a random song from playlist
+      let nextSongIndex = 0;
+      if (prev.isShuffleEnabled && prev.playlist.length > 1) {
+        nextSongIndex = Math.floor(Math.random() * prev.playlist.length);
+      }
+
+      const nextSong = prev.playlist[nextSongIndex];
+      const remainingPlaylist = prev.playlist.filter((_, idx) => idx !== nextSongIndex);
+
+      // If repeat all is enabled, add current song back to playlist
+      const newPlaylist = prev.repeatMode === 'all' && prev.currentSong
+        ? [...remainingPlaylist, prev.currentSong]
+        : remainingPlaylist;
 
       return {
         ...prev,
         currentSong: nextSong,
-        playlist: remainingPlaylist,
+        playlist: newPlaylist,
         radioPlayedIds: prev.isRadioMode
           ? [...prev.radioPlayedIds, nextSong.vocadbId]
           : prev.radioPlayedIds,
@@ -391,6 +442,66 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     fetchMoreRadioSongs();
   }, [state.isRadioMode, state.playlist.length, state.radioChannel, state.radioPlayedIds, convertApiSongToSong]);
 
+  const playPrevious = useCallback(() => {
+    setState(prev => {
+      // If there's no current song, do nothing
+      if (!prev.currentSong) return prev;
+
+      // If we're more than 3 seconds into the song, restart it
+      if (prev.currentTime > 3) {
+        if (playerRef.current) {
+          playerRef.current.seekTo(0);
+          playerRef.current.playVideo();
+        }
+        return { ...prev, currentTime: 0 };
+      }
+
+      // Otherwise, play the last song from the playlist
+      if (prev.playlist.length === 0) {
+        // No previous song, just restart current
+        if (playerRef.current) {
+          playerRef.current.seekTo(0);
+          playerRef.current.playVideo();
+        }
+        return { ...prev, currentTime: 0 };
+      }
+
+      // Get the last song from playlist
+      const previousSong = prev.playlist[prev.playlist.length - 1];
+      const newPlaylist = prev.playlist.slice(0, -1);
+
+      // Add current song back to the beginning of playlist
+      const updatedPlaylist = [prev.currentSong, ...newPlaylist];
+
+      return {
+        ...prev,
+        currentSong: previousSong,
+        playlist: updatedPlaylist,
+        currentTime: 0,
+      };
+    });
+  }, []);
+
+  const toggleShuffle = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      isShuffleEnabled: !prev.isShuffleEnabled,
+    }));
+  }, []);
+
+  const toggleRepeat = useCallback(() => {
+    setState(prev => {
+      const modes: Array<'off' | 'all' | 'one'> = ['off', 'all', 'one'];
+      const currentIndex = modes.indexOf(prev.repeatMode);
+      const nextMode = modes[(currentIndex + 1) % modes.length];
+
+      return {
+        ...prev,
+        repeatMode: nextMode,
+      };
+    });
+  }, []);
+
   const value: MusicPlayerContextValue = {
     state,
     playSong,
@@ -412,6 +523,10 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     startRadio,
     stopRadio,
     playNextInQueue,
+    // Playback controls
+    playPrevious,
+    toggleShuffle,
+    toggleRepeat,
   };
 
   return (

@@ -2,14 +2,8 @@
 
 import { RADIO_CHANNELS } from '@/lib/radio/channels';
 import RadioChannelCard from '@/components/radio/RadioChannelCard';
-import { Radio, Sparkles, Music, Search } from "lucide-react";
+import { Radio, Sparkles } from "lucide-react";
 import { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { SearchSuggestions } from "@/components/SearchSuggestions";
-import { UserMenu } from "@/components/auth/UserMenu";
-import { useSearchSuggestions } from "@/lib/hooks/useSearchSuggestions";
-import { toast } from "sonner";
 
 // SSR-safe deterministic particle positions based on index
 const PARTICLE_POSITIONS = [
@@ -26,22 +20,6 @@ const PARTICLE_POSITIONS = [
 export default function RadioPage() {
   const [mounted, setMounted] = useState(false);
 
-  const {
-    searchQuery,
-    setSearchQuery,
-    suggestions,
-    suggestionsTotal,
-    isLoading,
-    showSuggestions,
-    setShowSuggestions,
-    selectedIndex,
-    inputRef,
-    handleSearch,
-    handleKeyDown,
-    handleCloseSuggestions,
-    handleSelectIndex,
-  } = useSearchSuggestions();
-
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -49,64 +27,6 @@ export default function RadioPage() {
   return (
     <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
       <main className="flex-1 flex flex-col">
-          {/* Header */}
-          <header className="sticky top-0 z-50 h-[73px] bg-black/95 backdrop-blur-md border-b border-white/5 flex items-center px-4 sm:px-6 lg:px-[27px]">
-            <div className="flex items-center gap-3 sm:gap-[22px] w-full">
-              {/* Mobile Navigation Button */}
-              <div className="flex lg:hidden items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full hover:bg-[#CDFF00]/10"
-                  onClick={() => toast.info("모바일 메뉴 준비 중")}
-                >
-                  <Music className="h-5 w-5 text-[#CDFF00]" />
-                </Button>
-              </div>
-
-              {/* Search Form */}
-              <form onSubmit={handleSearch} className="flex items-center gap-2 sm:gap-[22px] flex-1 relative">
-                <Search className="w-4 h-4 text-white/25" />
-                <div className="flex-1 relative">
-                  <Input
-                    ref={inputRef}
-                    type="text"
-                    placeholder="곡, 아티스트 검색 (로마지 지원)"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onFocus={() => {
-                      if (searchQuery.length >= 2 && suggestions.length > 0) {
-                        setShowSuggestions(true);
-                      }
-                    }}
-                    className="border-0 bg-transparent text-sm font-semibold text-white placeholder:text-white/25 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 h-auto [font-family:'Quicksand-SemiBold',Helvetica] w-full"
-                    autoComplete="off"
-                    aria-autocomplete="list"
-                    aria-controls="search-suggestions"
-                    aria-expanded={showSuggestions}
-                  />
-                  {showSuggestions && (
-                    <SearchSuggestions
-                      suggestions={suggestions}
-                      query={searchQuery}
-                      total={suggestionsTotal}
-                      isLoading={isLoading}
-                      selectedIndex={selectedIndex}
-                      onClose={handleCloseSuggestions}
-                      onSelectIndex={handleSelectIndex}
-                    />
-                  )}
-                </div>
-              </form>
-
-              {/* User Menu */}
-              <div className="flex items-center">
-                <UserMenu />
-              </div>
-            </div>
-          </header>
-
           {/* Main Content - with safe-area padding for mobile */}
           <section
             className="flex-1 relative w-full py-6 overflow-y-auto"
@@ -149,86 +69,51 @@ export default function RadioPage() {
                       <div className="relative bg-gradient-to-br from-[#CDFF00]/20 to-[#CDFF00]/10 p-4 rounded-2xl border border-[#CDFF00]/30">
                         <Radio className="h-8 w-8 md:h-10 md:w-10 text-[#CDFF00]" />
 
-                        {/* Live indicator dot */}
-                        <div
-                          className="absolute -top-1 -right-1 w-3 h-3 bg-[#CDFF00] rounded-full radio-animate-live-pulse"
-                          aria-label="라이브"
-                        >
-                          <div className="absolute inset-0 bg-[#CDFF00] rounded-full animate-ping opacity-75" />
+                        {/* Live pulse indicator */}
+                        <div className="absolute -top-1 -right-1">
+                          <span className="flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#CDFF00] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#CDFF00]"></span>
+                          </span>
                         </div>
                       </div>
                     </div>
 
                     <div>
-                      <h1
-                        className="text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-tight"
-                        style={{
-                          fontFamily: "'Plus Jakarta Sans', sans-serif",
-                          textShadow: '0 0 40px rgba(205, 255, 0, 0.3)',
-                        }}
-                      >
-                        라디오 채널
-                      </h1>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Sparkles className="w-4 h-4 text-[#CDFF00]/70" aria-hidden="true" />
-                        <p
-                          className="text-white/50 text-xs sm:text-sm tracking-wide uppercase"
-                          style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.1em' }}
-                        >
-                          Infinite Discovery Mode
-                        </p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white">라디오</h1>
+                        <span className="px-3 py-1 bg-[#CDFF00]/20 text-[#CDFF00] text-xs font-bold rounded-full border border-[#CDFF00]/30 animate-pulse">
+                          LIVE
+                        </span>
                       </div>
+                      <p className="text-base md:text-lg text-gray-400">24/7 보컬로이드 음악 스트리밍</p>
                     </div>
                   </div>
 
-                  {/* Subtitle */}
-                  <p
-                    className="text-lg md:text-xl text-white/70 max-w-2xl leading-relaxed ml-0 md:ml-[88px]"
-                    style={{ fontFamily: "'Inter', sans-serif" }}
-                  >
-                    당신을 위한 무한 재생 - 기분에 맞는 음악을 자동으로
-                  </p>
-
-                  {/* Decorative line */}
-                  <div className="mt-6 ml-0 md:ml-[88px] h-[1px] w-48 md:w-64 bg-gradient-to-r from-[#CDFF00]/50 via-[#CDFF00]/20 to-transparent" aria-hidden="true" />
+                  {/* Enhanced Tagline */}
+                  <div className="flex items-start gap-3 bg-gradient-to-r from-[#CDFF00]/10 to-transparent p-4 rounded-xl border-l-2 border-[#CDFF00]">
+                    <Sparkles className="h-5 w-5 text-[#CDFF00] flex-shrink-0 mt-0.5" />
+                    <p className="text-gray-300 text-sm md:text-base leading-relaxed">
+                      다양한 분위기의 채널에서 엄선된 보컬로이드 음악을 즐겨보세요.
+                      <br />
+                      <span className="text-[#CDFF00] font-semibold">끊김 없는 연속 재생</span>으로 당신만의 음악 여정을 시작하세요.
+                    </p>
+                  </div>
                 </div>
 
-                {/* Channel Grid with Staggered Animation - improved spacing */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 lg:gap-10 mb-12 md:mb-16">
-                  {RADIO_CHANNELS.map((channel, idx) => (
+                {/* Channels Grid with staggered animation */}
+                <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 transition-all duration-1000 delay-200 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+                  {RADIO_CHANNELS.map((channel, index) => (
                     <div
                       key={channel.slug}
-                      className={`transition-all duration-700 ${
-                        mounted
-                          ? 'opacity-100 translate-y-0'
-                          : 'opacity-0 translate-y-8'
-                      }`}
                       style={{
-                        transitionDelay: `${200 + idx * 150}ms`,
+                        animationDelay: mounted ? `${index * 100}ms` : '0ms',
                       }}
+                      className={mounted ? 'animate-fadeInUp' : 'opacity-0'}
                     >
                       <RadioChannelCard channel={channel} />
                     </div>
                   ))}
-                </div>
-
-                {/* Enhanced Info Section */}
-                <div
-                  className={`transition-all duration-1000 ${
-                    mounted
-                      ? 'opacity-100 translate-y-0'
-                      : 'opacity-0 translate-y-8'
-                  }`}
-                  style={{ transitionDelay: '800ms' }}
-                >
-                  <div className="relative rounded-2xl md:rounded-3xl overflow-hidden">
-                    {/* Glassmorphic background */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a]/90 to-[#0a0a0a]/90 backdrop-blur-xl" />
-                    <div className="absolute inset-0 border border-white/[0.08] rounded-2xl md:rounded-3xl" />
-
-                    {/* Subtle gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#CDFF00]/5 via-transparent to-[#CDFF00]/3" aria-hidden="true" />
-                  </div>
                 </div>
               </div>
             </div>

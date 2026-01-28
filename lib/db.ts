@@ -1024,9 +1024,13 @@ export async function getStats(): Promise<{
  */
 export async function getSongRankPositions(vocadbId: number): Promise<RankingPositions> {
   // Use pre-computed ranking cache for fast lookups
-  const [totalRank, weeklyRank] = await Promise.all([
+  const [totalRank, dailyRank, weeklyRank] = await Promise.all([
     prisma.ranking_cache.findFirst({
       where: { ranking_type: 'total', song_id: vocadbId },
+      select: { rank: true },
+    }),
+    prisma.ranking_cache.findFirst({
+      where: { ranking_type: 'daily', song_id: vocadbId },
       select: { rank: true },
     }),
     prisma.ranking_cache.findFirst({
@@ -1037,7 +1041,7 @@ export async function getSongRankPositions(vocadbId: number): Promise<RankingPos
 
   return {
     total: totalRank?.rank ?? null,
-    daily: null, // Daily rankings not cached yet
+    daily: dailyRank?.rank ?? null,
     weekly: weeklyRank?.rank ?? null,
   };
 }
