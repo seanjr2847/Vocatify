@@ -5,8 +5,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Calendar, Eye, Star, Tag, Play, Heart, Clock, Trophy, TrendingUp, Globe, Share2, Plus } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { ArrowLeft, Calendar, Eye, Star, Tag, Clock, Trophy, TrendingUp, Globe } from 'lucide-react';
 import { MusicPlayerSection } from '@/components/MusicPlayerSection';
 import { SongActionButtons } from '@/components/SongActionButtons';
 import { DailyViewsChart } from '@/components/charts/DailyViewsChart';
@@ -18,7 +17,7 @@ import { RelatedSongsCarousel } from '@/components/RelatedSongsCarousel';
 import { ArtistsByRole } from '@/components/ArtistsByRole';
 import { TagList } from '@/components/TagList';
 import type { Song, SongDetail, DailyViewCount, RankingPositions, SongStatistics } from '@/lib/db';
-import { formatNumber, formatDate, getDisplayTitle, formatDuration } from '@/lib/utils/format-utils';
+import { formatNumber, formatDate, formatDuration } from '@/lib/utils/format-utils';
 
 // Extended song detail with computed fields for UI
 interface SongDetailExtended extends SongDetail {
@@ -41,6 +40,7 @@ interface ApiResponse {
     rankings: RankingPositions;
     relatedSongs: Song[];
     statistics: SongStatistics | null;
+    isFavorited: boolean;
   };
   error?: string;
 }
@@ -75,7 +75,7 @@ export default async function SongDetailPage({
     notFound();
   }
 
-  const { song, dailyViews, rankings, relatedSongs, statistics } = response.data;
+  const { song, dailyViews, rankings, relatedSongs, statistics, isFavorited } = response.data;
 
   // 최근 7일 증가량 계산
   const recentViews = dailyViews.slice(-7);
@@ -148,7 +148,7 @@ export default async function SongDetailPage({
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-8 py-6 pb-player-offset">
         {/* Action Buttons */}
-        <SongActionButtons song={song} />
+        <SongActionButtons song={song} initialIsFavorited={isFavorited} />
 
         {/* Rankings Section - Enhanced */}
         {rankings && (rankings.total || rankings.daily || rankings.weekly) && (

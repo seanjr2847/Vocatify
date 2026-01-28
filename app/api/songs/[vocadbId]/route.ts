@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth/auth';
 import {
   getSongById,
   getDailyViewCounts,
@@ -11,6 +12,7 @@ import {
   getRelatedSongsByArtist,
   getSongStatistics,
 } from '@/lib/db';
+import { isSongFavorited } from '@/lib/db/user';
 import { serializeBigInt } from '@/lib/serialize';
 
 export async function GET(
@@ -78,8 +80,11 @@ export async function GET(
       youtubeUrl,
     };
 
+    // Check authentication for favorite status
+    const session = await auth();
+
     // 병렬로 추가 데이터 조회
-    const [dailyViews, rankings, relatedSongs, statistics] = await Promise.all([
+    const [dailyViews, rankings, relatedSongs, statistics, isFavorited] = await Promise.all([
       Promise.resolve(getDailyViewCounts(vocadbId, 30)),
       Promise.resolve(getSongRankPositions(vocadbId)).catch((error) => {
         console.error('Rankings fetch failed:', error);
@@ -95,6 +100,9 @@ export async function GET(
         console.error('Statistics fetch failed:', error);
         return null;
       }),
+      session?.user?.id
+        ? isSongFavorited(session.user.id, vocadbId)
+        : Promise.resolve(false),
     ]);
 
     return NextResponse.json(
@@ -106,6 +114,7 @@ export async function GET(
           rankings,
           relatedSongs,
           statistics,
+          isFavorited,
         }),
       },
       {
