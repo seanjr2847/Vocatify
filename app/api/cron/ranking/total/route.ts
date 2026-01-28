@@ -11,7 +11,7 @@ import { updateSingleRankingCache } from '@/lib/ranking-updater';
  */
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30; // 30 seconds max
+export const maxDuration = 60; // 60 seconds max (requires Vercel Pro)
 
 export async function POST(request: NextRequest) {
   try {
