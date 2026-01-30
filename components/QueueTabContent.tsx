@@ -170,58 +170,64 @@ export function QueueTabContent() {
         </div>
       )}
 
-      {/* PLAYING FROM */}
-      {state.currentSong && (
-        <div className="mb-8">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            Playing from: {state.playlistSource || 'Queue'}
-          </h3>
-          <div className="flex items-center gap-4 p-4 rounded-lg bg-[#39c5bb15] border border-[#39c5bb30]">
-            <div className="relative w-16 h-16 rounded overflow-hidden flex-shrink-0">
-              <Image
-                src={currentSongThumbnail}
-                alt={getDisplayTitle(state.currentSong)}
-                fill
-                className="object-cover"
-                sizes="64px"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-medium truncate">{getDisplayTitle(state.currentSong)}</p>
-              <p className="text-gray-400 text-sm truncate">{state.currentSong.artistString}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* NEXT UP FROM - 드래그 가능 */}
-      {state.playlist.length > 0 && (
+      {/* QUEUE - 현재 재생 중 + 다음 곡 통합 */}
+      {(state.currentSong || state.playlist.length > 0) && (
         <div>
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            Next up from: {state.playlistSource || 'Queue'}
+            Playing from {state.playlistSource || 'Queue'}
             <span className="ml-2 text-gray-500 normal-case">(드래그하여 순서 변경)</span>
           </h3>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={playlistIds}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-1">
-                {state.playlist.map((song) => (
-                  <SortableSongItem
-                    key={song.vocadbId}
-                    song={song}
-                    onPlay={() => playSong(song)}
-                    onRemove={() => removeFromPlaylist(song.vocadbId)}
-                  />
-                ))}
+
+          {/* 현재 재생 중인 곡 */}
+          {state.currentSong && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-[#39c5bb15] border border-[#39c5bb30] mb-1">
+              <div className="p-1 text-[#39c5bb]">
+                <div className="w-4 h-4 flex items-center justify-center">
+                  <div className="w-2 h-2 bg-[#39c5bb] rounded-full animate-pulse" />
+                </div>
               </div>
-            </SortableContext>
-          </DndContext>
+              <div className="flex items-center gap-4 flex-1">
+                <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0">
+                  <Image
+                    src={currentSongThumbnail}
+                    alt={getDisplayTitle(state.currentSong)}
+                    fill
+                    className="object-cover"
+                    sizes="48px"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium truncate">{getDisplayTitle(state.currentSong)}</p>
+                  <p className="text-gray-400 text-xs truncate">{state.currentSong.artistString}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 다음 곡 목록 */}
+          {state.playlist.length > 0 && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={playlistIds}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-1">
+                  {state.playlist.map((song) => (
+                    <SortableSongItem
+                      key={song.vocadbId}
+                      song={song}
+                      onPlay={() => playSong(song)}
+                      onRemove={() => removeFromPlaylist(song.vocadbId)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
         </div>
       )}
 
