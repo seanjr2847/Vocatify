@@ -56,6 +56,24 @@ interface MusicPlayerContextValue {
 const MusicPlayerContext = createContext<MusicPlayerContextValue | undefined>(undefined);
 
 export function MusicPlayerProvider({ children }: { children: React.ReactNode }) {
+  // BigInt를 string으로 변환 (JSON 직렬화용)
+  const serializeSong = (song: Song | null): Song | null => {
+    if (!song) return null;
+    return {
+      ...song,
+      viewCount: song.viewCount ? song.viewCount.toString() as unknown as bigint : null,
+    };
+  };
+
+  // string을 BigInt로 변환 (JSON 역직렬화용)
+  const deserializeSong = (song: Song | null): Song | null => {
+    if (!song) return null;
+    return {
+      ...song,
+      viewCount: song.viewCount ? BigInt(song.viewCount as unknown as string) : null,
+    };
+  };
+
   // Session Storage에서 재생목록 복원
   const loadPlaylistFromSession = (): Partial<PlayerState> => {
     if (typeof window === 'undefined') return {};
@@ -66,9 +84,9 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
       const data = JSON.parse(stored);
       return {
-        playlist: data.playlist || [],
+        playlist: (data.playlist || []).map(deserializeSong).filter(Boolean) as Song[],
         playlistSource: data.playlistSource || 'Queue',
-        currentSong: data.currentSong || null,
+        currentSong: deserializeSong(data.currentSong),
       };
     } catch (error) {
       console.error('Failed to load playlist from session storage:', error);
@@ -107,13 +125,13 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
     try {
       const dataToSave = {
-        playlist: state.playlist,
+        playlist: state.playlist.map(serializeSong),
         playlistSource: state.playlistSource,
-        currentSong: state.currentSong,
+        currentSong: serializeSong(state.currentSong),
         isRadioMode: state.isRadioMode,
         radioChannel: state.radioChannel,
         radioTags: state.radioTags,
-        radioPlayedIds: state.radioPlayedIds,
+        radioPlayedIds: state.radioPlayedIds.slice(-100), // 최근 100개만 유지
         isShuffleEnabled: state.isShuffleEnabled,
         repeatMode: state.repeatMode,
       };
@@ -164,14 +182,15 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     }
 
     setState(prev => {
-      // If there's a current song playing, insert it at front of playlist
-      let newPlaylist = prev.playlist;
+      // Remove the song we're about to play from playlist (if exists)
+      let newPlaylist = prev.playlist.filter(s => s.vocadbId !== song.vocadbId);
 
-      if (prev.currentSong) {
-        // Remove current song from playlist if it exists
+      // Add current song to the END of playlist (for history/previous)
+      if (prev.currentSong && prev.currentSong.vocadbId !== song.vocadbId) {
+        // Remove current song if already in playlist to avoid duplicates
         newPlaylist = newPlaylist.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
-        // Insert current song at the front (paused state, ready to play next)
-        newPlaylist = [prev.currentSong, ...newPlaylist];
+        // Add to end for playPrevious functionality
+        newPlaylist = [...newPlaylist, prev.currentSong];
       }
 
       return {
@@ -241,8 +260,11 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   const addToPlaylist = useCallback((song: Song) => {
     setState(prev => {
       // 이미 재생목록에 있는지 확인
-      const exists = prev.playlist.some(s => s.vocadbId === song.vocadbId);
-      if (exists) return prev;
+      const existsInPlaylist = prev.playlist.some(s => s.vocadbId === song.vocadbId);
+      // 현재 재생 중인 곡인지 확인
+      const isCurrentSong = prev.currentSong?.vocadbId === song.vocadbId;
+
+      if (existsInPlaylist || isCurrentSong) return prev;
 
       return {
         ...prev,
@@ -395,10 +417,12 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       const nextSong = prev.playlist[nextSongIndex];
       const remainingPlaylist = prev.playlist.filter((_, idx) => idx !== nextSongIndex);
 
-      // If repeat all is enabled, add current song back to playlist
-      const newPlaylist = prev.repeatMode === 'all' && prev.currentSong
-        ? [...remainingPlaylist, prev.currentSong]
-        : remainingPlaylist;
+      // Keep current song in playlist (at the end) for history
+      // But in radio mode, don't keep to prevent infinite queue growth
+      let newPlaylist = remainingPlaylist;
+      if (prev.currentSong && !prev.isRadioMode) {
+        newPlaylist = [...remainingPlaylist, prev.currentSong];
+      }
 
       return {
         ...prev,
@@ -429,10 +453,20 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         if (data.success && data.playlist.length > 0) {
           const newSongs: Song[] = data.playlist.map(convertApiSongToSong);
 
-          setState(prev => ({
-            ...prev,
-            playlist: [...prev.playlist, ...newSongs],
-          }));
+          setState(prev => {
+            // Filter out any songs already in playlist or currently playing
+            const existingIds = new Set([
+              ...prev.playlist.map(s => s.vocadbId),
+              prev.currentSong?.vocadbId,
+            ].filter(Boolean));
+
+            const uniqueNewSongs = newSongs.filter(s => !existingIds.has(s.vocadbId));
+
+            return {
+              ...prev,
+              playlist: [...prev.playlist, ...uniqueNewSongs],
+            };
+          });
         }
       } catch (error) {
         console.error('Failed to fetch more radio songs:', error);
@@ -466,12 +500,14 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return { ...prev, currentTime: 0 };
       }
 
-      // Get the last song from playlist
+      // Get the last song from playlist (most recently played)
       const previousSong = prev.playlist[prev.playlist.length - 1];
       const newPlaylist = prev.playlist.slice(0, -1);
 
-      // Add current song back to the beginning of playlist
-      const updatedPlaylist = [prev.currentSong, ...newPlaylist];
+      // Add current song to the beginning of playlist (it will be "next")
+      // Check for duplicates first
+      const filteredPlaylist = newPlaylist.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
+      const updatedPlaylist = [prev.currentSong, ...filteredPlaylist];
 
       return {
         ...prev,

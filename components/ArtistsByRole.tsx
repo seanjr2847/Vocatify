@@ -3,7 +3,10 @@
  *
  * Displays artists grouped by their role categories (Producer, Vocalist, etc.)
  * with visual hierarchy and hover effects.
+ * Clicking an artist navigates to search results for that artist.
  */
+
+import Link from 'next/link';
 
 interface Artist {
   id: number;
@@ -112,21 +115,24 @@ function sortByRolePriority(grouped: Map<string, Artist[]>): [string, Artist[]][
 }
 
 /**
- * Artist chip component
+ * Artist chip component - clickable, navigates to search
  */
 function ArtistChip({ artist }: { artist: Artist }) {
+  const searchUrl = `/search?q=${encodeURIComponent(artist.name)}`;
+
   return (
-    <div
+    <Link
+      href={searchUrl}
       className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
                  bg-[#2a2a2a] border border-gray-800
                  hover:bg-[#3a3a3a] hover:border-[#39c5bb]
                  transition-all cursor-pointer group"
-      title={`${artist.name} (${artist.artistType})`}
+      title={`${artist.name} 검색하기`}
     >
       <span className="text-sm font-medium text-gray-200 group-hover:text-white">
         {artist.name}
       </span>
-    </div>
+    </Link>
   );
 }
 

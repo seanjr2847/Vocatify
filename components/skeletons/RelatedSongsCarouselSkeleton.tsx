@@ -4,16 +4,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function RelatedSongCardSkeleton() {
   return (
-    <div className="flex-shrink-0 w-[200px] bg-[#1a1a1a] rounded-lg overflow-hidden">
+    <div className="flex-shrink-0 w-[200px] bg-white/5 rounded-xl overflow-hidden">
       {/* Thumbnail */}
-      <Skeleton className="aspect-square w-full" />
+      <div className="aspect-square w-full relative">
+        <Skeleton className="absolute inset-0 rounded-none" />
+      </div>
 
       {/* Song Info */}
-      <div className="p-3 space-y-2">
+      <div className="p-4 space-y-2">
         <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-3/4" />
         <Skeleton className="h-3 w-1/2" />
-        <Skeleton className="h-3 w-1/4" />
       </div>
     </div>
   );

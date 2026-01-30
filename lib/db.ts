@@ -1056,12 +1056,15 @@ export interface SearchResult {
 }
 
 /**
- * 곡 검색 (모든 언어 제목 + 아티스트)
+ * 곡 검색 (songs_enhanced 테이블 사용 - 최적화된 버전)
+ * GIN trigram 인덱스를 활용한 빠른 ILIKE 검색
+ *
  * @param query 검색어
  * @param limit 결과 제한
  * @param offset 시작 위치
  * @param sortBy 정렬 기준 (viewCount, publishDate, title, artist, relevance)
  * @param artistType Vocaloid 필터 ('Vocaloid' 또는 null로 모든 아티스트)
+ * @param tagId 태그 필터 (선택적)
  */
 export async function searchSongs(
   query: string,
@@ -1073,195 +1076,105 @@ export async function searchSongs(
 ): Promise<SearchResult> {
   const searchTerm = `%${query}%`;
 
-  // Build dynamic JOIN and WHERE clauses with parameterized queries
-  let paramIndex = 1;
-  const tagJoin = tagId ? 'JOIN song_tags st ON s.vocadb_id = st.song_id' : '';
-
-  // Build WHERE clause with correct parameter indices
-  const tagIdParam = tagId ? paramIndex++ : null;
-  const tagWhere = tagId ? `AND st.tag_id = $${tagIdParam}` : '';
-
-  const artistTypeParam = artistType ? paramIndex++ : null;
-  const artistTypeWhere = artistType
-    ? `AND EXISTS (
-        SELECT 1 FROM song_artists sa2
-        JOIN artists a2 ON sa2.artist_id = a2.vocadb_id
-        WHERE sa2.song_id = s.vocadb_id
-          AND a2.artist_type = $${artistTypeParam}
-      )`
-    : '';
-
-  // Build ORDER BY clause
+  // Build ORDER BY clause (relevance uses $4 and $5 for exact and prefix match)
   let orderClause: string;
-  let queryExactParam: number | null = null;
-  let queryStartsWithParam: number | null = null;
-
+  let useRelevanceParams = false;
   switch (sortBy) {
     case 'publishDate':
-      orderClause = 'ORDER BY s.publish_date DESC NULLS LAST';
+      orderClause = 'ORDER BY se.publish_date DESC NULLS LAST';
       break;
     case 'title':
-      orderClause = 'ORDER BY s.default_name ASC';
+      orderClause = 'ORDER BY se.default_name ASC';
       break;
     case 'artist':
-      orderClause = 'ORDER BY artist_string ASC NULLS LAST';
+      orderClause = 'ORDER BY se.artist_string ASC NULLS LAST';
       break;
     case 'relevance':
-      queryExactParam = paramIndex++;
-      queryStartsWithParam = paramIndex++;
+      useRelevanceParams = true;
       orderClause = `ORDER BY
         CASE
-          WHEN s.default_name ILIKE $${queryExactParam} THEN 1
-          WHEN s.default_name ILIKE $${queryStartsWithParam} THEN 2
+          WHEN se.default_name ILIKE $4 THEN 1
+          WHEN se.default_name ILIKE $5 THEN 2
           ELSE 3
         END,
-        COALESCE(sv.total_view_count, 0) DESC`;
+        COALESCE(se.view_count, 0) DESC`;
       break;
     case 'viewCount':
     default:
-      orderClause = 'ORDER BY COALESCE(sv.total_view_count, 0) DESC';
+      orderClause = 'ORDER BY COALESCE(se.view_count, 0) DESC';
   }
 
-  // Add search term parameters BEFORE limit/offset to match query order
-  const searchTermParam1 = paramIndex++;
-  const searchTermParam2 = paramIndex++;
-  const searchTermParam3 = paramIndex++;
+  // Build vocaloid filter
+  const vocaloidFilter = artistType === 'Vocaloid' ? 'AND se.is_vocaloid_song = true' : '';
 
-  const limitParam = paramIndex++;
-  const offsetParam = paramIndex++;
+  // Build tag filter with JOIN if needed
+  const tagJoin = tagId ? 'JOIN song_tags st ON se.song_id = st.song_id' : '';
+  const tagFilter = tagId ? `AND st.tag_id = ${tagId}` : '';
 
-  // Build parameters array in correct order
-  const params: unknown[] = [];
-  if (tagId && tagIdParam) params[tagIdParam - 1] = tagId;
-  if (artistType && artistTypeParam) params[artistTypeParam - 1] = artistType;
-  if (queryExactParam) params[queryExactParam - 1] = query;
-  if (queryStartsWithParam) params[queryStartsWithParam - 1] = `${query}%`;
-  params[searchTermParam1 - 1] = searchTerm;
-  params[searchTermParam2 - 1] = searchTerm;
-  params[searchTermParam3 - 1] = searchTerm;
-  params[limitParam - 1] = limit;
-  params[offsetParam - 1] = offset;
-
+  // Optimized search query using songs_enhanced denormalized table
+  // Uses GIN trigram indexes for fast ILIKE searches
   const songQuery = `
-    WITH matching_songs AS (
-      SELECT DISTINCT s.vocadb_id
-      FROM songs s
-      LEFT JOIN song_names sn ON s.vocadb_id = sn.song_id
-      LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
-      LEFT JOIN artists a ON sa.artist_id = a.vocadb_id
-      ${tagJoin}
-      WHERE (s.default_name ILIKE $${searchTermParam1}
-         OR sn.value ILIKE $${searchTermParam2}
-         OR a.name ILIKE $${searchTermParam3})
-        ${tagWhere}
-        ${artistTypeWhere}
-    ),
-    song_views AS (
-      SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
-      FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
-      GROUP BY song_id
-    ),
-    song_titles AS (
-      SELECT
-        song_id,
-        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
-        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
-        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
-        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
-      FROM song_names
-      GROUP BY song_id
-    ),
-    song_artists AS (
-      SELECT
-        sa.song_id,
-        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
-      FROM song_artists sa
-      JOIN artists a ON sa.artist_id = a.vocadb_id
-      WHERE sa.is_support = false
-      GROUP BY sa.song_id
-    ),
-    song_youtube AS (
-      SELECT DISTINCT ON (song_id)
-        song_id,
-        pv_id as youtube_id,
-        url as youtube_url
-      FROM pvs
-      WHERE service = 'Youtube' AND view_count IS NOT NULL
-      ORDER BY song_id, view_count DESC NULLS LAST
-    )
     SELECT
-      s.vocadb_id as "vocadbId",
-      s.default_name as "defaultName",
-      st.title_korean as "titleKorean",
-      st.title_english as "titleEnglish",
-      st.title_japanese as "titleJapanese",
-      st.title_romaji as "titleRomaji",
-      sa.artist_string as "artistString",
-      sy.youtube_id as "youtubeId",
-      sy.youtube_url as "youtubeUrl",
-      s.thumb_url as "thumbUrl",
-      sv.total_view_count as "viewCount",
-      sv.last_updated as "viewCountUpdatedAt",
-      s.publish_date as "publishDate",
-      s.song_type as "songType",
-      s.favorited_times as "favoritedTimes",
-      s.rating_score as "ratingScore",
-      s.length_seconds as "lengthSeconds"
-    FROM songs s
-    JOIN matching_songs ms ON s.vocadb_id = ms.vocadb_id
-    LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
-    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
-    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
-    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
-    ${orderClause}
-    LIMIT $${limitParam} OFFSET $${offsetParam}
-  `;
-
-  const songs = await prisma.$queryRawUnsafe<RankingItem[]>(songQuery, ...params);
-
-  // Count query with same filters - rebuild parameter indices from scratch
-  let countParamIndex = 1;
-  const countTagIdParam = tagId ? countParamIndex++ : null;
-  const countTagWhere = tagId ? `AND st.tag_id = $${countTagIdParam}` : '';
-
-  const countArtistTypeParam = artistType ? countParamIndex++ : null;
-  const countArtistTypeWhere = artistType
-    ? `AND EXISTS (
-        SELECT 1 FROM song_artists sa2
-        JOIN artists a2 ON sa2.artist_id = a2.vocadb_id
-        WHERE sa2.song_id = s.vocadb_id
-          AND a2.artist_type = $${countArtistTypeParam}
-      )`
-    : '';
-
-  const countSearchParam1 = countParamIndex++;
-  const countSearchParam2 = countParamIndex++;
-  const countSearchParam3 = countParamIndex++;
-
-  const countQuery = `
-    SELECT COUNT(DISTINCT s.vocadb_id) as count
-    FROM songs s
-    LEFT JOIN song_names sn ON s.vocadb_id = sn.song_id
-    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
-    LEFT JOIN artists a ON sa.artist_id = a.vocadb_id
+      se.song_id as "vocadbId",
+      se.default_name as "defaultName",
+      se.title_korean as "titleKorean",
+      se.title_english as "titleEnglish",
+      se.title_japanese as "titleJapanese",
+      se.title_romaji as "titleRomaji",
+      se.artist_string as "artistString",
+      se.youtube_id as "youtubeId",
+      se.youtube_url as "youtubeUrl",
+      se.thumb_url as "thumbUrl",
+      se.view_count as "viewCount",
+      se.view_count_updated_at as "viewCountUpdatedAt",
+      se.publish_date as "publishDate",
+      se.song_type as "songType",
+      se.favorited_times as "favoritedTimes",
+      se.rating_score as "ratingScore",
+      se.length_seconds as "lengthSeconds"
+    FROM songs_enhanced se
     ${tagJoin}
-    WHERE (s.default_name ILIKE $${countSearchParam1}
-       OR sn.value ILIKE $${countSearchParam2}
-       OR a.name ILIKE $${countSearchParam3})
-      ${countTagWhere}
-      ${countArtistTypeWhere}
+    WHERE (
+      se.default_name ILIKE $1
+      OR se.title_korean ILIKE $1
+      OR se.title_english ILIKE $1
+      OR se.title_japanese ILIKE $1
+      OR se.title_romaji ILIKE $1
+      OR se.artist_string ILIKE $1
+    )
+    ${vocaloidFilter}
+    ${tagFilter}
+    ${orderClause}
+    LIMIT $2 OFFSET $3
   `;
 
-  const countParams: unknown[] = [];
-  if (tagId && countTagIdParam) countParams[countTagIdParam - 1] = tagId;
-  if (artistType && countArtistTypeParam) countParams[countArtistTypeParam - 1] = artistType;
-  countParams[countSearchParam1 - 1] = searchTerm;
-  countParams[countSearchParam2 - 1] = searchTerm;
-  countParams[countSearchParam3 - 1] = searchTerm;
+  const queryParams: unknown[] = [searchTerm, limit, offset];
+  if (useRelevanceParams) {
+    queryParams.push(query, `${query}%`);
+  }
+
+  const songs = await prisma.$queryRawUnsafe<RankingItem[]>(songQuery, ...queryParams);
+
+  // Count query using same filters
+  const countQuery = `
+    SELECT COUNT(*) as count
+    FROM songs_enhanced se
+    ${tagJoin}
+    WHERE (
+      se.default_name ILIKE $1
+      OR se.title_korean ILIKE $1
+      OR se.title_english ILIKE $1
+      OR se.title_japanese ILIKE $1
+      OR se.title_romaji ILIKE $1
+      OR se.artist_string ILIKE $1
+    )
+    ${vocaloidFilter}
+    ${tagFilter}
+  `;
 
   const countResult = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
     countQuery,
-    ...countParams
+    searchTerm
   );
 
   return {
