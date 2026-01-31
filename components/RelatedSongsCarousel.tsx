@@ -12,7 +12,7 @@ interface RelatedSongsCarouselProps {
   title: string;
 }
 
-const RelatedSongsCarouselComponent = ({ songs, title }: RelatedSongsCarouselProps) => {
+const RelatedSongsCarouselComponent = ({ songs }: RelatedSongsCarouselProps) => {
   if (songs.length === 0) {
     return (
       <div className="bg-[#1a1a1a] rounded-lg p-6 text-center">

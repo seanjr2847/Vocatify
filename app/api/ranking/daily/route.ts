@@ -15,9 +15,16 @@ export async function GET(request: NextRequest) {
 
     const ranking = await getDailyRanking(limit, offset);
 
+    // 일간 랭킹 날짜 (어제 기준)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
     return NextResponse.json({
       success: true,
       data: serializeBigInt(ranking),
+      dateRange: {
+        date: yesterday.toISOString().split('T')[0],
+      },
       pagination: {
         limit,
         offset,

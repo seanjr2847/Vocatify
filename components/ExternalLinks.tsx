@@ -27,10 +27,7 @@ export function ExternalLinks({ vocadbId, youtubeUrl }: ExternalLinksProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {links.map((link) => {
-        const Icon = link.icon;
-
-        return (
+      {links.map((link) => (
           <a
             key={link.label}
             href={link.url}
@@ -41,8 +38,7 @@ export function ExternalLinks({ vocadbId, youtubeUrl }: ExternalLinksProps) {
             <span className="font-medium">{link.label}</span>
             <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-[#39c5bb] transition-colors" />
           </a>
-        );
-      })}
+        ))}
     </div>
   );
 }

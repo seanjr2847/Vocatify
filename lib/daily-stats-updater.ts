@@ -8,17 +8,6 @@
  */
 
 import { prisma } from './prisma';
-import { Prisma } from '@prisma/client';
-
-/**
- * Daily stats query result type
- */
-interface DailyStatsRow {
-  song_id: number;
-  current_views: bigint;
-  previous_views: bigint;
-  daily_increase: bigint;
-}
 
 export async function updateDailyStatsCache() {
   console.log('[Daily Stats] Starting optimized update (top 1000 only)...');

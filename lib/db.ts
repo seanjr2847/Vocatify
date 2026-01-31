@@ -4,10 +4,8 @@
  * - PV 테이블 기반 조회수 추적
  */
 
-import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 import { cache, getCachedRankings, setCachedRankings, UnifiedRankings } from './cache';
-import { INCLUDED_VOICE_SYNTHESIZER_TYPES } from './constants';
 
 // ============================================================
 // Interfaces
@@ -104,12 +102,6 @@ export interface SongStatistics {
   peakDailyIncrease: bigint | null;
   peakDate: Date | null;
 }
-
-// ============================================================
-// Excluded Tags Check (for raw SQL)
-// ============================================================
-
-const EXCLUDED_TAG_NAMES = ['human singers', 'out of scope (cover unifier)'];
 
 // ============================================================
 // Ranking Functions

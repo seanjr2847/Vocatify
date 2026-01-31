@@ -36,7 +36,7 @@ export function AddToPlaylistButton({
   size = "icon",
   showText = false,
 }: AddToPlaylistButtonProps) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isLoading, setIsLoading] = useState(false);

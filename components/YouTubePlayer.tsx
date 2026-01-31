@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import YouTube, { YouTubeProps, YouTubeEvent } from 'react-youtube';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 
@@ -8,7 +8,6 @@ export function YouTubePlayer() {
   const { state, playerRef, updateDuration, updatePlayingState, playNextInQueue } = useMusicPlayer();
   const [isReady, setIsReady] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
-  const playerContainerRef = useRef<HTMLDivElement>(null);
 
   // viewMode에 따라 다른 설정 적용
   const isFullscreen = state.viewMode === 'fullscreen';

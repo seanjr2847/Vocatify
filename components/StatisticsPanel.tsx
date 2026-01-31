@@ -1,4 +1,4 @@
-import { TrendingUp, Calendar, BarChart3, Award } from 'lucide-react';
+import { TrendingUp, Calendar, Award } from 'lucide-react';
 import type { SongStatistics } from '@/lib/db';
 import { formatNumber, formatDate } from '@/lib/utils/format-utils';
 

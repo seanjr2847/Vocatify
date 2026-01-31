@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateRankingCache } from '@/lib/ranking-updater';
-import { updateWeeklyStatsCache } from '@/lib/weekly-stats-updater';
 
 /**
  * Ranking Cache Update Cron Job

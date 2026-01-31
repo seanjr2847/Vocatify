@@ -6,17 +6,6 @@
  */
 
 import { prisma } from './prisma';
-import { Prisma } from '@prisma/client';
-
-/**
- * Weekly stats query result type
- */
-interface WeeklyStatsRow {
-  song_id: number;
-  current_views: bigint;
-  previous_views: bigint;
-  weekly_increase: bigint;
-}
 
 export async function updateWeeklyStatsCache() {
   console.log('[Weekly Stats] Starting optimized update (top 1000 only)...');

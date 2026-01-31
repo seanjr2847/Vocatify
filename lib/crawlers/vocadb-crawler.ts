@@ -22,16 +22,11 @@ import {
   batchUpsertSongTags,
   batchReplaceLyrics,
 } from './batch-upsert';
-import { INCLUDED_VOICE_SYNTHESIZER_TYPES } from '../constants';
 
 const VOCADB_API_BASE = 'https://vocadb.net/api';
 
 // Excluded tags - songs with these tags will be skipped
 const EXCLUDED_TAGS = ['human singers', 'out of scope (cover unifier)'];
-const SYNTHETIC_VOCALIST_TYPES = [
-  ...INCLUDED_VOICE_SYNTHESIZER_TYPES,
-  'OtherVoiceSynthesizer',  // Crawler includes this, rankings exclude it
-];
 
 /**
  * VocaDB API song item (partial type)

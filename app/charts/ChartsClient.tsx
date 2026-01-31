@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from 'framer-motion';
+import { Calendar } from 'lucide-react';
 import { ChartsTabNavigation, type TabType } from "@/components/charts/ChartsTabNavigation";
 import { RankingSongCard } from "@/components/charts/RankingSongCard";
 import { RankingSongTableRow } from "@/components/charts/RankingSongTableRow";
@@ -124,6 +125,28 @@ export function ChartsClient({
 
   const currentTabData = tabsData[activeTab];
 
+  // 날짜 범위 계산
+  const dateRangeText = useMemo(() => {
+    const formatDate = (date: Date) => {
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      return `${month}월 ${day}일`;
+    };
+
+    const today = new Date();
+
+    if (activeTab === 'weekly') {
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 6);
+      return `${formatDate(startDate)} ~ ${formatDate(today)} 기준`;
+    } else if (activeTab === 'daily') {
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      return `${formatDate(yesterday)} 기준`;
+    }
+    return null;
+  }, [activeTab]);
+
   return (
     <div className="w-full flex flex-col min-h-screen">
       <main className="flex-1 flex flex-col">
@@ -131,6 +154,12 @@ export function ChartsClient({
             <div className="mb-6">
               <h1 className="text-4xl font-bold text-white mb-6">차트 (Charts)</h1>
               <ChartsTabNavigation activeTab={activeTab} onChange={handleTabChange} />
+              {dateRangeText && (
+                <div className="flex items-center gap-2 mt-4 text-sm text-white/60">
+                  <Calendar className="w-4 h-4" />
+                  <span>{dateRangeText}</span>
+                </div>
+              )}
             </div>
 
             <AnimatePresence mode="wait">

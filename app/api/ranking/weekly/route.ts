@@ -15,9 +15,18 @@ export async function GET(request: NextRequest) {
 
     const ranking = await getCachedWeeklyRanking(limit, offset);
 
+    // 주간 랭킹 날짜 범위 계산 (오늘 기준 7일 전 ~ 오늘)
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 6); // 7일간 = 6일 전 ~ 오늘
+
     return NextResponse.json({
       success: true,
       data: serializeBigInt(ranking),
+      dateRange: {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: today.toISOString().split('T')[0],
+      },
       pagination: {
         limit,
         offset,
