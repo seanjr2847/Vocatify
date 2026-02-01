@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Song } from './db';
 import { YouTubePlayer } from '@/components/YouTubePlayer';
 import type { YouTubePlayer as YouTubePlayerType } from 'react-youtube';
@@ -258,14 +259,20 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const addToPlaylist = useCallback((song: Song) => {
+    const title = song.titleKorean ?? song.titleEnglish ?? song.defaultName;
+
     setState(prev => {
       // 이미 재생목록에 있는지 확인
       const existsInPlaylist = prev.playlist.some(s => s.vocadbId === song.vocadbId);
       // 현재 재생 중인 곡인지 확인
       const isCurrentSong = prev.currentSong?.vocadbId === song.vocadbId;
 
-      if (existsInPlaylist || isCurrentSong) return prev;
+      if (existsInPlaylist || isCurrentSong) {
+        setTimeout(() => toast.info('이미 재생목록에 있는 곡입니다'), 0);
+        return prev;
+      }
 
+      setTimeout(() => toast.success(`"${title}" 재생목록에 추가되었습니다`), 0);
       return {
         ...prev,
         playlist: [...prev.playlist, song],

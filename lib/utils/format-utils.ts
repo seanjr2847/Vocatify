@@ -53,12 +53,32 @@ export function getDisplayTitle(song: Pick<Song, 'titleKorean' | 'titleEnglish' 
 }
 
 /**
- * Generate YouTube thumbnail URL from video ID
- * Uses mqdefault (320x180) for balanced quality and performance
- * @example getYouTubeThumbnail('dQw4w9WgXcQ') => 'https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg'
+ * YouTube thumbnail quality options
+ * - default: 120x90
+ * - mq: 320x180 (medium quality)
+ * - hq: 480x360 (high quality)
+ * - sd: 640x480 (standard definition)
+ * - maxres: 1280x720 (maximum resolution, may not exist for all videos)
  */
-export function getYouTubeThumbnail(videoId: string): string {
-  return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+export type ThumbnailQuality = 'default' | 'mq' | 'hq' | 'sd' | 'maxres';
+
+const qualityMap: Record<ThumbnailQuality, string> = {
+  default: 'default',
+  mq: 'mqdefault',
+  hq: 'hqdefault',
+  sd: 'sddefault',
+  maxres: 'maxresdefault',
+};
+
+/**
+ * Generate YouTube thumbnail URL from video ID
+ * @param videoId - YouTube video ID
+ * @param quality - Thumbnail quality (default: 'mq' for 320x180)
+ * @example getYouTubeThumbnail('dQw4w9WgXcQ') => 'https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg'
+ * @example getYouTubeThumbnail('dQw4w9WgXcQ', 'maxres') => 'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg'
+ */
+export function getYouTubeThumbnail(videoId: string, quality: ThumbnailQuality = 'mq'): string {
+  return `https://img.youtube.com/vi/${videoId}/${qualityMap[quality]}.jpg`;
 }
 
 /**

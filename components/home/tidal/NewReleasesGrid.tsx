@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { RankingItem } from '@/lib/db';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import { Play, Eye } from 'lucide-react';
+import { getYouTubeThumbnail } from '@/lib/utils/format-utils';
 
 interface NewReleasesGridProps {
   songs: RankingItem[];
@@ -62,7 +63,7 @@ export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
             {/* Compact Album Cover */}
             <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-white/5 to-white/[0.02] rounded-lg mb-3 shadow-lg shadow-black/20 group-hover:shadow-xl group-hover:shadow-[#CDFF00]/10 transition-all duration-300">
               <Image
-                src={song.thumbUrl || '/default-album.png'}
+                src={song.youtubeId ? getYouTubeThumbnail(song.youtubeId, 'maxres') : (song.thumbUrl || '/default-album.png')}
                 fill
                 alt=""
                 className="object-cover group-hover:scale-110 transition-transform duration-500 ease-out"

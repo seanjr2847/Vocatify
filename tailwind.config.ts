@@ -88,12 +88,27 @@ const config: Config = {
             transform: "translateX(100%)",
           },
         },
+        "loading-bar": {
+          "0%": {
+            transform: "translateX(-100%)",
+            width: "30%",
+          },
+          "50%": {
+            transform: "translateX(100%)",
+            width: "60%",
+          },
+          "100%": {
+            transform: "translateX(300%)",
+            width: "30%",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         float: "float 4s ease-in-out infinite",
         shimmer: "shimmer 2s infinite",
+        "loading-bar": "loading-bar 1.5s ease-in-out infinite",
       },
     },
   },

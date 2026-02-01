@@ -3,6 +3,7 @@
 import CategoryCard from './CategoryCard';
 import Link from 'next/link';
 import { RankingItem } from '@/lib/db';
+import { getYouTubeThumbnail } from '@/lib/utils/format-utils';
 
 interface CategoryGridProps {
   weeklyRanking: RankingItem[];
@@ -15,35 +16,42 @@ export default function CategoryGrid({
   totalRanking,
   newRanking,
 }: CategoryGridProps) {
+  // maxres 썸네일 헬퍼 함수
+  const getMaxResThumbnail = (song: RankingItem | undefined): string => {
+    if (!song) return '/placeholder.png';
+    if (song.youtubeId) return getYouTubeThumbnail(song.youtubeId, 'maxres');
+    return song.thumbUrl || '/placeholder.png';
+  };
+
   const categories = [
     {
       name: '요즘 뜨는',
       subtitle: '주간 급상승 차트',
-      image: weeklyRanking[0]?.thumbUrl || 'https://img.youtube.com/vi/default/maxresdefault.jpg',
+      image: getMaxResThumbnail(weeklyRanking[0]),
       href: '/charts?tab=weekly',
     },
     {
       name: '역대 최고',
       subtitle: '총 조회수 TOP',
-      image: totalRanking[0]?.thumbUrl || 'https://img.youtube.com/vi/default/maxresdefault.jpg',
+      image: getMaxResThumbnail(totalRanking[0]),
       href: '/charts?tab=total',
     },
     {
       name: '화제 신곡',
       subtitle: '최신 발매곡',
-      image: newRanking[0]?.thumbUrl || 'https://img.youtube.com/vi/default/maxresdefault.jpg',
+      image: getMaxResThumbnail(newRanking[0]),
       href: '/charts?tab=new',
     },
     {
       name: '라디오',
       subtitle: '테마별 채널',
-      image: weeklyRanking[2]?.thumbUrl || 'https://img.youtube.com/vi/default/maxresdefault.jpg',
+      image: getMaxResThumbnail(weeklyRanking[2]),
       href: '/radio',
     },
     {
       name: '플레이리스트',
       subtitle: '내 플레이리스트',
-      image: totalRanking[2]?.thumbUrl || 'https://img.youtube.com/vi/default/maxresdefault.jpg',
+      image: getMaxResThumbnail(totalRanking[2]),
       href: '/playlists',
     },
   ];

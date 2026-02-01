@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   Play,
   Pause,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useMusicPlayer } from "@/lib/MusicPlayerContext";
 import { FullscreenPlaylistView } from "./FullscreenPlaylistView";
 import { getDisplayTitle, getYouTubeThumbnail } from "@/lib/utils/format-utils";
@@ -57,107 +59,135 @@ export const MusicPlayerSection = (): JSX.Element => {
       <footer className="fixed bottom-0 left-0 right-0 w-full h-[80px] md:h-[125px] bg-gradient-to-r from-[#1d2123]/90 via-[#1a1a1a]/95 to-[#1d2123]/90 border-t border-[#39c5bb]/20 shadow-[0px_-25px_100px_#0f0f0f82,0_-5px_30px_rgba(57,197,187,0.1)] backdrop-blur-[20px] backdrop-brightness-[100%] [-webkit-backdrop-filter:blur(20px)_brightness(100%)] z-50">
         <div className="relative flex items-center justify-between h-full px-4 md:px-8">
           <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-          <div className="relative w-[40px] h-[40px] md:w-[49px] md:h-[49px] bg-white/10 rounded-lg overflow-hidden flex-shrink-0 shadow-lg ring-1 ring-white/10">
-            {state.currentSong?.thumbUrl ? (
-              <Image
-                src={state.currentSong.thumbUrl}
-                alt={state.currentSong ? getDisplayTitle(state.currentSong) : ''}
-                fill
-                className="object-cover"
-                sizes="49px"
-              />
-            ) : state.currentSong?.youtubeId ? (
-              <Image
-                src={getYouTubeThumbnail(state.currentSong.youtubeId)}
-                alt={state.currentSong ? getDisplayTitle(state.currentSong) : ''}
-                fill
-                className="object-cover"
-                sizes="49px"
-              />
-            ) : null}
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-bold text-white text-[14px] leading-[17px] whitespace-nowrap truncate">
-              {state.currentSong ? getDisplayTitle(state.currentSong) : '곡을 선택하세요'}
-            </span>
-            <span className="font-bold text-[#ffffff70] text-[10px] leading-[12px] whitespace-nowrap truncate">
-              {state.currentSong?.artistString || ''}
-            </span>
-          </div>
+          {state.currentSong?.vocadbId ? (
+            <Link
+              href={`/songs/${state.currentSong.vocadbId}`}
+              className="flex items-center gap-3 md:gap-4 min-w-0 hover:opacity-80 transition-opacity"
+            >
+              <div className="relative w-[40px] h-[40px] md:w-[49px] md:h-[49px] bg-white/10 rounded-lg overflow-hidden flex-shrink-0 shadow-lg ring-1 ring-white/10">
+                {state.currentSong?.thumbUrl ? (
+                  <Image
+                    src={state.currentSong.thumbUrl}
+                    alt={getDisplayTitle(state.currentSong)}
+                    fill
+                    className="object-cover"
+                    sizes="49px"
+                  />
+                ) : state.currentSong?.youtubeId ? (
+                  <Image
+                    src={getYouTubeThumbnail(state.currentSong.youtubeId)}
+                    alt={getDisplayTitle(state.currentSong)}
+                    fill
+                    className="object-cover"
+                    sizes="49px"
+                  />
+                ) : null}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="font-bold text-white text-[14px] leading-[17px] whitespace-nowrap truncate">
+                  {getDisplayTitle(state.currentSong)}
+                </span>
+                <span className="font-bold text-[#ffffff70] text-[10px] leading-[12px] whitespace-nowrap truncate">
+                  {state.currentSong?.artistString || ''}
+                </span>
+              </div>
+            </Link>
+          ) : (
+            <>
+              <div className="relative w-[40px] h-[40px] md:w-[49px] md:h-[49px] bg-white/10 rounded-lg overflow-hidden flex-shrink-0 shadow-lg ring-1 ring-white/10" />
+              <div className="flex flex-col min-w-0">
+                <span className="font-bold text-white text-[14px] leading-[17px] whitespace-nowrap truncate">
+                  곡을 선택하세요
+                </span>
+                <span className="font-bold text-[#ffffff70] text-[10px] leading-[12px] whitespace-nowrap truncate">
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="hidden md:flex flex-col items-center gap-4 flex-1">
           <div className="flex items-center gap-6">
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-auto w-auto p-0 hover:bg-transparent transition-all duration-200 ${
-                state.isShuffleEnabled
-                  ? 'opacity-100 text-[#39c5bb]'
-                  : 'opacity-50 hover:opacity-100'
-              }`}
-              onClick={toggleShuffle}
-              disabled={!state.currentSong}
-            >
-              <Shuffle className={`w-[26px] h-[26px] transition-colors ${
-                state.isShuffleEnabled ? 'text-[#39c5bb]' : 'text-white'
-              }`} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-auto w-auto p-0 hover:bg-transparent opacity-50 hover:opacity-100 transition-opacity"
-              onClick={playPrevious}
-              disabled={!state.currentSong}
-            >
-              <SkipBack className="w-[26px] h-[26px] text-white" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-auto w-auto p-0 hover:bg-transparent"
-              onClick={togglePlay}
-              disabled={!state.currentSong}
-            >
-              <div className={`w-[51px] h-[51px] rounded-full flex items-center justify-center transition-all duration-300 ${state.currentSong ? 'bg-[#39c5bb] hover:scale-110 shadow-[0_0_25px_rgba(57,197,187,0.5)] hover:shadow-[0_0_35px_rgba(57,197,187,0.7)]' : 'bg-[#39c5bb50] cursor-not-allowed'}`}>
-                {state.isPlaying ? (
-                  <Pause className="w-[20px] h-[20px] text-black fill-black" />
-                ) : (
-                  <Play className="w-[20px] h-[20px] text-black fill-black ml-1" />
-                )}
-              </div>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-auto w-auto p-0 hover:bg-transparent opacity-50 hover:opacity-100 transition-opacity"
-              onClick={playNextInQueue}
-              disabled={!state.currentSong || state.playlist.length === 0}
-            >
-              <SkipForward className="w-[26px] h-[26px] text-white" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-auto w-auto p-0 hover:bg-transparent transition-all duration-200 ${
-                state.repeatMode !== 'off'
-                  ? 'opacity-100 text-[#39c5bb]'
-                  : 'opacity-50 hover:opacity-100'
-              }`}
-              onClick={toggleRepeat}
-              disabled={!state.currentSong}
-            >
-              <div className="relative">
-                <Repeat className={`w-[26px] h-[26px] transition-colors ${
-                  state.repeatMode !== 'off' ? 'text-[#39c5bb]' : 'text-white'
+            <Tooltip content="셔플" side="top">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-auto w-auto p-0 hover:bg-transparent transition-all duration-200 ${
+                  state.isShuffleEnabled
+                    ? 'opacity-100 text-[#39c5bb]'
+                    : 'opacity-50 hover:opacity-100'
+                }`}
+                onClick={toggleShuffle}
+                disabled={!state.currentSong}
+              >
+                <Shuffle className={`w-[26px] h-[26px] transition-colors ${
+                  state.isShuffleEnabled ? 'text-[#39c5bb]' : 'text-white'
                 }`} />
-                {state.repeatMode === 'one' && (
-                  <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold text-[#39c5bb]">
-                    1
-                  </span>
-                )}
-              </div>
-            </Button>
+              </Button>
+            </Tooltip>
+            <Tooltip content="이전 곡" side="top">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-auto w-auto p-0 hover:bg-transparent opacity-50 hover:opacity-100 transition-opacity"
+                onClick={playPrevious}
+                disabled={!state.currentSong}
+              >
+                <SkipBack className="w-[26px] h-[26px] text-white" />
+              </Button>
+            </Tooltip>
+            <Tooltip content={state.isPlaying ? "일시정지" : "재생"} side="top">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-auto w-auto p-0 hover:bg-transparent"
+                onClick={togglePlay}
+                disabled={!state.currentSong}
+              >
+                <div className={`w-[51px] h-[51px] rounded-full flex items-center justify-center transition-all duration-300 ${state.currentSong ? 'bg-[#39c5bb] hover:scale-110 shadow-[0_0_25px_rgba(57,197,187,0.5)] hover:shadow-[0_0_35px_rgba(57,197,187,0.7)]' : 'bg-[#39c5bb50] cursor-not-allowed'}`}>
+                  {state.isPlaying ? (
+                    <Pause className="w-[20px] h-[20px] text-black fill-black" />
+                  ) : (
+                    <Play className="w-[20px] h-[20px] text-black fill-black ml-1" />
+                  )}
+                </div>
+              </Button>
+            </Tooltip>
+            <Tooltip content="다음 곡" side="top">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-auto w-auto p-0 hover:bg-transparent opacity-50 hover:opacity-100 transition-opacity"
+                onClick={playNextInQueue}
+                disabled={!state.currentSong || state.playlist.length === 0}
+              >
+                <SkipForward className="w-[26px] h-[26px] text-white" />
+              </Button>
+            </Tooltip>
+            <Tooltip content={state.repeatMode === 'off' ? "반복" : state.repeatMode === 'all' ? "전체 반복" : "한 곡 반복"} side="top">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-auto w-auto p-0 hover:bg-transparent transition-all duration-200 ${
+                  state.repeatMode !== 'off'
+                    ? 'opacity-100 text-[#39c5bb]'
+                    : 'opacity-50 hover:opacity-100'
+                }`}
+                onClick={toggleRepeat}
+                disabled={!state.currentSong}
+              >
+                <div className="relative">
+                  <Repeat className={`w-[26px] h-[26px] transition-colors ${
+                    state.repeatMode !== 'off' ? 'text-[#39c5bb]' : 'text-white'
+                  }`} />
+                  {state.repeatMode === 'one' && (
+                    <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold text-[#39c5bb]">
+                      1
+                    </span>
+                  )}
+                </div>
+              </Button>
+            </Tooltip>
           </div>
 
           <div
@@ -209,17 +239,19 @@ export const MusicPlayerSection = (): JSX.Element => {
           </div>
 
           {/* Fullscreen Toggle Button */}
-          <button
-            onClick={toggleFullscreen}
-            className="ml-2 md:ml-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white transition-colors rounded hover:bg-white/10"
-            aria-label={state.viewMode === 'minimized' ? "재생목록 보기" : "재생목록 숨기기"}
-          >
-            {state.viewMode === 'minimized' ? (
-              <ChevronUp className="w-5 h-5" />
-            ) : (
-              <ChevronDown className="w-5 h-5" />
-            )}
-          </button>
+          <Tooltip content={state.viewMode === 'minimized' ? "재생목록 보기" : "재생목록 숨기기"} side="top">
+            <button
+              onClick={toggleFullscreen}
+              className="ml-2 md:ml-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white transition-colors rounded hover:bg-white/10"
+              aria-label={state.viewMode === 'minimized' ? "재생목록 보기" : "재생목록 숨기기"}
+            >
+              {state.viewMode === 'minimized' ? (
+                <ChevronUp className="w-5 h-5" />
+              ) : (
+                <ChevronDown className="w-5 h-5" />
+              )}
+            </button>
+          </Tooltip>
         </div>
       </div>
     </footer>

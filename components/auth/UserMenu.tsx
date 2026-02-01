@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { User, Settings, Music, LogIn, Sparkles } from "lucide-react";
+import { User, Settings, Music, LogIn, Sparkles, Info } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,6 +115,18 @@ export function UserMenu() {
               <Settings className="h-4 w-4 text-[#39c5bb]" />
             </div>
             <span className="font-medium">설정</span>
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem asChild>
+          <Link
+            href="/about"
+            className="cursor-pointer flex items-center gap-3 px-3 py-2.5 text-white/80 hover:text-white hover:bg-[#39c5bb]/10 transition-colors group"
+          >
+            <div className="h-8 w-8 rounded-lg bg-[#39c5bb]/10 flex items-center justify-center group-hover:bg-[#39c5bb]/20 transition-colors">
+              <Info className="h-4 w-4 text-[#39c5bb]" />
+            </div>
+            <span className="font-medium">About</span>
           </Link>
         </DropdownMenuItem>
 

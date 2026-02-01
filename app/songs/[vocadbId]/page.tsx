@@ -16,7 +16,7 @@ import { RelatedSongsCarousel } from '@/components/RelatedSongsCarousel';
 import { ArtistsByRole } from '@/components/ArtistsByRole';
 import { TagList } from '@/components/TagList';
 import type { Song, SongDetail, DailyViewCount, RankingPositions, SongStatistics } from '@/lib/db';
-import { formatNumber, formatDate, formatDuration } from '@/lib/utils/format-utils';
+import { formatNumber, formatDate, formatDuration, getYouTubeThumbnail } from '@/lib/utils/format-utils';
 
 // Extended song detail with computed fields for UI
 interface SongDetailExtended extends SongDetail {
@@ -100,9 +100,9 @@ export default async function SongDetailPage({
           <div className="flex flex-col md:flex-row gap-8 items-end pb-6">
             {/* Album Art */}
             <div className="flex-shrink-0">
-              {song.thumbUrl ? (
+              {(song.youtubeId || song.thumbUrl) ? (
                 <img
-                  src={song.thumbUrl}
+                  src={song.youtubeId ? getYouTubeThumbnail(song.youtubeId, 'maxres') : song.thumbUrl!}
                   alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
                   className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 rounded-lg shadow-2xl object-cover"
                 />
