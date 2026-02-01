@@ -6,7 +6,7 @@ import { getUserPlaylists, createPlaylist } from '@/lib/db/user';
  * GET /api/user/playlists
  * Get all playlists for the authenticated user
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {

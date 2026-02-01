@@ -65,7 +65,7 @@ export function useFavorites() {
         throw error;
       } finally {
         // rerender-functional-setstate: Use functional update
-        setIsLoading((prev) => false);
+        setIsLoading(false);
       }
     },
     []
@@ -109,7 +109,7 @@ export function useFavorites() {
       toast.error(message);
       throw error;
     } finally {
-      setIsLoading((prev) => false);
+      setIsLoading(false);
     }
   }, []);
 
@@ -151,7 +151,7 @@ export function useFavorites() {
       toast.error(message);
       throw error;
     } finally {
-      setIsLoading((prev) => false);
+      setIsLoading(false);
     }
   }, []);
 

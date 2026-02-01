@@ -12,7 +12,7 @@ interface NewReleasesGridProps {
 }
 
 export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
-  const displaySongs = songs.slice(0, 12); // Show more albums
+  const displaySongs = songs.slice(0, 6); // Show 6 in a single row
   const { playSong } = useMusicPlayer();
 
   const formatViews = (views: bigint | number | null) => {
@@ -48,7 +48,7 @@ export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
       </div>
 
       {/* Compact Grid - More albums, smaller cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 lg:gap-5">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-4 lg:gap-5">
         {displaySongs.map((song, index) => (
           <div
             key={song.vocadbId}

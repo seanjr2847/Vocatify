@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET endpoint to check last update status
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const { prisma } = await import('@/lib/prisma');
 
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       last_updated: latestUpdate?.updated_at,
       total_count: totalCount,
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Failed to get weekly stats status' },
       { status: 500 }

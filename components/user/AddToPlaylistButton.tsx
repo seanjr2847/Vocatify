@@ -31,8 +31,8 @@ interface AddToPlaylistButtonProps {
 export function AddToPlaylistButton({
   songId,
   songTitle,
-  variant = "ghost",
-  size = "icon",
+  variant: _variant = "ghost",
+  size: _size = "icon",
   showText = false,
 }: AddToPlaylistButtonProps) {
   const { status } = useSession();

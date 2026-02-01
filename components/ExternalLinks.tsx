@@ -36,7 +36,7 @@ export function ExternalLinks({ vocadbId, youtubeUrl, niconicoUrl }: ExternalLin
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       {links.map((link) => {
         const Icon = link.icon;
         return (

@@ -5,6 +5,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, Calendar, Eye, Tag, Clock, Trophy, TrendingUp, Globe } from 'lucide-react';
 import { SongActionButtons } from '@/components/SongActionButtons';
 import { DailyViewsChart } from '@/components/charts/DailyViewsChart';
@@ -84,6 +85,12 @@ export default async function SongDetailPage({
     ? recentViews[recentViews.length - 1].totalViews - recentViews[0].totalViews
     : 0;
 
+  // 최근 1일 증가량 계산
+  const lastTwoDays = dailyViews.slice(-2);
+  const dailyIncrease = lastTwoDays.length >= 2
+    ? lastTwoDays[lastTwoDays.length - 1].totalViews - lastTwoDays[0].totalViews
+    : 0;
+
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
@@ -103,11 +110,15 @@ export default async function SongDetailPage({
             {/* Album Art */}
             <div className="flex-shrink-0">
               {(song.youtubeId || song.thumbUrl) ? (
-                <img
-                  src={song.youtubeId ? getYouTubeThumbnail(song.youtubeId, 'maxres') : song.thumbUrl!}
-                  alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
-                  className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 rounded-lg shadow-2xl object-cover"
-                />
+                <div className="relative w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64">
+                  <Image
+                    src={song.youtubeId ? getYouTubeThumbnail(song.youtubeId, 'maxres') : song.thumbUrl!}
+                    alt={song.titleKorean ?? song.titleEnglish ?? song.defaultName}
+                    fill
+                    className="rounded-lg shadow-2xl object-cover"
+                    sizes="(max-width: 640px) 192px, (max-width: 768px) 224px, 256px"
+                  />
+                </div>
               ) : (
                 <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 rounded-lg bg-gradient-to-br from-gray-700 to-gray-900 shadow-2xl" />
               )}
@@ -162,40 +173,28 @@ export default async function SongDetailPage({
           </div>
         )}
 
-        {/* Stats Grid - Redesigned */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 animate-fadeIn">
-          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#252525] rounded-xl p-5 border border-gray-800 hover:border-gray-700 transition-all">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 text-gray-400 text-xs">
-                <Eye className="w-5 h-5" />
-                <span className="font-medium">총 조회수</span>
-              </div>
-              <TrendingUp className="w-5 h-5 text-[#39c5bb]" />
-            </div>
-            <div className="text-3xl font-bold">
+        {/* Stats Grid - 3 columns */}
+        <div className="grid grid-cols-3 gap-4 mb-8 animate-fadeIn">
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#252525] rounded-xl p-4 border border-gray-800">
+            <div className="text-gray-400 text-xs font-medium mb-2">총 조회수</div>
+            <div className="text-xl lg:text-2xl font-bold">
               {song.viewCount ? formatNumberFull(song.viewCount) : 'N/A'}
             </div>
-            {dailyViews.length >= 30 && (
-              <p className="text-xs text-gray-500 mt-2">
-                최근 30일 데이터 추적 중
-              </p>
-            )}
           </div>
 
-          {weeklyIncrease > 0 && (
-            <div className="bg-gradient-to-br from-[#1a1a1a] to-[#252525] rounded-xl p-5 border border-gray-800 hover:border-gray-700 transition-all">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-gray-400 text-xs font-medium">주간 증가</div>
-                <TrendingUp className="w-5 h-5 text-[#39c5bb]" />
-              </div>
-              <div className="text-3xl font-bold text-[#39c5bb]">
-                +{formatNumberFull(weeklyIncrease)}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                최근 7일간 증가량
-              </p>
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#252525] rounded-xl p-4 border border-gray-800">
+            <div className="text-gray-400 text-xs font-medium mb-2">주간 증가</div>
+            <div className="text-xl lg:text-2xl font-bold text-[#39c5bb]">
+              {weeklyIncrease > 0 ? `+${formatNumberFull(weeklyIncrease)}` : '-'}
             </div>
-          )}
+          </div>
+
+          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#252525] rounded-xl p-4 border border-gray-800">
+            <div className="text-gray-400 text-xs font-medium mb-2">일간 증가</div>
+            <div className="text-xl lg:text-2xl font-bold text-[#39c5bb]">
+              {dailyIncrease > 0 ? `+${formatNumberFull(dailyIncrease)}` : '-'}
+            </div>
+          </div>
         </div>
 
         {/* Alternative Titles */}

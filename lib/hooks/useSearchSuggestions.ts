@@ -4,6 +4,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { Song } from "@/lib/db";
 
+// Cache expiration time (5 minutes) - defined at module level to avoid ESLint warning
+const CACHE_TTL = 5 * 60 * 1000;
+
 interface SearchSong extends Song {
   matchedField?: 'title' | 'titleEnglish' | 'titleJapanese' | 'titleKorean' | 'titleRomaji' | 'artist';
   relevanceScore?: number;
@@ -38,9 +41,6 @@ export function useSearchSuggestions(): UseSearchSuggestionsReturn {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchCacheRef = useRef<Map<string, { data: SearchSong[]; total: number; timestamp: number }>>(new Map());
-
-  // Cache expiration time (5 minutes)
-  const CACHE_TTL = 5 * 60 * 1000;
 
   // Debounced search for suggestions with caching
   useEffect(() => {

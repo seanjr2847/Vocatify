@@ -62,7 +62,7 @@ export function PlaylistBulkActions({
     } catch (error) {
       console.error("Failed to delete songs:", error);
     } finally {
-      setIsDeleting((prev) => false);
+      setIsDeleting(false);
     }
   };
 

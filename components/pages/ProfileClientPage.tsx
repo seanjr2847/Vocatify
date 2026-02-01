@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { Heart, ListMusic, TrendingUp, Award } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 interface FavoriteSong {
@@ -263,10 +264,12 @@ export default function ProfileClientPage({ user, favorites, totalFavorites }: P
                           {/* Thumbnail */}
                           {song.thumbUrl ? (
                             <div className="relative aspect-video w-full overflow-hidden">
-                              <img
+                              <Image
                                 src={song.thumbUrl}
                                 alt={displayTitle}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                fill
+                                className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                               />
                               {/* Overlay gradient */}
                               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

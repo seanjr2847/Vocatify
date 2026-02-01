@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes max
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   // DEPRECATED: This endpoint is deprecated in favor of split endpoints
   // Please use the following endpoints instead:
   //   POST /api/cron/weekly-stats
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET endpoint to check last update status
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const { prisma } = await import('@/lib/prisma');
 
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
         daily: dailyCount,
       },
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Failed to get ranking cache status' },
       { status: 500 }

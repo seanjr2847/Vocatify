@@ -24,6 +24,7 @@ import { usePlaylists } from "@/lib/hooks";
 import { calculateReorderedSongs } from "@/lib/utils/playlist";
 import { toast } from "sonner";
 import { Music } from "lucide-react";
+import Image from "next/image";
 
 /**
  * DraggablePlaylistSongs Component
@@ -296,11 +297,15 @@ export function DraggablePlaylistSongs({
 
               {/* Thumbnail */}
               {activeSong.song.thumbUrl ? (
-                <img
-                  src={activeSong.song.thumbUrl}
-                  alt={activeSong.song.defaultName}
-                  className="h-16 w-24 rounded-[12px] object-cover shadow-lg scale-110"
-                />
+                <div className="relative h-16 w-24 scale-110">
+                  <Image
+                    src={activeSong.song.thumbUrl}
+                    alt={activeSong.song.defaultName}
+                    fill
+                    className="rounded-[12px] object-cover shadow-lg"
+                    sizes="96px"
+                  />
+                </div>
               ) : (
                 <div className="h-16 w-24 rounded-[12px] bg-gradient-to-br from-[#39c5bb]/20 to-[#39c5bb]/5 flex items-center justify-center scale-110">
                   <Music className="h-6 w-6 text-[#39c5bb]/40" />

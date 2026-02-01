@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Music } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getSongDisplayTitle, formatViewCount, formatDuration } from "@/lib/utils/playlist";
 
@@ -148,15 +149,15 @@ export function DraggableSongCard({
 
       {/* Thumbnail */}
       {song.thumbUrl ? (
-        <img
-          src={song.thumbUrl}
-          alt={displayTitle}
-          className={`
-            h-16 w-24 rounded-[12px] object-cover shadow-lg
-            transition-transform duration-300
-            ${isDragging ? "scale-110" : ""}
-          `}
-        />
+        <div className={`relative h-16 w-24 transition-transform duration-300 ${isDragging ? "scale-110" : ""}`}>
+          <Image
+            src={song.thumbUrl}
+            alt={displayTitle}
+            fill
+            className="rounded-[12px] object-cover shadow-lg"
+            sizes="96px"
+          />
+        </div>
       ) : (
         <div
           className={`

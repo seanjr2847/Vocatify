@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 /**
@@ -35,7 +34,6 @@ export interface UpdatePlaylistInput {
 }
 
 export function usePlaylists() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
   /**
@@ -68,10 +66,10 @@ export function usePlaylists() {
         throw error;
       } finally {
         // rerender-functional-setstate: Use functional update
-        setIsLoading((prev) => false);
+        setIsLoading(false);
       }
     },
-    [router]
+    []
   );
 
   /**
@@ -105,7 +103,7 @@ export function usePlaylists() {
         toast.error(message);
         throw error;
       } finally {
-        setIsLoading((prev) => false);
+        setIsLoading(false);
       }
     },
     []
@@ -142,7 +140,7 @@ export function usePlaylists() {
         toast.error(message);
         throw error;
       } finally {
-        setIsLoading((prev) => false);
+        setIsLoading(false);
       }
     },
     []
@@ -186,7 +184,7 @@ export function usePlaylists() {
         toast.error(message);
         throw error;
       } finally {
-        setIsLoading((prev) => false);
+        setIsLoading(false);
       }
     },
     []
@@ -225,7 +223,7 @@ export function usePlaylists() {
         toast.error(message);
         throw error;
       } finally {
-        setIsLoading((prev) => false);
+        setIsLoading(false);
       }
     },
     []
@@ -262,7 +260,7 @@ export function usePlaylists() {
         toast.error(message);
         throw error;
       } finally {
-        setIsLoading((prev) => false);
+        setIsLoading(false);
       }
     },
     []
@@ -305,7 +303,7 @@ export function usePlaylists() {
         toast.error(message);
         throw error;
       } finally {
-        setIsLoading((prev) => false);
+        setIsLoading(false);
       }
     },
     []
