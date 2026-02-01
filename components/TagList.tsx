@@ -35,16 +35,7 @@ export function TagList({ tags }: TagListProps) {
 
   return (
     <div className="mb-8 relative">
-      {/* Section Header with Neon Accent */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🏷️</span>
-          <h3 className="text-xl font-bold text-[#39c5bb]">
-            태그
-          </h3>
-        </div>
-        <div className="flex-1 h-px bg-gradient-to-r from-[#39c5bb]/30 via-transparent to-transparent"></div>
-      </div>
+      <h3 className="text-lg font-bold mb-3">태그</h3>
 
       {/* Tags Container with Staggered Animation */}
       <div className="flex flex-wrap gap-3">

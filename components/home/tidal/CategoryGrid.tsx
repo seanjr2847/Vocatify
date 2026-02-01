@@ -60,12 +60,12 @@ export default function CategoryGrid({
     <section className="py-16 px-8">
       {/* Section Header */}
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-white text-3xl font-bold">THE HITS</h2>
+        <h2 className="text-white text-3xl font-bold">인기 차트</h2>
         <Link
           href="/charts"
-          className="text-white/60 hover:text-white text-sm uppercase tracking-wider transition-colors"
+          className="text-white/60 hover:text-white text-sm tracking-wider transition-colors"
         >
-          View all
+          전체 보기
         </Link>
       </div>
 

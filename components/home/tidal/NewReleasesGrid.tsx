@@ -32,7 +32,7 @@ export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-white text-2xl lg:text-3xl font-bold tracking-tight mb-1">
-            New Releases
+            신곡
           </h2>
           <p className="text-white/50 text-sm">최신 보컬로이드 음악</p>
         </div>

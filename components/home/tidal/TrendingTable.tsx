@@ -15,22 +15,22 @@ export default function TrendingTable({ songs }: TrendingTableProps) {
     <section className="py-16 px-8">
       {/* Section Header */}
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-white text-3xl font-bold">WEEKLY TRENDING</h2>
+        <h2 className="text-white text-3xl font-bold">주간 인기</h2>
         <Link
           href="/charts?tab=weekly"
-          className="text-white/60 hover:text-white text-sm uppercase tracking-wider transition-colors"
+          className="text-white/60 hover:text-white text-sm tracking-wider transition-colors"
         >
-          View all
+          전체 보기
         </Link>
       </div>
 
       {/* Table Header */}
       <div className="tidal-table-header grid-cols-[auto_2fr_1.5fr_1.5fr_auto_auto]">
         <div>#</div>
-        <div>TITLE</div>
-        <div>ARTIST</div>
-        <div>ALBUM</div>
-        <div className="text-right">VIEWS</div>
+        <div>제목</div>
+        <div>아티스트</div>
+        <div>앨범</div>
+        <div className="text-right">조회수</div>
         <div></div>
       </div>
 
