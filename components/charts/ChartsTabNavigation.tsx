@@ -38,7 +38,7 @@ export function ChartsTabNavigation({ activeTab, onChange }: ChartsTabNavigation
               className={cn(
                 "relative px-6 py-3 rounded-t-lg transition-all duration-300",
                 isActive
-                  ? "bg-[#CDFF00]/10 text-[#CDFF00]"
+                  ? "bg-[#39c5bb]/10 text-[#39c5bb]"
                   : "text-white/60 hover:text-white/80 hover:bg-white/5"
               )}
               whileHover={{ scale: 1.02 }}
@@ -56,7 +56,7 @@ export function ChartsTabNavigation({ activeTab, onChange }: ChartsTabNavigation
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#CDFF00]"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#39c5bb]"
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />
               )}

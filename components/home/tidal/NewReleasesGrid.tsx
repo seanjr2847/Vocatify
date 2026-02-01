@@ -38,7 +38,7 @@ export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
         </div>
         <Link
           href="/charts?tab=new"
-          className="text-white/60 hover:text-[#CDFF00] text-sm font-medium transition-colors group flex items-center gap-1"
+          className="text-white/60 hover:text-[#39c5bb] text-sm font-medium transition-colors group flex items-center gap-1"
         >
           전체 보기
           <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -61,7 +61,7 @@ export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
             }}
           >
             {/* Compact Album Cover */}
-            <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-white/5 to-white/[0.02] rounded-lg mb-3 shadow-lg shadow-black/20 group-hover:shadow-xl group-hover:shadow-[#CDFF00]/10 transition-all duration-300">
+            <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-white/5 to-white/[0.02] rounded-lg mb-3 shadow-lg shadow-black/20 group-hover:shadow-xl group-hover:shadow-[#39c5bb]/10 transition-all duration-300">
               <Image
                 src={song.youtubeId ? getYouTubeThumbnail(song.youtubeId, 'maxres') : (song.thumbUrl || '/default-album.png')}
                 fill
@@ -73,14 +73,14 @@ export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
               {/* Compact NEW Badge */}
-              <div className="absolute top-2 left-2 bg-[#CDFF00] text-black text-[10px] font-bold px-1.5 py-0.5 rounded shadow-md">
+              <div className="absolute top-2 left-2 bg-[#39c5bb] text-black text-[10px] font-bold px-1.5 py-0.5 rounded shadow-md">
                 NEW
               </div>
 
               {/* Play Button Overlay - Smaller and more refined */}
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
                 <button
-                  className="w-10 h-10 rounded-full bg-white/95 backdrop-blur-sm text-black flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-all duration-300 hover:bg-[#CDFF00]"
+                  className="w-10 h-10 rounded-full bg-white/95 backdrop-blur-sm text-black flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-all duration-300 hover:bg-[#39c5bb]"
                   aria-label="Play song"
                 >
                   <Play className="w-4 h-4 fill-current ml-0.5" />
@@ -96,7 +96,7 @@ export default function NewReleasesGrid({ songs }: NewReleasesGridProps) {
 
             {/* Compact Song Info */}
             <div className="space-y-0.5">
-              <p className="text-white/90 font-medium text-xs lg:text-sm truncate group-hover:text-[#CDFF00] transition-colors">
+              <p className="text-white/90 font-medium text-xs lg:text-sm truncate group-hover:text-[#39c5bb] transition-colors">
                 {song.titleKorean || song.titleEnglish || song.titleJapanese || song.defaultName}
               </p>
               <p className="text-white/50 text-[10px] lg:text-xs truncate">

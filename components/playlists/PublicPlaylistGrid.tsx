@@ -99,7 +99,7 @@ export function PublicPlaylistGrid({ initialPlaylists }: PublicPlaylistGridProps
             className={`
               absolute left-4 top-1/2 -translate-y-1/2
               text-white/40 transition-colors duration-300
-              ${searchQuery ? "text-[#CDFF00]" : ""}
+              ${searchQuery ? "text-[#39c5bb]" : ""}
             `}
           >
             <Search className="h-5 w-5" />
@@ -115,10 +115,10 @@ export function PublicPlaylistGrid({ initialPlaylists }: PublicPlaylistGridProps
               bg-white/5 backdrop-blur-sm
               text-white placeholder:text-white/40
               transition-all duration-300
-              focus:outline-none focus:ring-2 focus:ring-[#CDFF00]/50
+              focus:outline-none focus:ring-2 focus:ring-[#39c5bb]/50
               ${
                 searchQuery
-                  ? "border-[#CDFF00]/50 bg-white/10"
+                  ? "border-[#39c5bb]/50 bg-white/10"
                   : "border-white/10 hover:border-white/20"
               }
             `}
@@ -129,7 +129,7 @@ export function PublicPlaylistGrid({ initialPlaylists }: PublicPlaylistGridProps
             <div
               className={`
                 absolute right-4 top-1/2 -translate-y-1/2
-                w-2 h-2 rounded-full bg-[#CDFF00]
+                w-2 h-2 rounded-full bg-[#39c5bb]
                 animate-pulse
               `}
             />
@@ -150,7 +150,7 @@ export function PublicPlaylistGrid({ initialPlaylists }: PublicPlaylistGridProps
                 bg-white/5 backdrop-blur-sm
                 text-white font-medium
                 hover:border-white/20 hover:bg-white/10
-                focus:ring-2 focus:ring-[#CDFF00]/50
+                focus:ring-2 focus:ring-[#39c5bb]/50
                 transition-all duration-300
               `}
             >
@@ -184,7 +184,7 @@ export function PublicPlaylistGrid({ initialPlaylists }: PublicPlaylistGridProps
       <div className="flex items-center gap-2 text-white/60 text-sm">
         <Globe className="h-4 w-4" />
         <span>
-          <span className="text-[#CDFF00] font-bold">{filteredPlaylists.length}</span>개의
+          <span className="text-[#39c5bb] font-bold">{filteredPlaylists.length}</span>개의
           공개 플레이리스트
         </span>
       </div>

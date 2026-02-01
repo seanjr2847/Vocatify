@@ -23,7 +23,7 @@ export default async function ChartsPage() {
   ]);
 
   return (
-    <Suspense fallback={<div className="bg-[#1d2123] min-h-screen flex items-center justify-center"><span className="text-white">로딩 중...</span></div>}>
+    <Suspense fallback={<div className="bg-black min-h-screen flex items-center justify-center"><span className="text-white">로딩 중...</span></div>}>
       <ChartsClient
         initialTotalRanking={serializeBigInt(totalRanking)}
         initialDailyRanking={serializeBigInt(dailyRanking)}

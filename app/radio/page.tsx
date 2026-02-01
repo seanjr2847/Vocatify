@@ -37,9 +37,9 @@ export default function RadioPage() {
             <div className="relative">
               {/* Ambient Background Elements */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#CDFF00]/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#CDFF00]/3 rounded-full blur-3xl" />
-                <div className="absolute top-1/3 right-1/3 w-72 h-72 bg-[#CDFF00]/4 rounded-full blur-3xl" />
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#39c5bb]/5 rounded-full blur-3xl" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#39c5bb]/3 rounded-full blur-3xl" />
+                <div className="absolute top-1/3 right-1/3 w-72 h-72 bg-[#39c5bb]/4 rounded-full blur-3xl" />
 
                 {/* SSR-Safe animated particles with deterministic positions */}
                 {mounted && PARTICLE_POSITIONS.map((pos, i) => (
@@ -63,17 +63,17 @@ export default function RadioPage() {
                   <div className="flex items-center gap-4 mb-4">
                     <div className="relative">
                       {/* Pulsing glow */}
-                      <div className="absolute inset-0 bg-[#CDFF00]/30 rounded-2xl blur-xl animate-pulse" aria-hidden="true" />
+                      <div className="absolute inset-0 bg-[#39c5bb]/30 rounded-2xl blur-xl animate-pulse" aria-hidden="true" />
 
                       {/* Icon container with Live indicator */}
-                      <div className="relative bg-gradient-to-br from-[#CDFF00]/20 to-[#CDFF00]/10 p-4 rounded-2xl border border-[#CDFF00]/30">
-                        <Radio className="h-8 w-8 md:h-10 md:w-10 text-[#CDFF00]" />
+                      <div className="relative bg-gradient-to-br from-[#39c5bb]/20 to-[#39c5bb]/10 p-4 rounded-2xl border border-[#39c5bb]/30">
+                        <Radio className="h-8 w-8 md:h-10 md:w-10 text-[#39c5bb]" />
 
                         {/* Live pulse indicator */}
                         <div className="absolute -top-1 -right-1">
                           <span className="flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#CDFF00] opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#CDFF00]"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#39c5bb] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#39c5bb]"></span>
                           </span>
                         </div>
                       </div>
@@ -82,7 +82,7 @@ export default function RadioPage() {
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white">라디오</h1>
-                        <span className="px-3 py-1 bg-[#CDFF00]/20 text-[#CDFF00] text-xs font-bold rounded-full border border-[#CDFF00]/30 animate-pulse">
+                        <span className="px-3 py-1 bg-[#39c5bb]/20 text-[#39c5bb] text-xs font-bold rounded-full border border-[#39c5bb]/30 animate-pulse">
                           LIVE
                         </span>
                       </div>
@@ -91,12 +91,12 @@ export default function RadioPage() {
                   </div>
 
                   {/* Enhanced Tagline */}
-                  <div className="flex items-start gap-3 bg-gradient-to-r from-[#CDFF00]/10 to-transparent p-4 rounded-xl border-l-2 border-[#CDFF00]">
-                    <Sparkles className="h-5 w-5 text-[#CDFF00] flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-3 bg-gradient-to-r from-[#39c5bb]/10 to-transparent p-4 rounded-xl border-l-2 border-[#39c5bb]">
+                    <Sparkles className="h-5 w-5 text-[#39c5bb] flex-shrink-0 mt-0.5" />
                     <p className="text-gray-300 text-sm md:text-base leading-relaxed">
                       다양한 분위기의 채널에서 엄선된 보컬로이드 음악을 즐겨보세요.
                       <br />
-                      <span className="text-[#CDFF00] font-semibold">끊김 없는 연속 재생</span>으로 당신만의 음악 여정을 시작하세요.
+                      <span className="text-[#39c5bb] font-semibold">끊김 없는 연속 재생</span>으로 당신만의 음악 여정을 시작하세요.
                     </p>
                   </div>
                 </div>

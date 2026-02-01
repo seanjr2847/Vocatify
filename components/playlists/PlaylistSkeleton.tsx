@@ -179,7 +179,7 @@ export function PlaylistFormSkeleton() {
 
       {/* Button skeleton */}
       <div className="flex gap-3 pt-4">
-        <div className="flex-1 h-12 bg-[#CDFF00]/20 rounded-full" />
+        <div className="flex-1 h-12 bg-[#39c5bb]/20 rounded-full" />
         <div className="flex-1 h-12 bg-white/10 rounded-full" />
       </div>
     </div>

@@ -54,7 +54,7 @@ export default function TrendingTableRow({ song, rank }: TrendingTableRowProps) 
       </div>
 
       {/* Weekly Increase / Views */}
-      <div className="text-[#CDFF00] font-medium text-right flex items-center justify-end">
+      <div className="text-[#39c5bb] font-medium text-right flex items-center justify-end">
         {song.weeklyIncrease ? `+${formatViews(song.weeklyIncrease)}` : formatViews(song.viewCount)}
       </div>
 

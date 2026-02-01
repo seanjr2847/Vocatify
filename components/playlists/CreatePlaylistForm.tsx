@@ -154,7 +154,7 @@ export function CreatePlaylistForm({
               pl-10 h-12
               bg-white/10 border-white/20
               text-white placeholder:text-white/40
-              focus-visible:border-[#CDFF00] focus-visible:ring-[#CDFF00]
+              focus-visible:border-[#39c5bb] focus-visible:ring-[#39c5bb]
               transition-all duration-300
               ${nameError ? "border-red-400" : ""}
             `}
@@ -189,7 +189,7 @@ export function CreatePlaylistForm({
           className={`
             bg-white/10 border-white/20
             text-white placeholder:text-white/40
-            focus-visible:border-[#CDFF00] focus-visible:ring-[#CDFF00]
+            focus-visible:border-[#39c5bb] focus-visible:ring-[#39c5bb]
             resize-none transition-all duration-300
             ${descriptionError ? "border-red-400" : ""}
           `}
@@ -214,12 +214,12 @@ export function CreatePlaylistForm({
             flex items-center justify-between p-4 rounded-[12px]
             bg-white/5 border border-white/10
             transition-all duration-300
-            ${isPublic ? "bg-[#CDFF00]/10 border-[#CDFF00]/30" : ""}
+            ${isPublic ? "bg-[#39c5bb]/10 border-[#39c5bb]/30" : ""}
           `}
         >
           <div className="flex items-center gap-3">
             {isPublic ? (
-              <Globe className="h-5 w-5 text-[#CDFF00]" />
+              <Globe className="h-5 w-5 text-[#39c5bb]" />
             ) : (
               <Lock className="h-5 w-5 text-white/60" />
             )}
@@ -238,7 +238,7 @@ export function CreatePlaylistForm({
             checked={isPublic}
             onCheckedChange={setIsPublic}
             disabled={isLoading}
-            className="data-[state=checked]:bg-[#CDFF00]"
+            className="data-[state=checked]:bg-[#39c5bb]"
           />
         </div>
       </div>
@@ -250,8 +250,8 @@ export function CreatePlaylistForm({
           disabled={isLoading || !name.trim()}
           className={`
             flex-1 h-12 rounded-full
-            bg-[#CDFF00] text-black font-bold
-            hover:bg-[#CDFF00]/90 hover:scale-105
+            bg-[#39c5bb] text-black font-bold
+            hover:bg-[#39c5bb]/90 hover:scale-105
             active:scale-95
             transition-all duration-300
             disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100

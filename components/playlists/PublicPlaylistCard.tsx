@@ -47,8 +47,8 @@ export function PublicPlaylistCard({
           bg-gradient-to-br from-white/5 to-white/[0.02]
           backdrop-blur-sm p-6
           transition-all duration-500 ease-out
-          hover:border-[#CDFF00]/50 hover:bg-white/10
-          hover:scale-[1.02] hover:shadow-2xl hover:shadow-[#CDFF00]/10
+          hover:border-[#39c5bb]/50 hover:bg-white/10
+          hover:scale-[1.02] hover:shadow-2xl hover:shadow-[#39c5bb]/10
           active:scale-[0.98]
           overflow-hidden
         `}
@@ -57,7 +57,7 @@ export function PublicPlaylistCard({
         <div
           className={`
             absolute inset-0 opacity-0 group-hover:opacity-100
-            bg-gradient-to-br from-[#CDFF00]/5 via-transparent to-transparent
+            bg-gradient-to-br from-[#39c5bb]/5 via-transparent to-transparent
             transition-opacity duration-500
             pointer-events-none
           `}
@@ -87,7 +87,7 @@ export function PublicPlaylistCard({
               text-2xl font-bold text-white pr-24
               line-clamp-2 min-h-[3.5rem]
               transition-colors duration-300
-              group-hover:text-[#CDFF00]
+              group-hover:text-[#39c5bb]
             `}
             style={{ fontFamily: "Quicksand, sans-serif" }}
           >
@@ -112,12 +112,12 @@ export function PublicPlaylistCard({
               <div
                 className={`
                   p-2 rounded-full
-                  bg-[#CDFF00]/10 border border-[#CDFF00]/20
+                  bg-[#39c5bb]/10 border border-[#39c5bb]/20
                   transition-all duration-300
-                  group-hover:bg-[#CDFF00]/20 group-hover:border-[#CDFF00]/40
+                  group-hover:bg-[#39c5bb]/20 group-hover:border-[#39c5bb]/40
                 `}
               >
-                <ListMusic className="h-4 w-4 text-[#CDFF00]" />
+                <ListMusic className="h-4 w-4 text-[#39c5bb]" />
               </div>
               <span className="text-white font-bold text-lg tabular-nums">
                 {songCount}
@@ -137,7 +137,7 @@ export function PublicPlaylistCard({
         <div
           className={`
             absolute bottom-0 left-0 right-0 h-1
-            bg-gradient-to-r from-transparent via-[#CDFF00] to-transparent
+            bg-gradient-to-r from-transparent via-[#39c5bb] to-transparent
             opacity-0 group-hover:opacity-100
             transition-opacity duration-500
           `}

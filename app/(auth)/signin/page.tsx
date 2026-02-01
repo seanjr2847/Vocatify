@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function SignInPage() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0a0a0a]">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-black">
       {/* Animated background gradients */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -left-40 h-80 w-80 rounded-full bg-[#39c5bb]/20 blur-[120px] animate-pulse" />

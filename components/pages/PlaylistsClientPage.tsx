@@ -56,8 +56,8 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
           <div className="relative">
             {/* Ambient Background Elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-              <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#CDFF00]/5 rounded-full blur-3xl" />
-              <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-[#CDFF00]/3 rounded-full blur-3xl" />
+              <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#39c5bb]/5 rounded-full blur-3xl" />
+              <div className="absolute bottom-1/3 left-1/4 w-96 h-96 bg-[#39c5bb]/3 rounded-full blur-3xl" />
               <div className="absolute top-1/2 right-1/3 w-72 h-72 bg-purple-500/5 rounded-full blur-3xl" />
 
               {/* Animated particles */}
@@ -88,7 +88,7 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
                     {/* Icon */}
                     <div className="relative">
                       <div className="absolute inset-0 bg-purple-500/30 rounded-2xl blur-xl animate-pulse" aria-hidden="true" />
-                      <div className="relative bg-gradient-to-br from-purple-500/20 to-[#CDFF00]/10 p-3 sm:p-4 rounded-2xl border border-purple-500/30">
+                      <div className="relative bg-gradient-to-br from-purple-500/20 to-[#39c5bb]/10 p-3 sm:p-4 rounded-2xl border border-purple-500/30">
                         <ListMusic className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 text-purple-400" />
                       </div>
                     </div>
@@ -122,7 +122,7 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
                       className={`
                         flex items-center gap-2
                         rounded-full px-5 sm:px-6 py-2.5 sm:py-3 h-auto
-                        bg-gradient-to-r from-purple-500 to-[#CDFF00]
+                        bg-gradient-to-r from-purple-500 to-[#39c5bb]
                         text-black font-bold text-sm sm:text-base
                         transition-all duration-300
                         hover:scale-105 hover:shadow-lg hover:shadow-purple-500/30
@@ -190,7 +190,7 @@ export default function PlaylistsClientPage({ initialPlaylists, initialTotal }: 
 
                 {/* Decorative line */}
                 <div
-                  className="mt-6 ml-0 sm:ml-12 md:ml-[88px] h-[1px] w-32 sm:w-48 md:w-64 bg-gradient-to-r from-purple-500/50 via-[#CDFF00]/30 to-transparent"
+                  className="mt-6 ml-0 sm:ml-12 md:ml-[88px] h-[1px] w-32 sm:w-48 md:w-64 bg-gradient-to-r from-purple-500/50 via-[#39c5bb]/30 to-transparent"
                   aria-hidden="true"
                 />
               </div>

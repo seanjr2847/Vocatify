@@ -145,7 +145,7 @@
 
   /* Tidal Core Colors */
   --tidal-black: #000000;
-  --tidal-neon: #CDFF00;
+  --tidal-neon: #39c5bb;
   --tidal-white: #FFFFFF;
   --tidal-gray: rgba(255, 255, 255, 0.6);
   --tidal-gray-dark: rgba(255, 255, 255, 0.1);
@@ -510,7 +510,7 @@
 
 /* Tidal Buttons */
 .tidal-btn-primary {
-  @apply px-8 py-4 bg-[#CDFF00] text-black font-bold rounded-full;
+  @apply px-8 py-4 bg-[#39c5bb] text-black font-bold rounded-full;
   @apply hover:bg-white transition-colors duration-200;
 }
 

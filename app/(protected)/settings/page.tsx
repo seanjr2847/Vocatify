@@ -17,7 +17,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1d2123]">
+    <div className="min-h-screen bg-black">
       {/* Header */}
       <div className="border-b border-neutral-800 bg-[#1a1a1a]">
         <div className="container mx-auto px-4 py-8">

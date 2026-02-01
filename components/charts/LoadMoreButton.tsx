@@ -15,8 +15,8 @@ export function LoadMoreButton({ onClick, isLoading }: LoadMoreButtonProps) {
       <motion.button
         onClick={onClick}
         disabled={isLoading}
-        className="w-full max-w-md py-4 rounded-full border-2 border-[#CDFF00]/30
-                   text-[#CDFF00] hover:bg-[#CDFF00]/10 transition-all
+        className="w-full max-w-md py-4 rounded-full border-2 border-[#39c5bb]/30
+                   text-[#39c5bb] hover:bg-[#39c5bb]/10 transition-all
                    disabled:opacity-50 disabled:cursor-not-allowed
                    font-semibold uppercase tracking-wider text-sm"
         whileHover={!isLoading ? { scale: 1.02 } : {}}

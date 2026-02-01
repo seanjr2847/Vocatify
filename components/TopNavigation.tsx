@@ -41,7 +41,7 @@ export function TopNavigation() {
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 text-white hover:text-[#CDFF00] transition-colors flex-shrink-0"
+          className="flex items-center gap-2 text-white hover:text-[#39c5bb] transition-colors flex-shrink-0"
         >
           <span className="text-xl font-black tracking-tight">Vocatify</span>
         </Link>
@@ -51,11 +51,11 @@ export function TopNavigation() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 rounded-full hover:bg-[#CDFF00]/10"
+            className="h-9 w-9 rounded-full hover:bg-[#39c5bb]/10"
             onClick={() => toast.info("모바일 메뉴 준비 중")}
             aria-label="모바일 메뉴"
           >
-            <Music className="h-5 w-5 text-[#CDFF00]" />
+            <Music className="h-5 w-5 text-[#39c5bb]" />
           </Button>
         </div>
 

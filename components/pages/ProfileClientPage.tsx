@@ -68,7 +68,7 @@ export default function ProfileClientPage({ user, favorites, totalFavorites }: P
           <div className="relative">
             {/* Ambient Background Elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-              <div className="absolute top-0 left-1/3 w-[500px] h-[500px] bg-[#CDFF00]/8 rounded-full blur-3xl" />
+              <div className="absolute top-0 left-1/3 w-[500px] h-[500px] bg-[#39c5bb]/8 rounded-full blur-3xl" />
               <div className="absolute bottom-1/4 right-1/3 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl" />
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-purple-500/6 rounded-full blur-3xl" />
 
@@ -103,15 +103,15 @@ export default function ProfileClientPage({ user, favorites, totalFavorites }: P
                   <div className="absolute inset-0 border border-white/[0.08] rounded-3xl" />
 
                   {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#CDFF00]/10 via-transparent to-blue-500/5" aria-hidden="true" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#39c5bb]/10 via-transparent to-blue-500/5" aria-hidden="true" />
 
                   {/* Content */}
                   <div className="relative p-8 sm:p-12">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-8">
                       {/* Avatar with glow */}
                       <div className="relative">
-                        <div className="absolute inset-0 bg-[#CDFF00]/30 rounded-full blur-2xl animate-pulse" />
-                        <div className="relative ring-4 ring-[#CDFF00]/20 rounded-full">
+                        <div className="absolute inset-0 bg-[#39c5bb]/30 rounded-full blur-2xl animate-pulse" />
+                        <div className="relative ring-4 ring-[#39c5bb]/20 rounded-full">
                           <UserAvatar
                             name={user.name}
                             image={user.image}
@@ -132,8 +132,8 @@ export default function ProfileClientPage({ user, favorites, totalFavorites }: P
                           >
                             {user.name}
                           </h1>
-                          <div className="px-3 py-1 rounded-full bg-[#CDFF00]/20 border border-[#CDFF00]/30">
-                            <Award className="w-4 h-4 text-[#CDFF00]" />
+                          <div className="px-3 py-1 rounded-full bg-[#39c5bb]/20 border border-[#39c5bb]/30">
+                            <Award className="w-4 h-4 text-[#39c5bb]" />
                           </div>
                         </div>
                         <p className="text-white/60 text-sm sm:text-base mb-6">{user.email}</p>
@@ -159,7 +159,7 @@ export default function ProfileClientPage({ user, favorites, totalFavorites }: P
                             href="/playlists"
                             className="group flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 transition-all duration-300 hover:bg-white/10"
                           >
-                            <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-[#CDFF00]/10 group-hover:scale-110 transition-transform">
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-[#39c5bb]/10 group-hover:scale-110 transition-transform">
                               <ListMusic className="w-5 h-5 text-purple-400" />
                             </div>
                             <div>
@@ -170,8 +170,8 @@ export default function ProfileClientPage({ user, favorites, totalFavorites }: P
 
                           {/* Activity Stat (placeholder) */}
                           <div className="group flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
-                            <div className="p-2 rounded-lg bg-gradient-to-br from-[#CDFF00]/20 to-blue-500/10 group-hover:scale-110 transition-transform">
-                              <TrendingUp className="w-5 h-5 text-[#CDFF00]" />
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-[#39c5bb]/20 to-blue-500/10 group-hover:scale-110 transition-transform">
+                              <TrendingUp className="w-5 h-5 text-[#39c5bb]" />
                             </div>
                             <div>
                               <div className="text-2xl font-bold text-white">-</div>
@@ -210,7 +210,7 @@ export default function ProfileClientPage({ user, favorites, totalFavorites }: P
                   </div>
                   {totalFavorites > 20 && (
                     <Link href="/favorites">
-                      <Button className="text-sm text-[#CDFF00] hover:text-[#CDFF00]/80 transition-colors">
+                      <Button className="text-sm text-[#39c5bb] hover:text-[#39c5bb]/80 transition-colors">
                         모두 보기 →
                       </Button>
                     </Link>
@@ -228,7 +228,7 @@ export default function ProfileClientPage({ user, favorites, totalFavorites }: P
                       마음에 드는 곡에 하트를 눌러보세요
                     </p>
                     <Link href="/">
-                      <Button className="rounded-full bg-gradient-to-r from-pink-500 to-[#CDFF00] text-black font-bold px-6 py-2 hover:scale-105 transition-transform">
+                      <Button className="rounded-full bg-gradient-to-r from-pink-500 to-[#39c5bb] text-black font-bold px-6 py-2 hover:scale-105 transition-transform">
                         곡 둘러보기
                       </Button>
                     </Link>

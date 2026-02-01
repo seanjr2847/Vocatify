@@ -34,7 +34,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const result = await searchSongs(query, limit, offset, sortBy, artistType, tagId);
 
   return (
-    <div className="min-h-screen bg-[#1d2123]">
+    <div className="min-h-screen bg-black">
       <SearchResults
         initialResults={result.songs}
         total={result.total}

@@ -90,10 +90,10 @@ export default function PlaylistsError({
             onClick={reset}
             className={`
               group relative px-8 py-4 rounded-full
-              bg-[#CDFF00] text-black
+              bg-[#39c5bb] text-black
               font-bold text-lg
               transition-all duration-300
-              hover:scale-105 hover:shadow-2xl hover:shadow-[#CDFF00]/50
+              hover:scale-105 hover:shadow-2xl hover:shadow-[#39c5bb]/50
               active:scale-95
               flex items-center justify-center gap-3
             `}

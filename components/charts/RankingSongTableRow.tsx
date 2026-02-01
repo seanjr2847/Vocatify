@@ -53,7 +53,7 @@ const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
       {/* Rank */}
       <div
         className={`text-base font-medium self-center ${
-          isTopThree ? 'text-[#CDFF00] drop-shadow-[0_0_8px_rgba(205,255,0,0.5)]' : 'text-white/40'
+          isTopThree ? 'text-[#39c5bb] drop-shadow-[0_0_8px_rgba(205,255,0,0.5)]' : 'text-white/40'
         }`}
       >
         #{song.rank}
@@ -81,7 +81,7 @@ const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
       </div>
 
       {/* Metric (Views/Increase) */}
-      <div className="text-[#CDFF00] font-medium self-center" title={displayMetric.label}>
+      <div className="text-[#39c5bb] font-medium self-center" title={displayMetric.label}>
         {displayMetric.value}
       </div>
 
@@ -114,7 +114,7 @@ const RankingSongTableRowComponent = ({ song }: RankingSongTableRowProps) => {
       <button
         onClick={handleRadioClick}
         className="opacity-0 group-hover:opacity-100 transition-opacity self-center
-                   w-9 h-9 flex items-center justify-center text-white/60 hover:text-[#CDFF00]
+                   w-9 h-9 flex items-center justify-center text-white/60 hover:text-[#39c5bb]
                    rounded-full hover:bg-white/10"
         aria-label="라디오 시작"
         title="이 곡 기반 라디오"

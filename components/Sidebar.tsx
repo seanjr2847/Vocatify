@@ -48,7 +48,7 @@ export function Sidebar() {
                 <item.icon
                   className={`w-[22px] h-[22px] transition-colors ${
                     active
-                      ? 'text-[#CDFF00]'
+                      ? 'text-[#39c5bb]'
                       : 'text-white/60 hover:text-white'
                   }`}
                 />

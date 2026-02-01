@@ -51,7 +51,7 @@ export function PlayButton({ song, variant = 'default', className = '', disabled
         className={`w-10 h-10 flex items-center justify-center rounded-full transition-all ${
           isDisabled
             ? 'bg-white/10 text-white/40 cursor-not-allowed'
-            : 'bg-[#CDFF00] hover:bg-[#CDFF00]/90 text-black hover:scale-105'
+            : 'bg-[#39c5bb] hover:bg-[#39c5bb]/90 text-black hover:scale-105'
         } ${className}`}
         aria-label="재생"
         title={isDisabled ? 'YouTube 영상 없음' : '재생'}
@@ -69,7 +69,7 @@ export function PlayButton({ song, variant = 'default', className = '', disabled
       className={`w-12 h-12 flex items-center justify-center rounded-full transition-all ${
         isDisabled
           ? 'bg-white/10 text-white/40 cursor-not-allowed'
-          : 'bg-[#CDFF00] hover:bg-[#CDFF00]/90 text-black hover:scale-105'
+          : 'bg-[#39c5bb] hover:bg-[#39c5bb]/90 text-black hover:scale-105'
       } ${className}`}
       aria-label="재생"
       title={isDisabled ? 'YouTube 영상 없음' : '재생'}

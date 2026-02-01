@@ -72,9 +72,9 @@ export function EmptyState({
           onClick={onAction}
           className={`
             rounded-full ${compact ? "px-6 py-2" : "px-8 py-3"}
-            bg-[#CDFF00] text-black font-bold
+            bg-[#39c5bb] text-black font-bold
             transition-all duration-300
-            hover:bg-[#CDFF00]/90 hover:scale-105
+            hover:bg-[#39c5bb]/90 hover:scale-105
             active:scale-95
           `}
           asChild={!!actionHref}

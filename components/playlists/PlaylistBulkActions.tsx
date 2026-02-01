@@ -85,8 +85,8 @@ export function PlaylistBulkActions({
             flex items-center gap-3 px-6 py-4
             rounded-full border-2
             bg-black/80 backdrop-blur-xl
-            shadow-2xl shadow-[#CDFF00]/20
-            ${isSelectMode ? "border-[#CDFF00]/50" : "border-white/10"}
+            shadow-2xl shadow-[#39c5bb]/20
+            ${isSelectMode ? "border-[#39c5bb]/50" : "border-white/10"}
             transition-all duration-300
           `}
         >
@@ -94,13 +94,13 @@ export function PlaylistBulkActions({
           <div
             className={`
               flex items-center gap-2 px-4 py-2 rounded-full
-              bg-[#CDFF00]/10 border border-[#CDFF00]/30
+              bg-[#39c5bb]/10 border border-[#39c5bb]/30
               transition-all duration-300
             `}
           >
-            <ListChecks className="h-4 w-4 text-[#CDFF00]" />
+            <ListChecks className="h-4 w-4 text-[#39c5bb]" />
             <span
-              className="text-sm font-bold text-[#CDFF00] tabular-nums"
+              className="text-sm font-bold text-[#39c5bb] tabular-nums"
               style={{ fontFamily: "Quicksand, monospace" }}
             >
               {selectedCount}곡 선택됨
@@ -182,7 +182,7 @@ export function PlaylistBulkActions({
             transition-all duration-300
             ${
               isSelectMode
-                ? "bg-[#CDFF00] text-black border-2 border-[#CDFF00] scale-110 shadow-[#CDFF00]/40"
+                ? "bg-[#39c5bb] text-black border-2 border-[#39c5bb] scale-110 shadow-[#39c5bb]/40"
                 : "bg-white/10 text-white border-2 border-white/20 hover:bg-white/20 hover:border-white/30 hover:scale-105"
             }
             active:scale-95
@@ -213,7 +213,7 @@ export function PlaylistBulkActions({
               곡 삭제 확인
             </AlertDialogTitle>
             <AlertDialogDescription className="text-white/60 text-base">
-              선택한 <span className="text-[#CDFF00] font-bold">{selectedCount}곡</span>을
+              선택한 <span className="text-[#39c5bb] font-bold">{selectedCount}곡</span>을
               플레이리스트에서 삭제하시겠습니까?
               <br />
               <span className="text-red-400 font-medium">

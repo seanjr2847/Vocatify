@@ -279,18 +279,18 @@ export function DraggablePlaylistSongs({
             <div
               className={`
                 flex items-center gap-4
-                rounded-[16px] border border-[#CDFF00]/50
-                bg-[#CDFF00]/10 backdrop-blur-sm p-4
+                rounded-[16px] border border-[#39c5bb]/50
+                bg-[#39c5bb]/10 backdrop-blur-sm p-4
                 shadow-2xl scale-105 rotate-2
               `}
             >
               {/* Drag Handle */}
-              <div className="text-[#CDFF00]">
+              <div className="text-[#39c5bb]">
                 <Music className="h-5 w-5" />
               </div>
 
               {/* Order Number */}
-              <div className="w-8 text-center text-sm font-bold text-[#CDFF00]">
+              <div className="w-8 text-center text-sm font-bold text-[#39c5bb]">
                 {songs.findIndex((s) => s.id === activeSong.id) + 1}
               </div>
 
@@ -302,15 +302,15 @@ export function DraggablePlaylistSongs({
                   className="h-16 w-24 rounded-[12px] object-cover shadow-lg scale-110"
                 />
               ) : (
-                <div className="h-16 w-24 rounded-[12px] bg-gradient-to-br from-[#CDFF00]/20 to-[#CDFF00]/5 flex items-center justify-center scale-110">
-                  <Music className="h-6 w-6 text-[#CDFF00]/40" />
+                <div className="h-16 w-24 rounded-[12px] bg-gradient-to-br from-[#39c5bb]/20 to-[#39c5bb]/5 flex items-center justify-center scale-110">
+                  <Music className="h-6 w-6 text-[#39c5bb]/40" />
                 </div>
               )}
 
               {/* Song Info */}
               <div className="flex-1 min-w-0">
                 <h3
-                  className="truncate text-base font-bold text-[#CDFF00]"
+                  className="truncate text-base font-bold text-[#39c5bb]"
                   style={{ fontFamily: "Quicksand, sans-serif" }}
                 >
                   {activeSong.song.titleKorean ||

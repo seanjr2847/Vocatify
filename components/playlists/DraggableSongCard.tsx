@@ -87,10 +87,10 @@ export function DraggableSongCard({
         transition-all duration-300
         ${
           isDragging
-            ? "border-[#CDFF00]/50 bg-[#CDFF00]/10 shadow-2xl scale-105 rotate-2 z-50"
+            ? "border-[#39c5bb]/50 bg-[#39c5bb]/10 shadow-2xl scale-105 rotate-2 z-50"
             : isSelected
-            ? "border-[#CDFF00] bg-[#CDFF00]/10 shadow-lg shadow-[#CDFF00]/20"
-            : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-[#CDFF00]/50"
+            ? "border-[#39c5bb] bg-[#39c5bb]/10 shadow-lg shadow-[#39c5bb]/20"
+            : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-[#39c5bb]/50"
         }
         ${
           isSelectMode
@@ -122,7 +122,7 @@ export function DraggableSongCard({
           {...listeners}
           className={`
             cursor-grab active:cursor-grabbing
-            text-white/40 hover:text-[#CDFF00]
+            text-white/40 hover:text-[#39c5bb]
             transition-all duration-300
             ${isDragging ? "opacity-100" : "opacity-0 group-hover:opacity-100"}
           `}
@@ -138,8 +138,8 @@ export function DraggableSongCard({
           transition-colors duration-300
           ${
             isDragging || isSelected
-              ? "text-[#CDFF00]"
-              : "text-white/60 group-hover:text-[#CDFF00]"
+              ? "text-[#39c5bb]"
+              : "text-white/60 group-hover:text-[#39c5bb]"
           }
         `}
       >
@@ -161,13 +161,13 @@ export function DraggableSongCard({
         <div
           className={`
             h-16 w-24 rounded-[12px]
-            bg-gradient-to-br from-[#CDFF00]/20 to-[#CDFF00]/5
+            bg-gradient-to-br from-[#39c5bb]/20 to-[#39c5bb]/5
             flex items-center justify-center
             transition-all duration-300
             ${isDragging ? "scale-110" : ""}
           `}
         >
-          <Music className="h-6 w-6 text-[#CDFF00]/40" />
+          <Music className="h-6 w-6 text-[#39c5bb]/40" />
         </div>
       )}
 
@@ -188,8 +188,8 @@ export function DraggableSongCard({
             transition-colors duration-300
             ${
               isDragging || isSelected
-                ? "text-[#CDFF00]"
-                : "text-white group-hover:text-[#CDFF00]"
+                ? "text-[#39c5bb]"
+                : "text-white group-hover:text-[#39c5bb]"
             }
           `}
           style={{ fontFamily: "Quicksand, sans-serif" }}

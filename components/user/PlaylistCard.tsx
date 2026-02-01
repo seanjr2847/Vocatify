@@ -40,8 +40,8 @@ export function PlaylistCard({
           rounded-[20px] p-6
           border border-white/10
           transition-all duration-300
-          hover:bg-white/10 hover:border-[#CDFF00]/50
-          hover:scale-105 hover:shadow-2xl hover:shadow-[#CDFF00]/10
+          hover:bg-white/10 hover:border-[#39c5bb]/50
+          hover:scale-105 hover:shadow-2xl hover:shadow-[#39c5bb]/10
           active:scale-100
         `}
       >
@@ -50,13 +50,13 @@ export function PlaylistCard({
           className={`
             mb-4 flex h-16 w-16 items-center justify-center
             rounded-[16px]
-            bg-gradient-to-br from-[#CDFF00]/20 to-[#CDFF00]/5
+            bg-gradient-to-br from-[#39c5bb]/20 to-[#39c5bb]/5
             transition-all duration-300
-            group-hover:from-[#CDFF00]/30 group-hover:to-[#CDFF00]/10
+            group-hover:from-[#39c5bb]/30 group-hover:to-[#39c5bb]/10
             group-hover:scale-110
           `}
         >
-          <ListMusic className="h-8 w-8 text-[#CDFF00]" />
+          <ListMusic className="h-8 w-8 text-[#39c5bb]" />
         </div>
 
         {/* Title and Description */}
@@ -65,7 +65,7 @@ export function PlaylistCard({
             className={`
               mb-2 text-lg font-bold text-white
               transition-colors duration-300
-              group-hover:text-[#CDFF00]
+              group-hover:text-[#39c5bb]
               line-clamp-2
             `}
             style={{ fontFamily: "Quicksand, sans-serif" }}
@@ -114,7 +114,7 @@ export function PlaylistCard({
           className={`
             absolute top-4 right-4
             w-2 h-2 rounded-full
-            bg-[#CDFF00]
+            bg-[#39c5bb]
             opacity-0 group-hover:opacity-100
             transition-opacity duration-300
           `}
