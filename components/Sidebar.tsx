@@ -28,7 +28,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6 bg-black">
+    <aside className="hidden lg:flex w-[92px] flex-shrink-0 flex-col items-center py-6 gap-6 bg-black sticky top-0 h-screen">
       <div className="w-[34px] h-[34px] flex items-center justify-center">
         {/* 로고 플레이스홀더 - 로고 이미지를 추가하세요 */}
       </div>

@@ -50,42 +50,36 @@ export default function FavoritesClientPage({ favorites }: PageProps) {
   }, []);
 
   return (
-    <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
+    <div className="w-full flex flex-col min-h-screen">
       <main className="flex-1 flex flex-col">
         {/* Main Content */}
-        <section
-          className="flex-1 relative w-full py-6 overflow-y-auto"
-          style={{
-            paddingBottom: 'max(150px, calc(env(safe-area-inset-bottom, 0px) + 150px))',
-          }}
-        >
+        <section className="flex-1 relative w-full px-6 py-6 pb-[150px] overflow-y-auto">
+          {/* Ambient Background Elements */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+            {/* Gradient orbs */}
+            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-[#39c5bb]/10 via-[#39c5bb]/5 to-transparent rounded-full blur-3xl" />
+            <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-gradient-to-br from-[#39c5bb]/8 via-[#39c5bb]/4 to-transparent rounded-full blur-3xl" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-to-br from-[#39c5bb]/6 to-transparent rounded-full blur-3xl" />
+
+            {/* Animated floating hearts */}
+            {mounted && HEART_POSITIONS.map((pos, i) => (
+              <div
+                key={i}
+                className="absolute text-[#39c5bb]/10"
+                style={{
+                  left: `${pos.left}%`,
+                  top: `${pos.top}%`,
+                  transform: `scale(${pos.scale})`,
+                  animation: `float-heart ${12 + i}s ease-in-out infinite`,
+                  animationDelay: `${pos.delay}s`,
+                }}
+              >
+                <Heart className="w-6 h-6 fill-current" />
+              </div>
+            ))}
+          </div>
+
           <div className="relative">
-            {/* Ambient Background Elements - Love Gallery Theme */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-              {/* Gradient orbs */}
-              <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-pink-500/10 via-rose-500/5 to-transparent rounded-full blur-3xl" />
-              <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-gradient-to-br from-rose-500/8 via-pink-500/4 to-transparent rounded-full blur-3xl" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-to-br from-pink-500/6 to-transparent rounded-full blur-3xl" />
-
-              {/* Animated floating hearts */}
-              {mounted && HEART_POSITIONS.map((pos, i) => (
-                <div
-                  key={i}
-                  className="absolute text-pink-500/10"
-                  style={{
-                    left: `${pos.left}%`,
-                    top: `${pos.top}%`,
-                    transform: `scale(${pos.scale})`,
-                    animation: `float-heart ${12 + i}s ease-in-out infinite`,
-                    animationDelay: `${pos.delay}s`,
-                  }}
-                >
-                  <Heart className="w-6 h-6 fill-current" />
-                </div>
-              ))}
-            </div>
-
-            <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
               {/* Page Header with Animation */}
               <div
                 className={`mb-12 transition-all duration-1000 ${
@@ -98,11 +92,11 @@ export default function FavoritesClientPage({ favorites }: PageProps) {
                     {/* Heart Icon with Gradient */}
                     <div className="relative">
                       {/* Outer glow */}
-                      <div className="absolute inset-0 rounded-[24px] bg-gradient-to-br from-pink-500 to-rose-500 opacity-20 blur-xl animate-pulse" />
+                      <div className="absolute inset-0 rounded-[24px] bg-[#39c5bb] opacity-20 blur-xl animate-pulse" />
 
                       {/* Icon container */}
-                      <div className="relative p-3 sm:p-4 md:p-5 rounded-[20px] sm:rounded-[24px] bg-gradient-to-br from-pink-500/20 to-rose-500/20 border-2 border-pink-500/30 shadow-2xl shadow-pink-500/20 transition-all duration-500 hover:scale-110 hover:shadow-pink-500/40">
-                        <Heart className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 text-pink-400 fill-pink-400" />
+                      <div className="relative p-3 sm:p-4 md:p-5 rounded-[20px] sm:rounded-[24px] bg-gradient-to-br from-[#39c5bb]/20 to-[#39c5bb]/10 border-2 border-[#39c5bb]/30 shadow-2xl shadow-[#39c5bb]/20 transition-all duration-500 hover:scale-110 hover:shadow-[#39c5bb]/40">
+                        <Heart className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 text-[#39c5bb] fill-[#39c5bb]" />
                       </div>
                     </div>
 
@@ -112,13 +106,13 @@ export default function FavoritesClientPage({ favorites }: PageProps) {
                         className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white tracking-tight mb-1 sm:mb-2"
                         style={{
                           fontFamily: "'Quicksand', sans-serif",
-                          textShadow: '0 0 40px rgba(244, 114, 182, 0.3)',
+                          textShadow: '0 0 40px rgba(57, 197, 187, 0.3)',
                         }}
                       >
                         즐겨찾기
                       </h1>
                       <div className="flex items-center gap-2">
-                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-pink-400/70" aria-hidden="true" />
+                        <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-[#39c5bb]/70" aria-hidden="true" />
                         <p
                           className="text-white/50 text-xs sm:text-sm tracking-wide uppercase"
                           style={{ fontFamily: "'Inter', sans-serif", letterSpacing: '0.1em' }}
@@ -136,7 +130,7 @@ export default function FavoritesClientPage({ favorites }: PageProps) {
                       className={`
                         p-2 rounded-md transition-all duration-200
                         ${viewMode === 'grid'
-                          ? 'bg-pink-500/20 text-pink-400'
+                          ? 'bg-[#39c5bb]/20 text-[#39c5bb]'
                           : 'text-white/40 hover:text-white/60'
                         }
                       `}
@@ -149,7 +143,7 @@ export default function FavoritesClientPage({ favorites }: PageProps) {
                       className={`
                         p-2 rounded-md transition-all duration-200
                         ${viewMode === 'list'
-                          ? 'bg-pink-500/20 text-pink-400'
+                          ? 'bg-[#39c5bb]/20 text-[#39c5bb]'
                           : 'text-white/40 hover:text-white/60'
                         }
                       `}
@@ -169,7 +163,7 @@ export default function FavoritesClientPage({ favorites }: PageProps) {
                 </p>
 
                 {/* Decorative accent line */}
-                <div className="ml-0 sm:ml-12 md:ml-[88px] h-1 w-24 sm:w-32 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 shadow-lg shadow-pink-500/50" />
+                <div className="ml-0 sm:ml-12 md:ml-[88px] h-1 w-24 sm:w-32 rounded-full bg-gradient-to-r from-[#39c5bb] to-[#39c5bb]/50 shadow-lg shadow-[#39c5bb]/50" />
               </div>
 
               {/* Favorites Grid */}
@@ -180,7 +174,6 @@ export default function FavoritesClientPage({ favorites }: PageProps) {
                 style={{ transitionDelay: '200ms' }}
               >
                 <FavoritesGrid favorites={favorites} />
-              </div>
             </div>
           </div>
         </section>

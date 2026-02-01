@@ -3,16 +3,14 @@
 import React from 'react';
 
 interface PlaylistTabsProps {
-  activeTab: 'queue' | 'suggested' | 'lyrics' | 'credits';
-  onTabChange: (tab: 'queue' | 'suggested' | 'lyrics' | 'credits') => void;
+  activeTab: 'queue' | 'lyrics';
+  onTabChange: (tab: 'queue' | 'lyrics') => void;
 }
 
 export function PlaylistTabs({ activeTab, onTabChange }: PlaylistTabsProps) {
   const tabs = [
-    { id: 'queue' as const, label: 'Play queue' },
-    { id: 'suggested' as const, label: 'Suggested tracks' },
-    { id: 'lyrics' as const, label: 'Lyrics' },
-    { id: 'credits' as const, label: 'Credits' },
+    { id: 'queue' as const, label: '재생 대기열' },
+    { id: 'lyrics' as const, label: '가사' },
   ];
 
   return (

@@ -14,23 +14,9 @@ interface TagListProps {
   tags: Tag[];
 }
 
-// Category-based color schemes for visual variety
-const getCategoryColor = (category: string | null, index: number) => {
-  const colors = [
-    { border: '#a78bfa', glow: 'rgba(167, 139, 250, 0.3)', text: '#c4b5fd' }, // Purple
-    { border: '#39c5bb', glow: 'rgba(57, 197, 187, 0.3)', text: '#5eead4' },  // Teal
-    { border: '#f472b6', glow: 'rgba(244, 114, 182, 0.3)', text: '#f9a8d4' }, // Pink
-    { border: '#fbbf24', glow: 'rgba(251, 191, 36, 0.3)', text: '#fde047' },  // Amber
-    { border: '#60a5fa', glow: 'rgba(96, 165, 250, 0.3)', text: '#93c5fd' },  // Blue
-  ];
-
-  if (category) {
-    // Hash category name to get consistent color
-    const hash = category.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  }
-
-  return colors[index % colors.length];
+// Mint color scheme for all tags
+const getMintColor = () => {
+  return { border: '#39c5bb', glow: 'rgba(57, 197, 187, 0.3)', text: '#5eead4' };
 };
 
 export function TagList({ tags }: TagListProps) {
@@ -38,8 +24,9 @@ export function TagList({ tags }: TagListProps) {
   const [hoveredTag, setHoveredTag] = useState<number | null>(null);
 
   const handleTagClick = (tag: Tag) => {
+    // Only use tagId for filtering, not text search
+    // This allows finding all songs with this tag regardless of title/artist match
     const params = new URLSearchParams({
-      q: tag.name,
       tagId: tag.id.toString(),
       tagName: tag.name,
     });
@@ -52,17 +39,17 @@ export function TagList({ tags }: TagListProps) {
       <div className="flex items-center gap-3 mb-5">
         <div className="flex items-center gap-2">
           <span className="text-2xl">🏷️</span>
-          <h3 className="text-xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-teal-400 bg-clip-text text-transparent">
+          <h3 className="text-xl font-bold text-[#39c5bb]">
             태그
           </h3>
         </div>
-        <div className="flex-1 h-px bg-gradient-to-r from-purple-500/30 via-transparent to-transparent"></div>
+        <div className="flex-1 h-px bg-gradient-to-r from-[#39c5bb]/30 via-transparent to-transparent"></div>
       </div>
 
       {/* Tags Container with Staggered Animation */}
       <div className="flex flex-wrap gap-3">
         {tags.map((tag, index) => {
-          const colorScheme = getCategoryColor(tag.categoryName, index);
+          const colorScheme = getMintColor();
           const isHovered = hoveredTag === tag.id;
 
           return (

@@ -14,7 +14,7 @@ interface PlayerState {
   duration: number; // seconds
   isMuted: boolean;
   viewMode: 'minimized' | 'fullscreen';
-  activeTab: 'queue' | 'suggested' | 'lyrics' | 'credits';
+  activeTab: 'queue' | 'lyrics';
   playlist: Song[]; // 재생목록
   playlistSource: string; // "PLAYING FROM:" 표시용
   // Radio mode
@@ -36,7 +36,7 @@ interface MusicPlayerContextValue {
   toggleMute: () => void;
   setViewMode: (mode: 'minimized' | 'fullscreen') => void;
   toggleFullscreen: () => void;
-  setActiveTab: (tab: 'queue' | 'suggested' | 'lyrics' | 'credits') => void;
+  setActiveTab: (tab: 'queue' | 'lyrics') => void;
   addToPlaylist: (song: Song) => void;
   removeFromPlaylist: (vocadbId: number) => void;
   reorderPlaylist: (oldIndex: number, newIndex: number) => void;
@@ -254,7 +254,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     }));
   }, []);
 
-  const setActiveTab = useCallback((tab: 'queue' | 'suggested' | 'lyrics' | 'credits') => {
+  const setActiveTab = useCallback((tab: 'queue' | 'lyrics') => {
     setState(prev => ({ ...prev, activeTab: tab }));
   }, []);
 

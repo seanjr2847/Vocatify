@@ -32,6 +32,21 @@ export function formatNumber(num: bigint | number | string | null | undefined): 
 }
 
 /**
+ * Format numbers with full digits and comma separators
+ * @example formatNumberFull(1234567) => "1,234,567"
+ * @example formatNumberFull(2000000000) => "2,000,000,000"
+ */
+export function formatNumberFull(num: bigint | number | string | null | undefined): string {
+  if (!num || num === '0') return '0';
+
+  const n = typeof num === 'bigint' ? Number(num) :
+            typeof num === 'string' ? Number(num) :
+            num;
+
+  return Math.round(n).toLocaleString('ko-KR');
+}
+
+/**
  * Format date in Korean locale
  * @example formatDate(new Date('2024-01-15')) => "2024년 1월 15일"
  */

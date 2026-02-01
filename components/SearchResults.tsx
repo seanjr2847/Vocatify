@@ -101,36 +101,44 @@ export function SearchResults({
       <div className="mb-8">
         <Link
           href="/"
-          className="inline-flex items-center text-purple-400 hover:text-purple-300 mb-4 transition-colors"
+          className="inline-flex items-center text-[#39c5bb] hover:text-[#5eead4] mb-4 transition-colors"
         >
           <ChevronLeft className="w-4 h-4 mr-1" />
           홈으로 돌아가기
         </Link>
-        <h1 className="text-3xl font-bold text-white mb-2">검색 결과</h1>
+        <h1 className="text-3xl font-bold text-white mb-2">
+          {tagId && !query ? '태그 검색' : '검색 결과'}
+        </h1>
         <p className="text-gray-400">
-          &apos;{query}&apos;에 대한 {total.toLocaleString()}개의 결과
+          {query ? (
+            <>&apos;{query}&apos;에 대한 {total.toLocaleString()}개의 결과</>
+          ) : tagId ? (
+            <>{total.toLocaleString()}개의 곡</>
+          ) : (
+            <>{total.toLocaleString()}개의 결과</>
+          )}
         </p>
       </div>
 
-      {/* Tag Filter Indicator - Holographic Design */}
+      {/* Tag Filter Indicator */}
       {tagId && (
         <div className="mb-6 animate-fadeIn">
           <div className="relative group">
             {/* Animated Glow Background */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-teal-600 rounded-2xl blur-lg opacity-30 group-hover:opacity-50 animate-pulse"></div>
+            <div className="absolute -inset-1 bg-[#39c5bb] rounded-2xl blur-lg opacity-20 group-hover:opacity-40 animate-pulse"></div>
 
             {/* Main Container */}
-            <div className="relative flex items-center gap-3 px-5 py-3 bg-gradient-to-br from-purple-950/40 via-gray-900/60 to-teal-950/40 border-2 border-purple-500/30 rounded-2xl backdrop-blur-md overflow-hidden">
+            <div className="relative flex items-center gap-3 px-5 py-3 bg-gradient-to-br from-[#39c5bb]/10 via-gray-900/60 to-[#39c5bb]/5 border-2 border-[#39c5bb]/30 rounded-2xl backdrop-blur-md overflow-hidden">
               {/* Animated Background Pattern */}
               <div className="absolute inset-0 opacity-10">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/20 to-transparent animate-shimmer"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#39c5bb]/20 to-transparent animate-shimmer"></div>
               </div>
 
               {/* Filter Icon */}
               <div className="relative flex-shrink-0">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-teal-500/20 flex items-center justify-center border border-purple-400/30">
+                <div className="w-8 h-8 rounded-lg bg-[#39c5bb]/20 flex items-center justify-center border border-[#39c5bb]/30">
                   <svg
-                    className="w-4 h-4 text-purple-300"
+                    className="w-4 h-4 text-[#39c5bb]"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -142,14 +150,14 @@ export function SearchResults({
 
               {/* Filter Info */}
               <div className="relative flex-1 min-w-0">
-                <div className="text-xs text-purple-300/70 font-medium mb-0.5">
+                <div className="text-xs text-[#39c5bb]/70 font-medium mb-0.5">
                   ACTIVE FILTER
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-base font-bold bg-gradient-to-r from-purple-200 via-pink-200 to-teal-200 bg-clip-text text-transparent">
+                  <span className="text-base font-bold text-[#5eead4]">
                     {tagName || `Tag #${tagId}`}
                   </span>
-                  <div className="h-1 w-1 rounded-full bg-purple-400 animate-pulse"></div>
+                  <div className="h-1 w-1 rounded-full bg-[#39c5bb] animate-pulse"></div>
                 </div>
               </div>
 
@@ -180,8 +188,8 @@ export function SearchResults({
               </button>
 
               {/* Decorative Corner Accents */}
-              <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-2xl"></div>
-              <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-teal-500/10 to-transparent rounded-full blur-2xl"></div>
+              <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-[#39c5bb]/10 to-transparent rounded-full blur-2xl"></div>
+              <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-[#39c5bb]/10 to-transparent rounded-full blur-2xl"></div>
             </div>
           </div>
 
@@ -210,7 +218,7 @@ export function SearchResults({
           <select
             value={sortBy}
             onChange={(e) => updateFilters(e.target.value, undefined)}
-            className="bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
+            className="bg-gray-800 text-white px-3 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-[#39c5bb] transition-colors"
           >
             {SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -228,7 +236,7 @@ export function SearchResults({
               onClick={() => updateFilters(undefined, "Vocaloid")}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 artistType === "Vocaloid"
-                  ? "bg-purple-600 text-white"
+                  ? "bg-[#39c5bb] text-black"
                   : "text-gray-400 hover:text-white"
               }`}
             >
@@ -238,7 +246,7 @@ export function SearchResults({
               onClick={() => updateFilters(undefined, "all")}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 artistType === "all"
-                  ? "bg-purple-600 text-white"
+                  ? "bg-[#39c5bb] text-black"
                   : "text-gray-400 hover:text-white"
               }`}
             >
@@ -254,16 +262,16 @@ export function SearchResults({
           {/* Decorative Background */}
           <div className="absolute inset-0 flex items-center justify-center opacity-5">
             <svg className="w-64 h-64" viewBox="0 0 200 200" fill="none">
-              <circle cx="100" cy="100" r="80" stroke="currentColor" strokeWidth="0.5" className="text-purple-500" />
-              <circle cx="100" cy="100" r="60" stroke="currentColor" strokeWidth="0.5" className="text-pink-500" />
-              <circle cx="100" cy="100" r="40" stroke="currentColor" strokeWidth="0.5" className="text-teal-500" />
+              <circle cx="100" cy="100" r="80" stroke="currentColor" strokeWidth="0.5" className="text-[#39c5bb]" />
+              <circle cx="100" cy="100" r="60" stroke="currentColor" strokeWidth="0.5" className="text-[#39c5bb]" />
+              <circle cx="100" cy="100" r="40" stroke="currentColor" strokeWidth="0.5" className="text-[#39c5bb]" />
             </svg>
           </div>
 
           <div className="relative text-center">
             {/* Empty State Icon */}
-            <div className="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-teal-500/10 border border-purple-500/20">
-              <svg className="w-10 h-10 text-purple-300/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-gradient-to-br from-[#39c5bb]/10 to-[#39c5bb]/5 border border-[#39c5bb]/20">
+              <svg className="w-10 h-10 text-[#39c5bb]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -277,7 +285,7 @@ export function SearchResults({
             {tagId ? (
               <div className="max-w-md mx-auto space-y-4">
                 <p className="text-gray-400 leading-relaxed">
-                  이 태그와 <span className="text-purple-300 font-semibold">&apos;{query}&apos;</span> 검색어가 모두 일치하는 곡이 없습니다.
+                  이 태그와 <span className="text-[#39c5bb] font-semibold">&apos;{query}&apos;</span> 검색어가 모두 일치하는 곡이 없습니다.
                 </p>
 
                 {/* Clear Filter Button */}
@@ -291,14 +299,14 @@ export function SearchResults({
                   className="group relative inline-flex items-center gap-2 px-6 py-3 rounded-xl overflow-hidden transition-all duration-300 hover:scale-105"
                 >
                   {/* Button Background */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-teal-600/20 group-hover:from-purple-600/30 group-hover:via-pink-600/30 group-hover:to-teal-600/30 transition-all"></div>
-                  <div className="absolute inset-0 border-2 border-purple-500/30 group-hover:border-purple-400/50 rounded-xl transition-all"></div>
+                  <div className="absolute inset-0 bg-[#39c5bb]/20 group-hover:bg-[#39c5bb]/30 transition-all"></div>
+                  <div className="absolute inset-0 border-2 border-[#39c5bb]/30 group-hover:border-[#39c5bb]/50 rounded-xl transition-all"></div>
 
                   {/* Button Content */}
-                  <svg className="relative w-4 h-4 text-purple-300 group-hover:text-purple-200 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="relative w-4 h-4 text-[#39c5bb] group-hover:text-[#5eead4] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                  <span className="relative text-sm font-semibold text-purple-300 group-hover:text-purple-200 transition-colors">
+                  <span className="relative text-sm font-semibold text-[#39c5bb] group-hover:text-[#5eead4] transition-colors">
                     태그 필터 제거
                   </span>
                 </button>
@@ -329,7 +337,7 @@ export function SearchResults({
               <Link
                 key={song.vocadbId}
                 href={`/songs/${song.vocadbId}`}
-                className="flex items-center gap-4 p-4 bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-all hover:shadow-lg hover:shadow-purple-500/10 border border-transparent hover:border-purple-500/30"
+                className="flex items-center gap-4 p-4 bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-all hover:shadow-lg hover:shadow-[#39c5bb]/10 border border-transparent hover:border-[#39c5bb]/30"
               >
                 {/* Thumbnail */}
                 <div className="relative w-24 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-700">
@@ -413,7 +421,7 @@ export function SearchResults({
                   size="sm"
                   className={
                     currentPage === pageNum
-                      ? "bg-purple-600 hover:bg-purple-700 text-white"
+                      ? "bg-[#39c5bb] hover:bg-[#2db3a9] text-black"
                       : "bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
                   }
                 >

@@ -45,9 +45,16 @@ export async function GET(
       );
     }
 
-    // Get first non-support artist ID for related songs
-    const primaryArtist = song.artists.find(a => !a.isSupport);
-    const primaryArtistId = primaryArtist?.id ?? null;
+    // Get producer/composer artist ID for related songs
+    // Priority: Producer > Composer > Lyricist
+    const producerArtist = song.artists.find(a =>
+      !a.isSupport &&
+      (a.categories.includes('Producer') ||
+       a.categories.includes('Composer') ||
+       a.categories.includes('Lyricist'))
+    );
+    const producerArtistId = producerArtist?.id ?? null;
+    const producerName = producerArtist?.name ?? null;
 
     // Compute UI-friendly fields
     const titleKorean = song.names.find(n => n.language === 'Korean')?.value || null;
@@ -66,6 +73,10 @@ export async function GET(
     const youtubeId = youtubePv?.pvId || null;
     const youtubeUrl = youtubePv?.url || null;
 
+    // NicoNico Douga PV
+    const niconicoPv = song.pvs.find(pv => pv.service === 'NicoNicoDouga');
+    const niconicoUrl = niconicoPv?.url || null;
+
     // Extended song with computed fields
     const extendedSong = {
       ...song,
@@ -78,6 +89,7 @@ export async function GET(
       viewCountUpdatedAt,
       youtubeId,
       youtubeUrl,
+      niconicoUrl,
     };
 
     // Check authentication for favorite status
@@ -90,8 +102,8 @@ export async function GET(
         console.error('Rankings fetch failed:', error);
         return { total: null, daily: null, weekly: null };
       }),
-      primaryArtistId
-        ? Promise.resolve(getRelatedSongsByArtist(primaryArtistId, vocadbId, 6)).catch((error) => {
+      producerArtistId
+        ? Promise.resolve(getRelatedSongsByArtist(producerArtistId, vocadbId, 6)).catch((error) => {
             console.error('Related songs fetch failed:', error);
             return [];
           })
@@ -113,6 +125,7 @@ export async function GET(
           dailyViews,
           rankings,
           relatedSongs,
+          producerName,
           statistics,
           isFavorited,
         }),

@@ -1,11 +1,12 @@
-import { ExternalLink, Music, Video } from 'lucide-react';
+import { ExternalLink, Music, Video, PlayCircle } from 'lucide-react';
 
 interface ExternalLinksProps {
   vocadbId: number;
   youtubeUrl: string | null;
+  niconicoUrl?: string | null;
 }
 
-export function ExternalLinks({ vocadbId, youtubeUrl }: ExternalLinksProps) {
+export function ExternalLinks({ vocadbId, youtubeUrl, niconicoUrl }: ExternalLinksProps) {
   const links = [
     {
       label: 'VocaDB',
@@ -19,6 +20,16 @@ export function ExternalLinks({ vocadbId, youtubeUrl }: ExternalLinksProps) {
             label: 'YouTube',
             icon: Video,
             url: youtubeUrl,
+            available: true,
+          },
+        ]
+      : []),
+    ...(niconicoUrl
+      ? [
+          {
+            label: 'NicoNico',
+            icon: PlayCircle,
+            url: niconicoUrl,
             available: true,
           },
         ]

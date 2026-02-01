@@ -22,8 +22,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const tagId = params.tagId ? parseInt(params.tagId) : null;
   const tagName = params.tagName || null;
 
-  // Redirect to home if no query
-  if (!query || query.length < 2) {
+  // Redirect to home if no query AND no tagId
+  // Allow tag-only searches without text query
+  if ((!query || query.length < 2) && !tagId) {
     redirect("/");
   }
 

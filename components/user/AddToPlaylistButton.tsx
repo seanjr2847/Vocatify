@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { ListMusic, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -119,16 +118,22 @@ export function AddToPlaylistButton({
   return (
     <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant={variant}
-          size={size}
-          disabled={isLoading}
-          className="transition-colors"
-          title="플레이리스트에 추가"
-        >
-          <ListMusic className="h-5 w-5 text-white/60 hover:text-white" />
-          {showText && <span className="ml-2">플레이리스트에 추가</span>}
-        </Button>
+        {showText ? (
+          <button
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-3 rounded-full bg-[#2a2a2a] hover:bg-[#3a3a3a] transition-colors text-white"
+          >
+            <ListMusic className="h-5 w-5" />
+            <span className="text-sm font-medium">플레이리스트에 추가</span>
+          </button>
+        ) : (
+          <button
+            disabled={isLoading}
+            className="flex items-center justify-center w-12 h-12 rounded-full bg-[#2a2a2a] hover:bg-[#3a3a3a] transition-colors text-white hover:text-[#39c5bb]"
+          >
+            <ListMusic className="h-6 w-6" />
+          </button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>플레이리스트 선택</DropdownMenuLabel>

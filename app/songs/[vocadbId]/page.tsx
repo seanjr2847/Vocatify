@@ -5,7 +5,7 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, Eye, Star, Tag, Clock, Trophy, TrendingUp, Globe } from 'lucide-react';
+import { ArrowLeft, Calendar, Eye, Tag, Clock, Trophy, TrendingUp, Globe } from 'lucide-react';
 import { SongActionButtons } from '@/components/SongActionButtons';
 import { DailyViewsChart } from '@/components/charts/DailyViewsChart';
 import { RankingBadges } from '@/components/RankingBadges';
@@ -16,7 +16,7 @@ import { RelatedSongsCarousel } from '@/components/RelatedSongsCarousel';
 import { ArtistsByRole } from '@/components/ArtistsByRole';
 import { TagList } from '@/components/TagList';
 import type { Song, SongDetail, DailyViewCount, RankingPositions, SongStatistics } from '@/lib/db';
-import { formatNumber, formatDate, formatDuration, getYouTubeThumbnail } from '@/lib/utils/format-utils';
+import { formatNumberFull, formatDate, formatDuration, getYouTubeThumbnail } from '@/lib/utils/format-utils';
 
 // Extended song detail with computed fields for UI
 interface SongDetailExtended extends SongDetail {
@@ -29,6 +29,7 @@ interface SongDetailExtended extends SongDetail {
   viewCountUpdatedAt: Date | null;
   youtubeId: string | null;
   youtubeUrl: string | null;
+  niconicoUrl: string | null;
 }
 
 interface ApiResponse {
@@ -38,6 +39,7 @@ interface ApiResponse {
     dailyViews: DailyViewCount[];
     rankings: RankingPositions;
     relatedSongs: Song[];
+    producerName: string | null;
     statistics: SongStatistics | null;
     isFavorited: boolean;
   };
@@ -74,7 +76,7 @@ export default async function SongDetailPage({
     notFound();
   }
 
-  const { song, dailyViews, rankings, relatedSongs, statistics, isFavorited } = response.data;
+  const { song, dailyViews, rankings, relatedSongs, producerName, statistics, isFavorited } = response.data;
 
   // 최근 7일 증가량 계산
   const recentViews = dailyViews.slice(-7);
@@ -84,9 +86,9 @@ export default async function SongDetailPage({
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header with gradient background */}
-      <div className="relative bg-gradient-to-b from-[#2a2a2a] to-[#121212] pb-6">
-        <div className="max-w-7xl mx-auto px-8 pt-16">
+      {/* Header */}
+      <div className="relative pb-6">
+        <div className="max-w-7xl mx-auto px-8 pt-6">
           {/* Back Navigation */}
           <Link
             href="/"
@@ -134,7 +136,7 @@ export default async function SongDetailPage({
                     <>
                       <span>•</span>
                       <Eye className="w-4 h-4" />
-                      <span>{formatNumber(song.viewCount)} 조회</span>
+                      <span>{formatNumberFull(song.viewCount)} 조회</span>
                     </>
                   )}
                 </div>
@@ -171,7 +173,7 @@ export default async function SongDetailPage({
               <TrendingUp className="w-5 h-5 text-[#39c5bb]" />
             </div>
             <div className="text-3xl font-bold">
-              {song.viewCount ? formatNumber(song.viewCount) : 'N/A'}
+              {song.viewCount ? formatNumberFull(song.viewCount) : 'N/A'}
             </div>
             {dailyViews.length >= 30 && (
               <p className="text-xs text-gray-500 mt-2">
@@ -187,7 +189,7 @@ export default async function SongDetailPage({
                 <TrendingUp className="w-5 h-5 text-[#39c5bb]" />
               </div>
               <div className="text-3xl font-bold text-[#39c5bb]">
-                +{formatNumber(weeklyIncrease)}
+                +{formatNumberFull(weeklyIncrease)}
               </div>
               <p className="text-xs text-gray-500 mt-2">
                 최근 7일간 증가량
@@ -245,15 +247,6 @@ export default async function SongDetailPage({
               </div>
             )}
 
-            {song.songType && (
-              <div className="flex items-start gap-3">
-                <Star className="w-4 h-4 text-gray-400 mt-0.5" />
-                <div>
-                  <div className="text-gray-400">곡 유형</div>
-                  <div className="font-semibold">{song.songType}</div>
-                </div>
-              </div>
-            )}
           </div>
         </InfoCard>
 
@@ -263,7 +256,7 @@ export default async function SongDetailPage({
         {/* External Links */}
         <div className="mb-8">
           <h3 className="text-lg font-bold mb-3">외부 링크</h3>
-          <ExternalLinks vocadbId={song.vocadbId} youtubeUrl={song.youtubeUrl} />
+          <ExternalLinks vocadbId={song.vocadbId} youtubeUrl={song.youtubeUrl} niconicoUrl={song.niconicoUrl} />
         </div>
 
         {/* Statistics */}
@@ -275,10 +268,10 @@ export default async function SongDetailPage({
         )}
 
         {/* Related Songs */}
-        {relatedSongs && relatedSongs.length > 0 && (
+        {relatedSongs && relatedSongs.length > 0 && producerName && (
           <div className="mb-8">
-            <h3 className="text-lg font-bold mb-3">같은 아티스트의 다른 곡</h3>
-            <RelatedSongsCarousel songs={relatedSongs} title={song.artistString} />
+            <h3 className="text-lg font-bold mb-3">같은 프로듀서의 다른 곡</h3>
+            <RelatedSongsCarousel songs={relatedSongs} title={producerName} />
           </div>
         )}
 

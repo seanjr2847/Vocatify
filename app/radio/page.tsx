@@ -25,38 +25,32 @@ export default function RadioPage() {
   }, []);
 
   return (
-    <div className="bg-black overflow-hidden w-full flex flex-col min-h-screen">
+    <div className="w-full flex flex-col min-h-screen">
       <main className="flex-1 flex flex-col">
-          {/* Main Content - with safe-area padding for mobile */}
-          <section
-            className="flex-1 relative w-full py-6 overflow-y-auto"
-            style={{
-              paddingBottom: 'max(150px, calc(env(safe-area-inset-bottom, 0px) + 150px))',
-            }}
-          >
+          {/* Main Content */}
+          <section className="flex-1 relative w-full px-6 py-6 pb-[150px] overflow-y-auto">
+            {/* Ambient Background Elements */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+              <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#39c5bb]/5 rounded-full blur-3xl" />
+              <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#39c5bb]/3 rounded-full blur-3xl" />
+              <div className="absolute top-1/3 right-1/3 w-72 h-72 bg-[#39c5bb]/4 rounded-full blur-3xl" />
+
+              {/* SSR-Safe animated particles with deterministic positions */}
+              {mounted && PARTICLE_POSITIONS.map((pos, i) => (
+                <div
+                  key={i}
+                  className="absolute w-1 h-1 bg-white/20 rounded-full radio-animate-float"
+                  style={{
+                    left: `${pos.left}%`,
+                    top: `${pos.top}%`,
+                    animationDuration: `${8 + i * 2}s`,
+                    animationDelay: `${i * 0.8}s`,
+                  }}
+                />
+              ))}
+            </div>
+
             <div className="relative">
-              {/* Ambient Background Elements */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#39c5bb]/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#39c5bb]/3 rounded-full blur-3xl" />
-                <div className="absolute top-1/3 right-1/3 w-72 h-72 bg-[#39c5bb]/4 rounded-full blur-3xl" />
-
-                {/* SSR-Safe animated particles with deterministic positions */}
-                {mounted && PARTICLE_POSITIONS.map((pos, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-1 h-1 bg-white/20 rounded-full radio-animate-float"
-                    style={{
-                      left: `${pos.left}%`,
-                      top: `${pos.top}%`,
-                      animationDuration: `${8 + i * 2}s`,
-                      animationDelay: `${i * 0.8}s`,
-                    }}
-                  />
-                ))}
-              </div>
-
-              <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
                 {/* Enhanced Header with Animation */}
                 <div className={`mb-12 md:mb-16 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
                   {/* Icon and Title */}
@@ -115,7 +109,6 @@ export default function RadioPage() {
                     </div>
                   ))}
                 </div>
-              </div>
             </div>
           </section>
         </main>

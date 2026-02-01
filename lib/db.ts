@@ -843,9 +843,9 @@ export async function getSongById(vocadbId: number): Promise<SongDetail | null> 
         orderBy: { id: 'asc' },
       },
       pvs: {
-        where: { service: 'Youtube' }, // YouTube만 (성능 최적화)
+        where: { service: { in: ['Youtube', 'NicoNicoDouga'] } }, // YouTube + NicoNico
         orderBy: [{ view_count: 'desc' }],
-        take: 5, // 상위 5개만
+        take: 10, // 상위 10개
       },
       song_tags: {
         include: { tags: true },
@@ -1066,11 +1066,36 @@ export async function searchSongs(
   artistType: string | null = 'Vocaloid',
   tagId?: number | null
 ): Promise<SearchResult> {
-  const searchTerm = `%${query}%`;
+  const hasTextQuery = query && query.trim().length > 0;
+  const searchTerm = hasTextQuery ? `%${query}%` : '%';
 
-  // Build ORDER BY clause (relevance uses $4 and $5 for exact and prefix match)
+  // Build vocaloid filter
+  const vocaloidFilter = artistType === 'Vocaloid' ? 'AND se.is_vocaloid_song = true' : '';
+
+  // Build tag filter with JOIN if needed (parameterized to prevent SQL injection)
+  const tagJoin = tagId ? 'JOIN song_tags st ON se.song_id = st.song_id' : '';
+  // Tag filter uses parameterized query - parameter index depends on whether text search is used
+  const getTagFilterParam = (baseIndex: number) => tagId ? `AND st.tag_id = $${baseIndex}` : '';
+
+  // Build text search filter (optional when tagId is provided)
+  const textSearchFilter = hasTextQuery
+    ? `(
+        se.default_name ILIKE $1
+        OR se.title_korean ILIKE $1
+        OR se.title_english ILIKE $1
+        OR se.title_japanese ILIKE $1
+        OR se.title_romaji ILIKE $1
+        OR se.artist_string ILIKE $1
+      )`
+    : 'TRUE'; // No text filter when only searching by tag
+
+  // Build ORDER BY clause
+  // Parameter indices shift based on: $1=searchTerm, $2=limit, $3=offset, $4=tagId (if exists)
+  // Relevance uses additional params after tagId
   let orderClause: string;
   let useRelevanceParams = false;
+  const relevanceParamStart = tagId ? 5 : 4;
+
   switch (sortBy) {
     case 'publishDate':
       orderClause = 'ORDER BY se.publish_date DESC NULLS LAST';
@@ -1082,26 +1107,27 @@ export async function searchSongs(
       orderClause = 'ORDER BY se.artist_string ASC NULLS LAST';
       break;
     case 'relevance':
-      useRelevanceParams = true;
-      orderClause = `ORDER BY
-        CASE
-          WHEN se.default_name ILIKE $4 THEN 1
-          WHEN se.default_name ILIKE $5 THEN 2
-          ELSE 3
-        END,
-        COALESCE(se.view_count, 0) DESC`;
+      if (hasTextQuery) {
+        useRelevanceParams = true;
+        orderClause = `ORDER BY
+          CASE
+            WHEN se.default_name ILIKE $${relevanceParamStart} THEN 1
+            WHEN se.default_name ILIKE $${relevanceParamStart + 1} THEN 2
+            ELSE 3
+          END,
+          COALESCE(se.view_count, 0) DESC`;
+      } else {
+        // No relevance sorting without text query, fall back to viewCount
+        orderClause = 'ORDER BY COALESCE(se.view_count, 0) DESC';
+      }
       break;
     case 'viewCount':
     default:
       orderClause = 'ORDER BY COALESCE(se.view_count, 0) DESC';
   }
 
-  // Build vocaloid filter
-  const vocaloidFilter = artistType === 'Vocaloid' ? 'AND se.is_vocaloid_song = true' : '';
-
-  // Build tag filter with JOIN if needed
-  const tagJoin = tagId ? 'JOIN song_tags st ON se.song_id = st.song_id' : '';
-  const tagFilter = tagId ? `AND st.tag_id = ${tagId}` : '';
+  // Tag filter parameter index: after limit ($2) and offset ($3)
+  const tagFilterClause = getTagFilterParam(4);
 
   // Optimized search query using songs_enhanced denormalized table
   // Uses GIN trigram indexes for fast ILIKE searches
@@ -1126,47 +1152,43 @@ export async function searchSongs(
       se.length_seconds as "lengthSeconds"
     FROM songs_enhanced se
     ${tagJoin}
-    WHERE (
-      se.default_name ILIKE $1
-      OR se.title_korean ILIKE $1
-      OR se.title_english ILIKE $1
-      OR se.title_japanese ILIKE $1
-      OR se.title_romaji ILIKE $1
-      OR se.artist_string ILIKE $1
-    )
+    WHERE ${textSearchFilter}
     ${vocaloidFilter}
-    ${tagFilter}
+    ${tagFilterClause}
     ${orderClause}
     LIMIT $2 OFFSET $3
   `;
 
+  // Build query params: [searchTerm, limit, offset, tagId?, relevanceExact?, relevancePrefix?]
   const queryParams: unknown[] = [searchTerm, limit, offset];
+  if (tagId) {
+    queryParams.push(tagId);
+  }
   if (useRelevanceParams) {
     queryParams.push(query, `${query}%`);
   }
 
   const songs = await prisma.$queryRawUnsafe<RankingItem[]>(songQuery, ...queryParams);
 
-  // Count query using same filters
+  // Count query using same filters (only needs searchTerm and tagId)
+  const countTagFilterClause = getTagFilterParam(2);
   const countQuery = `
     SELECT COUNT(*) as count
     FROM songs_enhanced se
     ${tagJoin}
-    WHERE (
-      se.default_name ILIKE $1
-      OR se.title_korean ILIKE $1
-      OR se.title_english ILIKE $1
-      OR se.title_japanese ILIKE $1
-      OR se.title_romaji ILIKE $1
-      OR se.artist_string ILIKE $1
-    )
+    WHERE ${textSearchFilter}
     ${vocaloidFilter}
-    ${tagFilter}
+    ${countTagFilterClause}
   `;
+
+  const countParams: unknown[] = [searchTerm];
+  if (tagId) {
+    countParams.push(tagId);
+  }
 
   const countResult = await prisma.$queryRawUnsafe<[{ count: bigint }]>(
     countQuery,
-    searchTerm
+    ...countParams
   );
 
   return {

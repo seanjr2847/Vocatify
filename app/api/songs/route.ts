@@ -18,12 +18,12 @@ export async function GET(request: NextRequest) {
     const artistTypeParam = searchParams.get('artistType');
     const tagIdParam = searchParams.get('tagId');
 
-    // Validate query
-    if (!query || query.length < 2) {
+    // Validate query (allow tagId-only searches)
+    if ((!query || query.length < 2) && !tagIdParam) {
       return NextResponse.json(
         {
           success: false,
-          error: '검색어는 최소 2글자 이상이어야 합니다.',
+          error: '검색어는 최소 2글자 이상이거나 태그 ID가 필요합니다.',
         },
         { status: 400 }
       );
