@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Calendar, Eye, Tag, Clock, Trophy, TrendingUp, Globe } from 'lucide-react';
+import { ArrowLeft, Calendar, Eye, Tag, Clock, Trophy, Globe } from 'lucide-react';
 import { SongActionButtons } from '@/components/SongActionButtons';
 import { DailyViewsChart } from '@/components/charts/DailyViewsChart';
 import { RankingBadges } from '@/components/RankingBadges';
