@@ -4,19 +4,20 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { TopNavigation } from "@/components/TopNavigation";
 import { MusicPlayerSection } from "@/components/MusicPlayerSection";
-import { AnnouncementBanner } from "@/components/AnnouncementBanner";
+import { AdBanner } from "@/components/AdBanner";
 import { ReactNode } from "react";
 
-// 배너 설정 - 여기서 배너 내용을 수정하세요
-const BANNER_CONFIG = {
+// 광고 배너 설정
+const AD_BANNER_CONFIG = {
   enabled: true,
-  id: "2024-02-launch", // 새 공지마다 ID 변경 필요
-  message: "Vocatify에 오신 것을 환영합니다! 보컬로이드 음악을 발견하세요.",
-  link: {
-    text: "더 알아보기",
-    href: "/about",
-  },
-  variant: "info" as const,
+  id: "main-banner-v1",
+  imageUrl: "/banners/top-banner.png",      // 데스크탑 배너 이미지 (970x90 권장)
+  mobileImageUrl: "/banners/top-banner-mobile.png", // 모바일 배너 이미지 (320x50 권장)
+  linkUrl: "/about",                         // 클릭 시 이동할 링크
+  alt: "Vocatify 배너",
+  height: 90,
+  closeable: true,
+  external: false,                           // 외부 링크면 true
 };
 
 export function RootLayoutClient({ children }: { children: ReactNode }) {
@@ -27,13 +28,17 @@ export function RootLayoutClient({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {/* Announcement Banner - Top of page */}
-      {BANNER_CONFIG.enabled && !isAuthPage && (
-        <AnnouncementBanner
-          id={BANNER_CONFIG.id}
-          message={BANNER_CONFIG.message}
-          link={BANNER_CONFIG.link}
-          variant={BANNER_CONFIG.variant}
+      {/* Ad Banner - Top of page */}
+      {AD_BANNER_CONFIG.enabled && !isAuthPage && (
+        <AdBanner
+          id={AD_BANNER_CONFIG.id}
+          imageUrl={AD_BANNER_CONFIG.imageUrl}
+          mobileImageUrl={AD_BANNER_CONFIG.mobileImageUrl}
+          linkUrl={AD_BANNER_CONFIG.linkUrl}
+          alt={AD_BANNER_CONFIG.alt}
+          height={AD_BANNER_CONFIG.height}
+          closeable={AD_BANNER_CONFIG.closeable}
+          external={AD_BANNER_CONFIG.external}
         />
       )}
 
