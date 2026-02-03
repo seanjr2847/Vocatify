@@ -135,6 +135,12 @@ export function YouTubePlayer() {
     };
   }, [state.isPlaying]);
 
+  // Store playNextInQueue in a ref to avoid re-creating polling effect
+  const playNextInQueueRef = useRef(playNextInQueue);
+  useEffect(() => {
+    playNextInQueueRef.current = playNextInQueue;
+  }, [playNextInQueue]);
+
   // Polling mechanism for background tab support using Web Worker
   // Web Workers are less affected by browser throttling than setInterval
   useEffect(() => {
@@ -155,7 +161,7 @@ export function YouTubePlayer() {
           // Prevent duplicate triggers
           if (videoId && lastEndedVideoRef.current !== videoId) {
             lastEndedVideoRef.current = videoId;
-            playNextInQueue();
+            playNextInQueueRef.current();
           }
         }
       } catch (error) {
@@ -163,19 +169,20 @@ export function YouTubePlayer() {
       }
     };
 
-    // Try to use Web Worker for more reliable background polling
+    // Initialize Web Worker once if not exists
     if (typeof Worker !== 'undefined' && !workerRef.current) {
       try {
         workerRef.current = new Worker('/playback-worker.js');
-        workerRef.current.onmessage = () => {
-          checkPlaybackStatus();
-        };
       } catch (e) {
         console.warn('Web Worker not available, falling back to setInterval');
       }
     }
 
+    // Set up Worker message handler and start
     if (workerRef.current) {
+      workerRef.current.onmessage = () => {
+        checkPlaybackStatus();
+      };
       workerRef.current.postMessage({ type: 'start', interval: 1000 });
     }
 
@@ -188,7 +195,7 @@ export function YouTubePlayer() {
         workerRef.current.postMessage({ type: 'stop' });
       }
     };
-  }, [isReady, state.currentSong, playNextInQueue, playerRef]);
+  }, [isReady, state.currentSong, playerRef]);
 
   // Reset lastEndedVideoRef when song changes
   useEffect(() => {
@@ -214,7 +221,7 @@ export function YouTubePlayer() {
             const videoId = state.currentSong?.youtubeId;
             if (videoId && lastEndedVideoRef.current !== videoId) {
               lastEndedVideoRef.current = videoId;
-              playNextInQueue();
+              playNextInQueueRef.current();
             }
           }
         } catch (error) {
@@ -225,7 +232,7 @@ export function YouTubePlayer() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isReady, state.currentSong, playNextInQueue, playerRef]);
+  }, [isReady, state.currentSong, playerRef]);
 
   // Cleanup silent audio and worker on unmount
   useEffect(() => {
