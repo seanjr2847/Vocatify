@@ -11,6 +11,7 @@ export function YouTubePlayer() {
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
   const lastEndedVideoRef = useRef<string | null>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const workerRef = useRef<Worker | null>(null);
 
   // viewMode에 따라 다른 설정 적용
   const isFullscreen = state.viewMode === 'fullscreen';
@@ -134,8 +135,8 @@ export function YouTubePlayer() {
     };
   }, [state.isPlaying]);
 
-  // Polling mechanism for background tab support
-  // Combined with silent audio, this ensures reliable detection
+  // Polling mechanism for background tab support using Web Worker
+  // Web Workers are less affected by browser throttling than setInterval
   useEffect(() => {
     if (!isReady || !playerRef.current || !state.currentSong) return;
 
@@ -162,10 +163,31 @@ export function YouTubePlayer() {
       }
     };
 
-    // Poll every 1 second for more responsive background detection
+    // Try to use Web Worker for more reliable background polling
+    if (typeof Worker !== 'undefined' && !workerRef.current) {
+      try {
+        workerRef.current = new Worker('/playback-worker.js');
+        workerRef.current.onmessage = () => {
+          checkPlaybackStatus();
+        };
+      } catch (e) {
+        console.warn('Web Worker not available, falling back to setInterval');
+      }
+    }
+
+    if (workerRef.current) {
+      workerRef.current.postMessage({ type: 'start', interval: 1000 });
+    }
+
+    // Fallback: also use setInterval as backup
     const intervalId = setInterval(checkPlaybackStatus, 1000);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      clearInterval(intervalId);
+      if (workerRef.current) {
+        workerRef.current.postMessage({ type: 'stop' });
+      }
+    };
   }, [isReady, state.currentSong, playNextInQueue, playerRef]);
 
   // Reset lastEndedVideoRef when song changes
@@ -175,12 +197,47 @@ export function YouTubePlayer() {
     }
   }, [state.currentSong?.youtubeId]);
 
-  // Cleanup silent audio on unmount
+  // Check playback status when tab becomes visible again
+  // This catches cases where the song ended while in background
+  useEffect(() => {
+    if (!isReady || !playerRef.current || !state.currentSong) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && playerRef.current) {
+        try {
+          const playerState = playerRef.current.getPlayerState?.();
+          const currentTime = playerRef.current.getCurrentTime?.() || 0;
+          const duration = playerRef.current.getDuration?.() || 0;
+
+          // If video has ended or is near the end, play next
+          if (playerState === 0 || (duration > 0 && currentTime >= duration - 1.5)) {
+            const videoId = state.currentSong?.youtubeId;
+            if (videoId && lastEndedVideoRef.current !== videoId) {
+              lastEndedVideoRef.current = videoId;
+              playNextInQueue();
+            }
+          }
+        } catch (error) {
+          // Ignore errors
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isReady, state.currentSong, playNextInQueue, playerRef]);
+
+  // Cleanup silent audio and worker on unmount
   useEffect(() => {
     return () => {
       if (silentAudioRef.current) {
         silentAudioRef.current.pause();
         silentAudioRef.current = null;
+      }
+      if (workerRef.current) {
+        workerRef.current.postMessage({ type: 'stop' });
+        workerRef.current.terminate();
+        workerRef.current = null;
       }
     };
   }, []);

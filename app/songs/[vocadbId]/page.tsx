@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Calendar, Eye, Tag, Clock, Trophy, Globe } from 'lucide-react';
+import { ArrowLeft, Calendar, Tag, Clock, Trophy, Globe } from 'lucide-react';
 import { SongActionButtons } from '@/components/SongActionButtons';
 import { DailyViewsChart } from '@/components/charts/DailyViewsChart';
 import { RankingBadges } from '@/components/RankingBadges';
@@ -135,23 +135,7 @@ export default async function SongDetailPage({
               <div className="space-y-3">
                 <ArtistsByRole artists={song.artists} />
 
-                {/* Metadata Row - Year and View Count */}
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  {song.publishDate && (
-                    <>
-                      <Calendar className="w-4 h-4" />
-                      <span>{new Date(song.publishDate).getFullYear()}</span>
-                    </>
-                  )}
-                  {song.viewCount && (
-                    <>
-                      <span>•</span>
-                      <Eye className="w-4 h-4" />
-                      <span>{formatNumberFull(song.viewCount)} 조회</span>
-                    </>
-                  )}
                 </div>
-              </div>
             </div>
           </div>
         </div>
