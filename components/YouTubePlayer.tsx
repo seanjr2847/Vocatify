@@ -88,6 +88,13 @@ export function YouTubePlayer() {
     // Update playing state
     if (playerState === 1) {
       updatePlayingState(true);
+      // Update currentVideoId when video starts playing
+      // This syncs our tracking with the actual loaded video (important for POLL)
+      const playingVideoId = state.currentSong?.youtubeId;
+      if (playingVideoId && currentVideoId !== playingVideoId) {
+        console.log(`[YT] Syncing currentVideoId: ${currentVideoId} -> ${playingVideoId}`);
+        setCurrentVideoId(playingVideoId);
+      }
     } else if (playerState === 2) {
       updatePlayingState(false);
     } else if (playerState === 0) {
@@ -96,7 +103,7 @@ export function YouTubePlayer() {
       updatePlayingState(false);
       playNextInQueue();
     }
-  }, [updatePlayingState, updateDuration, playerRef, playNextInQueue]);
+  }, [updatePlayingState, updateDuration, playerRef, playNextInQueue, state.currentSong?.youtubeId, currentVideoId]);
 
   const onError: YouTubeProps['onError'] = useCallback((event: YouTubeEvent) => {
     console.error('YouTube Player Error:', event.data);
@@ -274,17 +281,17 @@ export function YouTubePlayer() {
           console.log('[VIS] Loading pending video:', pendingId);
           pendingVideoIdRef.current = null;
           try {
-            // 방법 1: loadVideoById 직접 호출 (isReady && playerRef.current인 경우)
+            // loadVideoById만 호출 - setCurrentVideoId 호출 안 함!
+            // setCurrentVideoId를 호출하면 react-youtube가 플레이어를 재생성하고
+            // 이 때 autoplay가 브라우저 정책에 의해 차단됨
+            // currentVideoId는 onStateChange(PLAYING)에서 업데이트됨
             if (playerRef.current) {
               playerRef.current.loadVideoById(pendingId);
+              console.log('[VIS] Called loadVideoById, waiting for PLAYING state');
             }
-            // 방법 2: currentVideoId 변경 (react-youtube가 감지해서 로드)
-            setCurrentVideoId(pendingId);
             return; // 비디오 로드 후 체크는 다음 이벤트에서
           } catch (error) {
             console.warn('[VIS] Failed to load pending video:', error);
-            // 실패해도 currentVideoId는 업데이트 (react-youtube가 재시도)
-            setCurrentVideoId(pendingId);
           }
         }
 
