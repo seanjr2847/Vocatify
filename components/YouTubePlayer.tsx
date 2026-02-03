@@ -12,6 +12,7 @@ export function YouTubePlayer() {
   const lastEndedVideoRef = useRef<string | null>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const pendingVideoIdRef = useRef<string | null>(null); // 백그라운드에서 대기 중인 비디오
 
   // viewMode에 따라 다른 설정 적용
   const isFullscreen = state.viewMode === 'fullscreen';
@@ -235,12 +236,25 @@ export function YouTubePlayer() {
 
   // Check playback status when tab becomes visible again
   // This catches cases where the song ended while in background
+  // Also loads pending videos that were deferred during background
   useEffect(() => {
     if (!isReady || !playerRef.current || !state.currentSong) return;
 
     const handleVisibilityChange = () => {
       console.log(`[VIS] visibilityState changed to: ${document.visibilityState}`);
       if (document.visibilityState === 'visible' && playerRef.current) {
+        // 먼저 pending video가 있으면 로드 시도
+        if (pendingVideoIdRef.current) {
+          console.log('[VIS] Loading pending video:', pendingVideoIdRef.current);
+          try {
+            playerRef.current.loadVideoById(pendingVideoIdRef.current);
+            pendingVideoIdRef.current = null;
+            return; // 비디오 로드 후 체크는 다음 이벤트에서
+          } catch (error) {
+            console.warn('[VIS] Failed to load pending video:', error);
+          }
+        }
+
         try {
           const playerState = playerRef.current.getPlayerState?.();
           const currentTime = playerRef.current.getCurrentTime?.() || 0;
@@ -329,11 +343,24 @@ export function YouTubePlayer() {
 
     // Only load if video ID changed and player is ready
     if (isReady && playerRef.current && currentVideoId !== newVideoId) {
+      // 백그라운드 탭일 때는 로드 지연 (iframe 통신 실패 방지)
+      if (document.visibilityState === 'hidden') {
+        console.log('[YT] Background tab - deferring video load:', newVideoId);
+        pendingVideoIdRef.current = newVideoId;
+        setCurrentVideoId(newVideoId); // 상태는 업데이트 (중복 방지)
+        return;
+      }
+
       try {
+        console.log('[YT] Loading video:', newVideoId);
         playerRef.current.loadVideoById(newVideoId);
         setCurrentVideoId(newVideoId);
+        pendingVideoIdRef.current = null;
       } catch (error) {
-        console.error('Error loading video:', error);
+        console.error('[YT] Error loading video:', error);
+        // 실패 시 pending에 저장하여 visible 될 때 재시도
+        pendingVideoIdRef.current = newVideoId;
+        setCurrentVideoId(newVideoId);
       }
     } else if (!isReady || !currentVideoId) {
       // Set initial video ID
