@@ -166,6 +166,19 @@ export function YouTubePlayer() {
         return;
       }
 
+      // Skip if there's a pending video waiting to be loaded (background tab case)
+      // This prevents false "ended" detection when player still shows previous video state
+      if (pendingVideoIdRef.current) {
+        console.log('[POLL] Skipping - pending video waiting:', pendingVideoIdRef.current);
+        return;
+      }
+
+      // Skip if the loaded video doesn't match the current song (video not yet loaded)
+      if (currentVideoId !== state.currentSong?.youtubeId) {
+        console.log(`[POLL] Skipping - video mismatch: loaded=${currentVideoId}, expected=${state.currentSong?.youtubeId}`);
+        return;
+      }
+
       try {
         const playerState = playerRef.current.getPlayerState?.();
         const currentTime = playerRef.current.getCurrentTime?.() || 0;
@@ -225,7 +238,7 @@ export function YouTubePlayer() {
         workerRef.current.postMessage({ type: 'stop' });
       }
     };
-  }, [isReady, state.currentSong, playerRef]);
+  }, [isReady, state.currentSong, playerRef, currentVideoId]);
 
   // Reset lastEndedVideoRef when song changes
   useEffect(() => {
