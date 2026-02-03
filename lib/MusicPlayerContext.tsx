@@ -14,15 +14,22 @@ interface PlayerState {
   duration: number; // seconds
   isMuted: boolean;
   viewMode: 'minimized' | 'fullscreen';
-  activeTab: 'queue' | 'lyrics';
-  playlist: Song[]; // 다음에 재생될 곡들 (queue)
-  playHistory: Song[]; // 이전에 재생된 곡들 (history)
-  playlistSource: string; // "PLAYING FROM:" 표시용
-  // Radio mode
-  isRadioMode: boolean;
-  radioChannel: { slug: string; name: string } | null; // 현재 라디오 채널
-  radioTags: string[]; // 라디오 태그 목록
+  activeTab: 'queue' | 'radio' | 'lyrics'; // 확장: 3개 탭
+
+  // User Queue (독립 - 라디오 상태와 무관하게 보존)
+  userQueue: Song[];
+  userQueueHistory: Song[];
+  userQueueSource: string; // "PLAYING FROM:" 표시용
+
+  // Radio Queue (독립)
+  radioQueue: Song[];
+  radioHistory: Song[];
   radioPlayedIds: number[]; // 이미 재생된 곡 ID들
+
+  // Source Management
+  activeSource: 'user' | 'radio';
+  radioChannel: { slug: string; name: string } | null; // 현재 라디오 채널
+
   // Playback controls
   isShuffleEnabled: boolean;
   repeatMode: 'off' | 'all' | 'one'; // off: 반복 없음, all: 전체 반복, one: 한 곡 반복
@@ -37,7 +44,7 @@ interface MusicPlayerContextValue {
   toggleMute: () => void;
   setViewMode: (mode: 'minimized' | 'fullscreen') => void;
   toggleFullscreen: () => void;
-  setActiveTab: (tab: 'queue' | 'lyrics') => void;
+  setActiveTab: (tab: 'queue' | 'radio' | 'lyrics') => void;
   addToPlaylist: (song: Song) => void;
   removeFromPlaylist: (vocadbId: number) => void;
   reorderPlaylist: (oldIndex: number, newIndex: number) => void;
@@ -50,6 +57,8 @@ interface MusicPlayerContextValue {
   startSimilarRadio: (songId: number) => Promise<void>;
   stopRadio: () => void;
   playNextInQueue: () => void;
+  // Source switching
+  switchToUserQueue: () => void;
   // Playback controls
   playPrevious: () => void;
   toggleShuffle: () => void;
@@ -77,7 +86,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     };
   };
 
-  // Session Storage에서 재생목록 복원
+  // Session Storage에서 재생목록 복원 (마이그레이션 지원)
   const loadPlaylistFromSession = (): Partial<PlayerState> => {
     if (typeof window === 'undefined') return {};
 
@@ -86,11 +95,39 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       if (!stored) return {};
 
       const data = JSON.parse(stored);
+
+      // 마이그레이션: 기존 playlist/playHistory → userQueue/userQueueHistory
+      if (data.playlist && !data.userQueue) {
+        // 기존 구조에서 새 구조로 마이그레이션
+        const wasRadioMode = data.isRadioMode === true;
+        return {
+          userQueue: wasRadioMode ? [] : (data.playlist || []).map(deserializeSong).filter(Boolean) as Song[],
+          userQueueHistory: wasRadioMode ? [] : (data.playHistory || []).map(deserializeSong).filter(Boolean) as Song[],
+          userQueueSource: data.playlistSource || 'Queue',
+          radioQueue: wasRadioMode ? (data.playlist || []).map(deserializeSong).filter(Boolean) as Song[] : [],
+          radioHistory: wasRadioMode ? (data.playHistory || []).map(deserializeSong).filter(Boolean) as Song[] : [],
+          radioPlayedIds: data.radioPlayedIds || [],
+          activeSource: wasRadioMode ? 'radio' : 'user',
+          radioChannel: data.radioChannel || null,
+          currentSong: deserializeSong(data.currentSong),
+          isShuffleEnabled: data.isShuffleEnabled || false,
+          repeatMode: data.repeatMode || 'off',
+        };
+      }
+
+      // 새 구조로 직접 로드
       return {
-        playlist: (data.playlist || []).map(deserializeSong).filter(Boolean) as Song[],
-        playHistory: (data.playHistory || []).map(deserializeSong).filter(Boolean) as Song[],
-        playlistSource: data.playlistSource || 'Queue',
+        userQueue: (data.userQueue || []).map(deserializeSong).filter(Boolean) as Song[],
+        userQueueHistory: (data.userQueueHistory || []).map(deserializeSong).filter(Boolean) as Song[],
+        userQueueSource: data.userQueueSource || 'Queue',
+        radioQueue: (data.radioQueue || []).map(deserializeSong).filter(Boolean) as Song[],
+        radioHistory: (data.radioHistory || []).map(deserializeSong).filter(Boolean) as Song[],
+        radioPlayedIds: data.radioPlayedIds || [],
+        activeSource: data.activeSource || 'user',
+        radioChannel: data.radioChannel || null,
         currentSong: deserializeSong(data.currentSong),
+        isShuffleEnabled: data.isShuffleEnabled || false,
+        repeatMode: data.repeatMode || 'off',
       };
     } catch (error) {
       console.error('Failed to load playlist from session storage:', error);
@@ -107,14 +144,21 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     isMuted: false,
     viewMode: 'minimized', // 기본값: 재생목록 숨김
     activeTab: 'queue', // 기본 탭: Play queue
-    playlist: [], // 다음에 재생될 곡들
-    playHistory: [], // 이전에 재생된 곡들
-    playlistSource: 'Queue', // 기본 소스
-    // Radio mode
-    isRadioMode: false,
-    radioChannel: null,
-    radioTags: [],
+
+    // User Queue (독립)
+    userQueue: [],
+    userQueueHistory: [],
+    userQueueSource: 'Queue',
+
+    // Radio Queue (독립)
+    radioQueue: [],
+    radioHistory: [],
     radioPlayedIds: [],
+
+    // Source Management
+    activeSource: 'user',
+    radioChannel: null,
+
     // Playback controls
     isShuffleEnabled: false,
     repeatMode: 'off',
@@ -124,20 +168,26 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   const playerRef = useRef<YouTubePlayerType | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Session Storage에 재생목록 자동 저장
+  // Session Storage에 재생목록 자동 저장 (새 구조)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     try {
       const dataToSave = {
-        playlist: state.playlist.map(serializeSong),
-        playHistory: state.playHistory.slice(-50).map(serializeSong), // 최근 50개만 유지
-        playlistSource: state.playlistSource,
-        currentSong: serializeSong(state.currentSong),
-        isRadioMode: state.isRadioMode,
-        radioChannel: state.radioChannel,
-        radioTags: state.radioTags,
+        // User Queue
+        userQueue: state.userQueue.map(serializeSong),
+        userQueueHistory: state.userQueueHistory.slice(-50).map(serializeSong), // 최근 50개만 유지
+        userQueueSource: state.userQueueSource,
+        // Radio Queue
+        radioQueue: state.radioQueue.map(serializeSong),
+        radioHistory: state.radioHistory.slice(-50).map(serializeSong),
         radioPlayedIds: state.radioPlayedIds.slice(-100), // 최근 100개만 유지
+        // Source Management
+        activeSource: state.activeSource,
+        radioChannel: state.radioChannel,
+        // Current Song
+        currentSong: serializeSong(state.currentSong),
+        // Playback controls
         isShuffleEnabled: state.isShuffleEnabled,
         repeatMode: state.repeatMode,
       };
@@ -146,14 +196,15 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       console.error('Failed to save playlist to session storage:', error);
     }
   }, [
-    state.playlist,
-    state.playHistory,
-    state.playlistSource,
-    state.currentSong,
-    state.isRadioMode,
-    state.radioChannel,
-    state.radioTags,
+    state.userQueue,
+    state.userQueueHistory,
+    state.userQueueSource,
+    state.radioQueue,
+    state.radioHistory,
     state.radioPlayedIds,
+    state.activeSource,
+    state.radioChannel,
+    state.currentSong,
     state.isShuffleEnabled,
     state.repeatMode
   ]);
@@ -189,23 +240,37 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     }
 
     setState(prev => {
-      // Remove the song we're about to play from playlist (if exists)
-      const newPlaylist = prev.playlist.filter(s => s.vocadbId !== song.vocadbId);
+      // activeSource에 따라 적절한 Queue에서 곡 제거 및 History에 추가
+      let newUserQueue = prev.userQueue;
+      let newUserHistory = prev.userQueueHistory;
+      let newRadioQueue = prev.radioQueue;
+      let newRadioHistory = prev.radioHistory;
 
-      // Add current song to history (for playPrevious)
-      let newHistory = prev.playHistory;
-      if (prev.currentSong && prev.currentSong.vocadbId !== song.vocadbId) {
-        // Remove from history if already there to avoid duplicates
-        newHistory = newHistory.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
-        // Add to history
-        newHistory = [...newHistory, prev.currentSong];
+      if (prev.activeSource === 'user') {
+        // User Queue에서 곡 제거
+        newUserQueue = prev.userQueue.filter(s => s.vocadbId !== song.vocadbId);
+        // 현재 곡을 User History에 추가
+        if (prev.currentSong && prev.currentSong.vocadbId !== song.vocadbId) {
+          newUserHistory = newUserHistory.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
+          newUserHistory = [...newUserHistory, prev.currentSong];
+        }
+      } else {
+        // Radio Queue에서 곡 제거
+        newRadioQueue = prev.radioQueue.filter(s => s.vocadbId !== song.vocadbId);
+        // 현재 곡을 Radio History에 추가
+        if (prev.currentSong && prev.currentSong.vocadbId !== song.vocadbId) {
+          newRadioHistory = newRadioHistory.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
+          newRadioHistory = [...newRadioHistory, prev.currentSong];
+        }
       }
 
       return {
         ...prev,
         currentSong: song,
-        playlist: newPlaylist,
-        playHistory: newHistory,
+        userQueue: newUserQueue,
+        userQueueHistory: newUserHistory,
+        radioQueue: newRadioQueue,
+        radioHistory: newRadioHistory,
         isPlaying: false, // YouTube의 onStateChange에서 자동으로 true로 설정됨
         currentTime: 0,
       };
@@ -262,7 +327,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     }));
   }, []);
 
-  const setActiveTab = useCallback((tab: 'queue' | 'lyrics') => {
+  const setActiveTab = useCallback((tab: 'queue' | 'radio' | 'lyrics') => {
     setState(prev => ({ ...prev, activeTab: tab }));
   }, []);
 
@@ -270,12 +335,12 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     const title = song.titleKorean ?? song.titleEnglish ?? song.defaultName;
 
     setState(prev => {
-      // 이미 재생목록에 있는지 확인
-      const existsInPlaylist = prev.playlist.some(s => s.vocadbId === song.vocadbId);
-      // 현재 재생 중인 곡인지 확인
-      const isCurrentSong = prev.currentSong?.vocadbId === song.vocadbId;
+      // 항상 userQueue에만 추가 (Radio 상태와 무관)
+      const existsInUserQueue = prev.userQueue.some(s => s.vocadbId === song.vocadbId);
+      // 현재 재생 중인 곡인지 확인 (User 모드일 때만)
+      const isCurrentSong = prev.activeSource === 'user' && prev.currentSong?.vocadbId === song.vocadbId;
 
-      if (existsInPlaylist || isCurrentSong) {
+      if (existsInUserQueue || isCurrentSong) {
         setTimeout(() => toast.info('이미 재생목록에 있는 곡입니다'), 0);
         return prev;
       }
@@ -283,29 +348,32 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       setTimeout(() => toast.success(`"${title}" 재생목록에 추가되었습니다`), 0);
       return {
         ...prev,
-        playlist: [...prev.playlist, song],
+        userQueue: [...prev.userQueue, song],
       };
     });
   }, []);
 
   const removeFromPlaylist = useCallback((vocadbId: number) => {
+    // userQueue에서만 제거
     setState(prev => ({
       ...prev,
-      playlist: prev.playlist.filter(song => song.vocadbId !== vocadbId),
+      userQueue: prev.userQueue.filter(song => song.vocadbId !== vocadbId),
     }));
   }, []);
 
   const reorderPlaylist = useCallback((oldIndex: number, newIndex: number) => {
+    // userQueue만 대상으로 정렬
     setState(prev => {
-      const newPlaylist = [...prev.playlist];
-      const [movedItem] = newPlaylist.splice(oldIndex, 1);
-      newPlaylist.splice(newIndex, 0, movedItem);
-      return { ...prev, playlist: newPlaylist };
+      const newUserQueue = [...prev.userQueue];
+      const [movedItem] = newUserQueue.splice(oldIndex, 1);
+      newUserQueue.splice(newIndex, 0, movedItem);
+      return { ...prev, userQueue: newUserQueue };
     });
   }, []);
 
   const clearPlaylist = useCallback(() => {
-    setState(prev => ({ ...prev, playlist: [], playHistory: [] }));
+    // userQueue만 초기화
+    setState(prev => ({ ...prev, userQueue: [], userQueueHistory: [] }));
   }, []);
 
   const updateDuration = useCallback((duration: number) => {
@@ -368,13 +436,18 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       setState(prev => ({
         ...prev,
         currentSong: convertApiSongToSong(seedSong),
-        playlist: playlist.map(convertApiSongToSong),
-        playHistory: [], // Reset history when starting radio
-        playlistSource: channel?.name || '라디오',
-        isRadioMode: true,
-        radioChannel: channel,
-        radioTags: [], // No longer using tags
+        // userQueue는 보존! (핵심)
+        // userQueueHistory도 보존!
+        // Radio 상태만 설정
+        radioQueue: playlist.map(convertApiSongToSong),
+        radioHistory: [], // Reset radio history when starting
         radioPlayedIds: [seedSong.vocadbId],
+        // Source 전환
+        activeSource: 'radio',
+        radioChannel: channel,
+        // Tab 전환
+        activeTab: 'radio',
+        // 재생 상태
         isPlaying: false, // YouTube onStateChange will set to true
         currentTime: 0,
         viewMode: 'fullscreen',
@@ -402,13 +475,17 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       setState(prev => ({
         ...prev,
         currentSong: convertApiSongToSong(seedSong),
-        playlist: playlist.map(convertApiSongToSong),
-        playHistory: [], // Reset history when starting radio
-        playlistSource: `${displayTitle} 라디오`,
-        isRadioMode: true,
-        radioChannel: null,
-        radioTags: [],
+        // userQueue는 보존! (핵심)
+        // Radio 상태만 설정
+        radioQueue: playlist.map(convertApiSongToSong),
+        radioHistory: [], // Reset radio history when starting
         radioPlayedIds: [seedSong.vocadbId],
+        // Source 전환
+        activeSource: 'radio',
+        radioChannel: { slug: 'similar', name: `${displayTitle} 라디오` },
+        // Tab 전환
+        activeTab: 'radio',
+        // 재생 상태
         isPlaying: false,
         currentTime: 0,
         viewMode: 'fullscreen',
@@ -420,14 +497,61 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   }, [convertApiSongToSong]);
 
   const stopRadio = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      isRadioMode: false,
-      radioChannel: null,
-      radioTags: [],
-      radioPlayedIds: [],
-      playlistSource: 'Queue',
-    }));
+    setState(prev => {
+      // User Queue에 곡이 있으면 첫 번째 곡 재생
+      const firstUserSong = prev.userQueue[0];
+
+      return {
+        ...prev,
+        // Radio 상태 초기화
+        radioQueue: [],
+        radioHistory: [],
+        radioPlayedIds: [],
+        radioChannel: null,
+        // Source 전환
+        activeSource: 'user',
+        activeTab: 'queue',
+        // User Queue에 곡이 있으면 재생
+        currentSong: firstUserSong || prev.currentSong,
+        userQueue: firstUserSong ? prev.userQueue.slice(1) : prev.userQueue,
+      };
+    });
+  }, []);
+
+  // Radio 중 User Queue로 전환하는 함수
+  const switchToUserQueue = useCallback(() => {
+    setState(prev => {
+      if (prev.activeSource === 'user') return prev; // 이미 User 모드
+
+      // User Queue에 곡이 있으면 첫 번째 곡 재생
+      const firstUserSong = prev.userQueue[0];
+
+      if (!firstUserSong) {
+        // User Queue가 비어있으면 탭만 전환
+        return {
+          ...prev,
+          activeTab: 'queue',
+        };
+      }
+
+      // 현재 라디오 곡을 라디오 히스토리에 추가
+      let newRadioHistory = prev.radioHistory;
+      if (prev.currentSong) {
+        newRadioHistory = [...newRadioHistory, prev.currentSong];
+      }
+
+      return {
+        ...prev,
+        // Source 전환
+        activeSource: 'user',
+        activeTab: 'queue',
+        // User Queue에서 재생
+        currentSong: firstUserSong,
+        userQueue: prev.userQueue.slice(1),
+        // Radio 상태 유지 (나중에 돌아올 수 있도록)
+        radioHistory: newRadioHistory,
+      };
+    });
   }, []);
 
   const playNextInQueue = useCallback(() => {
@@ -442,59 +566,82 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return { ...prev, currentTime: 0 };
       }
 
-      if (prev.playlist.length === 0) {
-        // No more songs in queue
+      // activeSource에 따라 적절한 Queue 선택
+      const currentQueue = prev.activeSource === 'user' ? prev.userQueue : prev.radioQueue;
+      const currentHistory = prev.activeSource === 'user' ? prev.userQueueHistory : prev.radioHistory;
+
+      if (currentQueue.length === 0) {
+        // No more songs in current queue
         if (prev.repeatMode === 'all' && prev.currentSong) {
-          // Repeat all: move all history back to playlist and continue
-          const allSongs = [...prev.playHistory, prev.currentSong];
-          return {
-            ...prev,
-            playlist: allSongs.slice(1), // 첫 곡은 currentSong으로
-            currentSong: allSongs[0],
-            playHistory: [],
-            currentTime: 0,
-          };
+          // Repeat all: move all history back to queue and continue
+          const allSongs = [...currentHistory, prev.currentSong];
+          if (prev.activeSource === 'user') {
+            return {
+              ...prev,
+              userQueue: allSongs.slice(1),
+              currentSong: allSongs[0],
+              userQueueHistory: [],
+              currentTime: 0,
+            };
+          } else {
+            return {
+              ...prev,
+              radioQueue: allSongs.slice(1),
+              currentSong: allSongs[0],
+              radioHistory: [],
+              currentTime: 0,
+            };
+          }
         }
-        if (prev.isRadioMode) {
+        if (prev.activeSource === 'radio') {
           // Fetch more songs for radio mode (will be handled by useEffect)
           return prev;
         }
         return { ...prev, isPlaying: false };
       }
 
-      // Shuffle: pick a random song from playlist
+      // Shuffle: pick a random song from queue
       let nextSongIndex = 0;
-      if (prev.isShuffleEnabled && prev.playlist.length > 1) {
-        nextSongIndex = Math.floor(Math.random() * prev.playlist.length);
+      if (prev.isShuffleEnabled && currentQueue.length > 1) {
+        nextSongIndex = Math.floor(Math.random() * currentQueue.length);
       }
 
-      const nextSong = prev.playlist[nextSongIndex];
-      const remainingPlaylist = prev.playlist.filter((_, idx) => idx !== nextSongIndex);
+      const nextSong = currentQueue[nextSongIndex];
+      const remainingQueue = currentQueue.filter((_, idx) => idx !== nextSongIndex);
 
-      // Add current song to history (not back to playlist)
-      let newHistory = prev.playHistory;
+      // Add current song to history
+      let newHistory = currentHistory;
       if (prev.currentSong) {
         newHistory = [...newHistory, prev.currentSong];
       }
 
-      return {
-        ...prev,
-        currentSong: nextSong,
-        playlist: remainingPlaylist,
-        playHistory: newHistory,
-        radioPlayedIds: prev.isRadioMode
-          ? [...prev.radioPlayedIds, nextSong.vocadbId]
-          : prev.radioPlayedIds,
-        currentTime: 0,
-      };
+      if (prev.activeSource === 'user') {
+        return {
+          ...prev,
+          currentSong: nextSong,
+          userQueue: remainingQueue,
+          userQueueHistory: newHistory,
+          currentTime: 0,
+        };
+      } else {
+        return {
+          ...prev,
+          currentSong: nextSong,
+          radioQueue: remainingQueue,
+          radioHistory: newHistory,
+          radioPlayedIds: [...prev.radioPlayedIds, nextSong.vocadbId],
+          currentTime: 0,
+        };
+      }
     });
   }, []);
 
   // Fetch more radio songs when queue is low
   useEffect(() => {
     const fetchMoreRadioSongs = async () => {
-      if (!state.isRadioMode || !state.radioChannel) return;
-      if (state.playlist.length > 5) return; // Still have enough songs
+      // Radio 모드이고 채널이 있을 때만 실행
+      if (state.activeSource !== 'radio' || !state.radioChannel) return;
+      if (state.radioQueue.length > 5) return; // Still have enough songs
 
       try {
         const excludeIds = state.radioPlayedIds.join(',');
@@ -508,9 +655,9 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
           const newSongs: Song[] = data.playlist.map(convertApiSongToSong);
 
           setState(prev => {
-            // Filter out any songs already in playlist or currently playing
+            // Filter out any songs already in radioQueue or currently playing
             const existingIds = new Set([
-              ...prev.playlist.map(s => s.vocadbId),
+              ...prev.radioQueue.map(s => s.vocadbId),
               prev.currentSong?.vocadbId,
             ].filter(Boolean));
 
@@ -518,7 +665,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
             return {
               ...prev,
-              playlist: [...prev.playlist, ...uniqueNewSongs],
+              radioQueue: [...prev.radioQueue, ...uniqueNewSongs],
             };
           });
         }
@@ -528,7 +675,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     };
 
     fetchMoreRadioSongs();
-  }, [state.isRadioMode, state.playlist.length, state.radioChannel, state.radioPlayedIds, convertApiSongToSong]);
+  }, [state.activeSource, state.radioQueue.length, state.radioChannel, state.radioPlayedIds, convertApiSongToSong]);
 
   const playPrevious = useCallback(() => {
     setState(prev => {
@@ -544,9 +691,11 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return { ...prev, currentTime: 0 };
       }
 
-      // Otherwise, play the last song from history
-      if (prev.playHistory.length === 0) {
-        // No previous song, just restart current
+      // activeSource에 따라 적절한 History 선택
+      const currentHistory = prev.activeSource === 'user' ? prev.userQueueHistory : prev.radioHistory;
+
+      // No previous song in current history, just restart current
+      if (currentHistory.length === 0) {
         if (playerRef.current) {
           playerRef.current.seekTo(0);
           playerRef.current.playVideo();
@@ -555,19 +704,30 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       }
 
       // Get the last song from history
-      const previousSong = prev.playHistory[prev.playHistory.length - 1];
-      const newHistory = prev.playHistory.slice(0, -1);
+      const previousSong = currentHistory[currentHistory.length - 1];
+      const newHistory = currentHistory.slice(0, -1);
 
-      // Add current song to the beginning of playlist (it will be "next")
-      const newPlaylist = [prev.currentSong, ...prev.playlist];
-
-      return {
-        ...prev,
-        currentSong: previousSong,
-        playlist: newPlaylist,
-        playHistory: newHistory,
-        currentTime: 0,
-      };
+      if (prev.activeSource === 'user') {
+        // Add current song to the beginning of userQueue (it will be "next")
+        const newUserQueue = [prev.currentSong, ...prev.userQueue];
+        return {
+          ...prev,
+          currentSong: previousSong,
+          userQueue: newUserQueue,
+          userQueueHistory: newHistory,
+          currentTime: 0,
+        };
+      } else {
+        // Add current song to the beginning of radioQueue (it will be "next")
+        const newRadioQueue = [prev.currentSong, ...prev.radioQueue];
+        return {
+          ...prev,
+          currentSong: previousSong,
+          radioQueue: newRadioQueue,
+          radioHistory: newHistory,
+          currentTime: 0,
+        };
+      }
     });
   }, []);
 
@@ -613,6 +773,8 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     startSimilarRadio,
     stopRadio,
     playNextInQueue,
+    // Source switching
+    switchToUserQueue,
     // Playback controls
     playPrevious,
     toggleShuffle,

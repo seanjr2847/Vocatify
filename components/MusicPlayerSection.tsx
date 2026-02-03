@@ -159,7 +159,7 @@ export const MusicPlayerSection = (): JSX.Element => {
                 size="icon"
                 className="h-auto w-auto p-0 hover:bg-transparent opacity-50 hover:opacity-100 transition-opacity"
                 onClick={playNextInQueue}
-                disabled={!state.currentSong || state.playlist.length === 0}
+                disabled={!state.currentSong || (state.activeSource === 'user' ? state.userQueue.length === 0 : state.radioQueue.length === 0)}
               >
                 <SkipForward className="w-[26px] h-[26px] text-white" />
               </Button>

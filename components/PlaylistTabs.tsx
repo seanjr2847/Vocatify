@@ -3,13 +3,15 @@
 import React from 'react';
 
 interface PlaylistTabsProps {
-  activeTab: 'queue' | 'lyrics';
-  onTabChange: (tab: 'queue' | 'lyrics') => void;
+  activeTab: 'queue' | 'radio' | 'lyrics';
+  onTabChange: (tab: 'queue' | 'radio' | 'lyrics') => void;
+  hasRadio?: boolean; // 라디오 모드 활성화 여부
 }
 
-export function PlaylistTabs({ activeTab, onTabChange }: PlaylistTabsProps) {
+export function PlaylistTabs({ activeTab, onTabChange, hasRadio = false }: PlaylistTabsProps) {
   const tabs = [
     { id: 'queue' as const, label: '재생 대기열' },
+    { id: 'radio' as const, label: '라디오', disabled: !hasRadio },
     { id: 'lyrics' as const, label: '가사' },
   ];
 
@@ -18,11 +20,14 @@ export function PlaylistTabs({ activeTab, onTabChange }: PlaylistTabsProps) {
       {tabs.map(tab => (
         <button
           key={tab.id}
-          onClick={() => onTabChange(tab.id)}
+          onClick={() => !tab.disabled && onTabChange(tab.id)}
+          disabled={tab.disabled}
           className={`px-4 py-3 text-sm font-semibold transition-all ${
             activeTab === tab.id
               ? 'text-white border-b-2 border-[#39c5bb]'
-              : 'text-gray-400 hover:text-white'
+              : tab.disabled
+                ? 'text-gray-600 cursor-not-allowed'
+                : 'text-gray-400 hover:text-white'
           }`}
         >
           {tab.label}

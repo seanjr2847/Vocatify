@@ -2,7 +2,7 @@
 
 import React, { memo, useCallback, useMemo } from 'react';
 import Image from 'next/image';
-import { X, GripVertical, Radio } from 'lucide-react';
+import { X, GripVertical, Play, Radio } from 'lucide-react';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
 import {
   DndContext,
@@ -112,7 +112,7 @@ const SortableSongItem = memo(function SortableSongItem({
 });
 
 export function QueueTabContent() {
-  const { state, playSong, removeFromPlaylist, reorderPlaylist, stopRadio } = useMusicPlayer();
+  const { state, playSong, removeFromPlaylist, reorderPlaylist, switchToUserQueue } = useMusicPlayer();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -129,57 +129,66 @@ export function QueueTabContent() {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = state.playlist.findIndex((song) => song.vocadbId === active.id);
-      const newIndex = state.playlist.findIndex((song) => song.vocadbId === over.id);
+      const oldIndex = state.userQueue.findIndex((song) => song.vocadbId === active.id);
+      const newIndex = state.userQueue.findIndex((song) => song.vocadbId === over.id);
       reorderPlaylist(oldIndex, newIndex);
     }
-  }, [state.playlist, reorderPlaylist]);
+  }, [state.userQueue, reorderPlaylist]);
 
-  const playlistIds = useMemo(
-    () => state.playlist.map((song) => song.vocadbId),
-    [state.playlist]
+  const userQueueIds = useMemo(
+    () => state.userQueue.map((song) => song.vocadbId),
+    [state.userQueue]
   );
 
-  const currentSongThumbnail = state.currentSong?.thumbUrl ||
-    (state.currentSong?.youtubeId ? getYouTubeThumbnail(state.currentSong.youtubeId) : '/placeholder.png');
+  // 현재 User Queue 모드인지
+  const isUserMode = state.activeSource === 'user';
+
+  // 현재 재생 중인 곡 (User 모드일 때만 표시)
+  const currentUserSong = isUserMode ? state.currentSong : null;
+
+  const currentSongThumbnail = currentUserSong?.thumbUrl ||
+    (currentUserSong?.youtubeId ? getYouTubeThumbnail(currentUserSong.youtubeId) : '/placeholder.png');
 
   return (
     <div className="p-8">
-      {/* Radio Mode Indicator */}
-      {state.isRadioMode && state.radioChannel && (
-        <div className="px-4 py-3 mb-4 bg-gradient-to-r from-[#39c5bb]/10 to-transparent border-l-2 border-[#39c5bb] rounded-r-lg">
+      {/* Radio Mode Indicator - Radio 중일 때 Queue에서 재생 버튼 */}
+      {state.activeSource === 'radio' && state.userQueue.length > 0 && (
+        <div className="px-4 py-3 mb-4 bg-gradient-to-r from-blue-500/10 to-transparent border-l-2 border-blue-500 rounded-r-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-[#39c5bb] animate-pulse" />
+              <Radio className="w-4 h-4 text-blue-400" />
               <div>
-                <p className="text-sm font-semibold text-white">
-                  {state.radioChannel.name}
+                <p className="text-sm font-medium text-white">
+                  라디오 재생 중
                 </p>
                 <p className="text-xs text-white/50">
-                  {state.playlist.length}곡 대기 중 • 자동 재생 중
+                  대기열에 {state.userQueue.length}곡이 있습니다
                 </p>
               </div>
             </div>
             <button
-              onClick={stopRadio}
-              className="text-xs text-white/70 hover:text-white transition-colors px-3 py-1 rounded-full hover:bg-white/5"
+              onClick={switchToUserQueue}
+              className="flex items-center gap-2 text-sm text-white/80 hover:text-white transition-colors px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10"
             >
-              라디오 중지
+              <Play className="w-4 h-4" />
+              대기열 재생
             </button>
           </div>
         </div>
       )}
 
       {/* QUEUE - 현재 재생 중 + 다음 곡 통합 */}
-      {(state.currentSong || state.playlist.length > 0) && (
+      {(currentUserSong || state.userQueue.length > 0) && (
         <div>
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
-            Playing from {state.playlistSource || 'Queue'}
-            <span className="ml-2 text-gray-500 normal-case">(드래그하여 순서 변경)</span>
+            Playing from {state.userQueueSource || 'Queue'}
+            {state.userQueue.length > 0 && (
+              <span className="ml-2 text-gray-500 normal-case">(드래그하여 순서 변경)</span>
+            )}
           </h3>
 
-          {/* 현재 재생 중인 곡 */}
-          {state.currentSong && (
+          {/* 현재 재생 중인 곡 (User 모드일 때만) */}
+          {currentUserSong && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-[#39c5bb15] border border-[#39c5bb30] mb-1">
               <div className="p-1 text-[#39c5bb]">
                 <div className="w-4 h-4 flex items-center justify-center">
@@ -190,33 +199,33 @@ export function QueueTabContent() {
                 <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0">
                   <Image
                     src={currentSongThumbnail}
-                    alt={getDisplayTitle(state.currentSong)}
+                    alt={getDisplayTitle(currentUserSong)}
                     fill
                     className="object-cover"
                     sizes="48px"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{getDisplayTitle(state.currentSong)}</p>
-                  <p className="text-gray-400 text-xs truncate">{state.currentSong.artistString}</p>
+                  <p className="text-white text-sm font-medium truncate">{getDisplayTitle(currentUserSong)}</p>
+                  <p className="text-gray-400 text-xs truncate">{currentUserSong.artistString}</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* 다음 곡 목록 */}
-          {state.playlist.length > 0 && (
+          {/* 다음 곡 목록 (User Queue) */}
+          {state.userQueue.length > 0 && (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={playlistIds}
+                items={userQueueIds}
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-1">
-                  {state.playlist.map((song) => (
+                  {state.userQueue.map((song) => (
                     <SortableSongItem
                       key={song.vocadbId}
                       song={song}
@@ -232,9 +241,14 @@ export function QueueTabContent() {
       )}
 
       {/* Empty State */}
-      {!state.currentSong && state.playlist.length === 0 && (
+      {!currentUserSong && state.userQueue.length === 0 && (
         <div className="text-center text-gray-400 py-12">
-          재생목록이 비어있습니다
+          <p>재생목록이 비어있습니다</p>
+          {state.activeSource === 'radio' && (
+            <p className="text-sm text-gray-500 mt-2">
+              라디오 재생 중에도 곡을 추가할 수 있습니다
+            </p>
+          )}
         </div>
       )}
     </div>
