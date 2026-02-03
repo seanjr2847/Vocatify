@@ -28,7 +28,7 @@ interface PlayerState {
 
   // Source Management
   activeSource: 'user' | 'radio';
-  radioChannel: { slug: string; name: string } | null; // 현재 라디오 채널
+  radioChannel: { slug: string; name: string; seedSongId?: number } | null; // 현재 라디오 채널
 
   // Playback controls
   isShuffleEnabled: boolean;
@@ -482,7 +482,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         radioPlayedIds: [seedSong.vocadbId],
         // Source 전환
         activeSource: 'radio',
-        radioChannel: { slug: 'similar', name: `${displayTitle} 라디오` },
+        radioChannel: { slug: 'similar', name: `${displayTitle} 라디오`, seedSongId: seedSong.vocadbId },
         // Tab 전환
         activeTab: 'radio',
         // 재생 상태
@@ -645,9 +645,12 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
       try {
         const excludeIds = state.radioPlayedIds.join(',');
+        const seedSongParam = state.radioChannel.slug === 'similar' && state.radioChannel.seedSongId
+          ? `&seedSongId=${state.radioChannel.seedSongId}`
+          : '';
 
         const response = await fetch(
-          `/api/radio/next?channel=${state.radioChannel.slug}&excludeIds=${encodeURIComponent(excludeIds)}&limit=10`
+          `/api/radio/next?channel=${state.radioChannel.slug}&excludeIds=${encodeURIComponent(excludeIds)}&limit=10${seedSongParam}`
         );
         const data = await response.json();
 

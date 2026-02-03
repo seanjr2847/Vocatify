@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RADIO_CHANNELS } from '@/lib/radio/channels';
-import { getPopularPlaylist, getRandomPlaylist } from '@/lib/radio/algorithms';
+import { getPopularPlaylist, getRandomPlaylist, getSimilarSongsPlaylist, getSeedSong } from '@/lib/radio/algorithms';
 
 // Helper to serialize BigInt values for JSON
 function serializeBigInt(obj: unknown): unknown {
@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const channelSlug = params.get('channel');
   const excludeIdsParam = params.get('excludeIds');
+  const seedSongIdParam = params.get('seedSongId'); // similar 채널용
   const limit = parseInt(params.get('limit') || '10');
 
   const excludeIds = excludeIdsParam
@@ -28,6 +29,45 @@ export async function GET(request: NextRequest) {
     : [];
 
   try {
+    // similar 채널 특별 처리
+    if (channelSlug === 'similar') {
+      const seedSongId = seedSongIdParam ? parseInt(seedSongIdParam) : null;
+
+      if (!seedSongId) {
+        // seedSongId 없으면 popular 채널로 폴백
+        const playlist = await getPopularPlaylist(100000, excludeIds, limit);
+        return NextResponse.json({
+          success: true,
+          playlist: serializeBigInt(playlist),
+          meta: { hasMore: playlist.length > 0 }
+        });
+      }
+
+      // seed 곡 정보 가져오기
+      const seedSong = await getSeedSong(seedSongId);
+      if (!seedSong) {
+        const playlist = await getPopularPlaylist(100000, excludeIds, limit);
+        return NextResponse.json({
+          success: true,
+          playlist: serializeBigInt(playlist),
+          meta: { hasMore: playlist.length > 0 }
+        });
+      }
+
+      const playlist = await getSimilarSongsPlaylist(
+        seedSongId,
+        seedSong.viewCount || 100000,
+        excludeIds,
+        limit
+      );
+
+      return NextResponse.json({
+        success: true,
+        playlist: serializeBigInt(playlist),
+        meta: { hasMore: playlist.length > 0 }
+      });
+    }
+
     // 채널 찾기 (기본값: 첫 번째 채널)
     const channel = channelSlug
       ? RADIO_CHANNELS.find(c => c.slug === channelSlug)
