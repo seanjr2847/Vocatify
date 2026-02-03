@@ -245,13 +245,21 @@ export function YouTubePlayer() {
       if (document.visibilityState === 'visible' && playerRef.current) {
         // 먼저 pending video가 있으면 로드 시도
         if (pendingVideoIdRef.current) {
-          console.log('[VIS] Loading pending video:', pendingVideoIdRef.current);
+          const pendingId = pendingVideoIdRef.current;
+          console.log('[VIS] Loading pending video:', pendingId);
+          pendingVideoIdRef.current = null;
           try {
-            playerRef.current.loadVideoById(pendingVideoIdRef.current);
-            pendingVideoIdRef.current = null;
+            // 방법 1: loadVideoById 직접 호출 (isReady && playerRef.current인 경우)
+            if (playerRef.current) {
+              playerRef.current.loadVideoById(pendingId);
+            }
+            // 방법 2: currentVideoId 변경 (react-youtube가 감지해서 로드)
+            setCurrentVideoId(pendingId);
             return; // 비디오 로드 후 체크는 다음 이벤트에서
           } catch (error) {
             console.warn('[VIS] Failed to load pending video:', error);
+            // 실패해도 currentVideoId는 업데이트 (react-youtube가 재시도)
+            setCurrentVideoId(pendingId);
           }
         }
 
@@ -344,10 +352,11 @@ export function YouTubePlayer() {
     // Only load if video ID changed and player is ready
     if (isReady && playerRef.current && currentVideoId !== newVideoId) {
       // 백그라운드 탭일 때는 로드 지연 (iframe 통신 실패 방지)
+      // 중요: setCurrentVideoId 호출하지 않음 - prop이 바뀌면 react-youtube가 자동 로드 시도
       if (document.visibilityState === 'hidden') {
         console.log('[YT] Background tab - deferring video load:', newVideoId);
         pendingVideoIdRef.current = newVideoId;
-        setCurrentVideoId(newVideoId); // 상태는 업데이트 (중복 방지)
+        // currentVideoId는 변경하지 않음! visible 될 때 변경
         return;
       }
 
@@ -397,7 +406,7 @@ export function YouTubePlayer() {
       }}
     >
       <YouTube
-        videoId={state.currentSong.youtubeId}
+        videoId={currentVideoId || state.currentSong.youtubeId}
         opts={opts}
         onReady={onReady}
         onStateChange={onStateChange}
