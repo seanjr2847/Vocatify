@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { RankingItem } from '@/lib/db';
 import { PlayButton } from '@/components/PlayButton';
 
@@ -22,7 +23,7 @@ export default function TrendingTableRow({ song, rank }: TrendingTableRowProps) 
   };
 
   return (
-    <div className="group grid grid-cols-[auto_2fr_1.5fr_1.5fr_auto_auto] gap-6 py-4 px-6 hover:bg-white/5 transition-colors cursor-pointer border-b border-white/5">
+    <Link href={`/songs/${song.vocadbId}`} className="group grid grid-cols-[auto_2fr_1.5fr_1.5fr_auto_auto] gap-6 py-4 px-6 hover:bg-white/5 transition-colors cursor-pointer border-b border-white/5">
       {/* Rank */}
       <div className="text-white/40 font-medium w-8 flex items-center">
         {rank}
@@ -62,6 +63,6 @@ export default function TrendingTableRow({ song, rank }: TrendingTableRowProps) 
       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
         <PlayButton song={song} variant="minimal" />
       </div>
-    </div>
+    </Link>
   );
 }
