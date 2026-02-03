@@ -166,16 +166,27 @@ export function YouTubePlayer() {
         return;
       }
 
-      // Skip if there's a pending video waiting to be loaded (background tab case)
-      // This prevents false "ended" detection when player still shows previous video state
-      if (pendingVideoIdRef.current) {
-        console.log('[POLL] Skipping - pending video waiting:', pendingVideoIdRef.current);
+      // Skip ALL end detection in background - only detect when tab is visible
+      // Background tabs cause race conditions between state updates and POLL timing
+      if (document.visibilityState === 'hidden') {
+        // Just log state occasionally, don't trigger anything
+        pollCount++;
+        if (pollCount % 30 === 0) {
+          try {
+            const playerState = playerRef.current.getPlayerState?.();
+            const currentTime = playerRef.current.getCurrentTime?.() || 0;
+            const duration = playerRef.current.getDuration?.() || 0;
+            console.log(`[POLL] Background check: state=${playerState}, time=${currentTime.toFixed(1)}/${duration.toFixed(1)}`);
+          } catch {
+            // Ignore errors in background
+          }
+        }
         return;
       }
 
-      // Skip if the loaded video doesn't match the current song (video not yet loaded)
-      if (currentVideoId !== state.currentSong?.youtubeId) {
-        console.log(`[POLL] Skipping - video mismatch: loaded=${currentVideoId}, expected=${state.currentSong?.youtubeId}`);
+      // Skip if there's a pending video waiting to be loaded
+      if (pendingVideoIdRef.current) {
+        console.log('[POLL] Skipping - pending video waiting:', pendingVideoIdRef.current);
         return;
       }
 
@@ -193,7 +204,8 @@ export function YouTubePlayer() {
         // Check if video ended (state 0 or near end of video)
         // Using a 1.5 second threshold to handle background throttling
         if (playerState === 0 || (duration > 0 && currentTime >= duration - 1.5)) {
-          const videoId = state.currentSong?.youtubeId;
+          // Use currentVideoId (actually loaded video) not state.currentSong.youtubeId (may be updated but not loaded)
+          const videoId = currentVideoId;
           console.log(`[POLL] End detected! state=${playerState}, time=${currentTime}/${duration}, videoId=${videoId}`);
           // Prevent duplicate triggers
           if (videoId && lastEndedVideoRef.current !== videoId) {
