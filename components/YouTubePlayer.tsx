@@ -58,6 +58,15 @@ export function YouTubePlayer() {
 
   const onStateChange: YouTubeProps['onStateChange'] = useCallback((event: YouTubeEvent) => {
     const playerState = event.data;
+    const stateNames: Record<number, string> = {
+      [-1]: 'UNSTARTED',
+      0: 'ENDED',
+      1: 'PLAYING',
+      2: 'PAUSED',
+      3: 'BUFFERING',
+      5: 'CUED'
+    };
+    console.log(`[YT] onStateChange: ${stateNames[playerState] || playerState} (${playerState})`);
 
     // YouTube Player States:
     // -1: unstarted
@@ -82,6 +91,7 @@ export function YouTubePlayer() {
       updatePlayingState(false);
     } else if (playerState === 0) {
       // Video ended - play next song in queue
+      console.log('[YT] Video ended naturally, calling playNextInQueue');
       updatePlayingState(false);
       playNextInQueue();
     }
@@ -107,6 +117,7 @@ export function YouTubePlayer() {
     if (!state.isPlaying) {
       // Stop silent audio when not playing
       if (silentAudioRef.current) {
+        console.log('[BG] Stopping silent audio (not playing)');
         silentAudioRef.current.pause();
       }
       return;
@@ -114,6 +125,7 @@ export function YouTubePlayer() {
 
     // Create silent audio element if not exists
     if (!silentAudioRef.current) {
+      console.log('[BG] Creating silent audio element');
       // Create a very short silent audio using data URI (10ms of silence)
       const silentAudio = new Audio(
         'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
@@ -124,9 +136,9 @@ export function YouTubePlayer() {
     }
 
     // Play silent audio to keep tab active
-    silentAudioRef.current.play().catch(() => {
-      // Autoplay might be blocked, that's okay
-    });
+    silentAudioRef.current.play()
+      .then(() => console.log('[BG] Silent audio playing'))
+      .catch((err) => console.warn('[BG] Silent audio blocked:', err.message));
 
     return () => {
       if (silentAudioRef.current) {
@@ -146,26 +158,40 @@ export function YouTubePlayer() {
   useEffect(() => {
     if (!isReady || !playerRef.current || !state.currentSong) return;
 
+    let pollCount = 0;
     const checkPlaybackStatus = () => {
-      if (!playerRef.current) return;
+      if (!playerRef.current) {
+        console.log('[POLL] playerRef is null');
+        return;
+      }
 
       try {
         const playerState = playerRef.current.getPlayerState?.();
         const currentTime = playerRef.current.getCurrentTime?.() || 0;
         const duration = playerRef.current.getDuration?.() || 0;
 
+        // Log every 10th poll to reduce spam
+        pollCount++;
+        if (pollCount % 10 === 0) {
+          console.log(`[POLL] state=${playerState}, time=${currentTime.toFixed(1)}/${duration.toFixed(1)}, visible=${document.visibilityState}`);
+        }
+
         // Check if video ended (state 0 or near end of video)
         // Using a 1.5 second threshold to handle background throttling
         if (playerState === 0 || (duration > 0 && currentTime >= duration - 1.5)) {
           const videoId = state.currentSong?.youtubeId;
+          console.log(`[POLL] End detected! state=${playerState}, time=${currentTime}/${duration}, videoId=${videoId}`);
           // Prevent duplicate triggers
           if (videoId && lastEndedVideoRef.current !== videoId) {
+            console.log('[POLL] Triggering playNextInQueue');
             lastEndedVideoRef.current = videoId;
             playNextInQueueRef.current();
+          } else {
+            console.log('[POLL] Skipping (duplicate or no videoId)');
           }
         }
       } catch (error) {
-        // Player might not be ready, ignore errors
+        console.warn('[POLL] Error:', error);
       }
     };
 
@@ -173,8 +199,9 @@ export function YouTubePlayer() {
     if (typeof Worker !== 'undefined' && !workerRef.current) {
       try {
         workerRef.current = new Worker('/playback-worker.js');
+        console.log('[BG] Web Worker created');
       } catch (e) {
-        console.warn('Web Worker not available, falling back to setInterval');
+        console.warn('[BG] Web Worker not available, falling back to setInterval:', e);
       }
     }
 
@@ -184,10 +211,12 @@ export function YouTubePlayer() {
         checkPlaybackStatus();
       };
       workerRef.current.postMessage({ type: 'start', interval: 1000 });
+      console.log('[BG] Web Worker started');
     }
 
     // Fallback: also use setInterval as backup
     const intervalId = setInterval(checkPlaybackStatus, 1000);
+    console.log('[BG] setInterval fallback started');
 
     return () => {
       clearInterval(intervalId);
@@ -210,22 +239,27 @@ export function YouTubePlayer() {
     if (!isReady || !playerRef.current || !state.currentSong) return;
 
     const handleVisibilityChange = () => {
+      console.log(`[VIS] visibilityState changed to: ${document.visibilityState}`);
       if (document.visibilityState === 'visible' && playerRef.current) {
         try {
           const playerState = playerRef.current.getPlayerState?.();
           const currentTime = playerRef.current.getCurrentTime?.() || 0;
           const duration = playerRef.current.getDuration?.() || 0;
 
+          console.log(`[VIS] Tab visible - state=${playerState}, time=${currentTime.toFixed(1)}/${duration.toFixed(1)}`);
+
           // If video has ended or is near the end, play next
           if (playerState === 0 || (duration > 0 && currentTime >= duration - 1.5)) {
             const videoId = state.currentSong?.youtubeId;
+            console.log(`[VIS] End detected on return! videoId=${videoId}`);
             if (videoId && lastEndedVideoRef.current !== videoId) {
+              console.log('[VIS] Triggering playNextInQueue');
               lastEndedVideoRef.current = videoId;
               playNextInQueueRef.current();
             }
           }
         } catch (error) {
-          // Ignore errors
+          console.warn('[VIS] Error checking state:', error);
         }
       }
     };
@@ -316,6 +350,8 @@ export function YouTubePlayer() {
 
   // 플레이어를 항상 같은 위치에 렌더링하되, CSS로만 표시/숨김 제어
   // React 컴포넌트 트리가 변하지 않아 재생성되지 않음
+  // 중요: visibility: hidden 대신 화면 밖 위치 + opacity로 숨김
+  // visibility: hidden은 일부 브라우저에서 iframe 재생을 중단시킴
   return (
     <div
       style={{
@@ -329,7 +365,8 @@ export function YouTubePlayer() {
         left: isFullscreen ? '50px' : '-10000px',
         zIndex: isFullscreen ? 50 : -1,
         pointerEvents: isFullscreen ? 'auto' : 'none',
-        visibility: isFullscreen ? 'visible' : 'hidden',
+        // visibility: hidden 대신 opacity: 0 사용 (백그라운드 재생 유지)
+        opacity: isFullscreen ? 1 : 0,
       }}
     >
       <YouTube

@@ -193,10 +193,34 @@ export async function getRandomPlaylist(
 }
 
 /**
+ * 유사도 가중치 설정
+ * 총합 = 1.0 (100%)
+ */
+const SIMILARITY_WEIGHTS = {
+  sameProducer: 0.30, // 같은 프로듀서 (최고 가중치)
+  sameVocalist: 0.15, // 같은 보컬리스트
+  tagMood: 0.20, // 분위기 태그 (Sad, Happy, Dark 등)
+  tagGenre: 0.10, // 장르 태그 (Rock, Electronic 등)
+  tagOther: 0.05, // 기타 태그
+  viewSimilarity: 0.08, // 조회수 유사성
+  lengthSimilarity: 0.05, // 길이 유사성
+  dateSimilarity: 0.05, // 발매일 유사성
+  qualityBonus: 0.02, // 품질 보너스 (favorited + rating)
+};
+
+/**
  * 비슷한 곡 재생목록 (시드 곡 기준)
- * - 조회수 범위: 시드 곡의 0.1배 ~ 10배
- * - 같은 태그를 가진 곡 우선
- * - 시드 곡 제외
+ *
+ * 9개 요소 복합 점수 시스템:
+ * 1. 같은 프로듀서 (30%) - 가장 강력한 유사성 지표
+ * 2. 같은 보컬리스트 (15%) - 음색 유사성
+ * 3. 분위기 태그 매칭 (20%) - Sad, Happy, Dark 등
+ * 4. 장르 태그 매칭 (10%) - Rock, Electronic 등
+ * 5. 기타 태그 매칭 (5%)
+ * 6. 조회수 유사성 (8%) - 비슷한 인기도
+ * 7. 곡 길이 유사성 (5%) - 비슷한 길이
+ * 8. 발매일 유사성 (5%) - 같은 시기
+ * 9. 품질 점수 (2%) - favorited + rating
  */
 export async function getSimilarSongsPlaylist(
   seedSongId: number,
@@ -205,17 +229,64 @@ export async function getSimilarSongsPlaylist(
   limit: number = 15
 ): Promise<RadioSong[]> {
   const viewCount = Number(seedViewCount);
-  const minViews = Math.floor(viewCount * 0.1);
-  const maxViews = Math.floor(viewCount * 10);
+  // 조회수 범위를 넓혀서 더 많은 후보 확보
+  const minViews = Math.floor(viewCount * 0.05);
+  const maxViews = Math.floor(viewCount * 20);
 
   // 시드 곡도 제외 목록에 추가
   const allExcludeIds = [...excludeIds, seedSongId];
 
   const songs = await prisma.$queryRaw<RadioSong[]>`
-    WITH seed_tags AS (
-      -- 시드 곡의 태그 가져오기
-      SELECT tag_id FROM song_tags WHERE song_id = ${seedSongId}
+    WITH
+    -- 시드 곡의 프로듀서 목록 (Producer, Composer 등)
+    seed_producers AS (
+      SELECT DISTINCT sa.artist_id
+      FROM song_artists sa
+      WHERE sa.song_id = ${seedSongId}
+        AND sa.is_support = false
+        AND (
+          sa.categories LIKE '%Producer%'
+          OR sa.roles LIKE '%Composer%'
+          OR sa.roles LIKE '%Arranger%'
+        )
     ),
+
+    -- 시드 곡의 보컬리스트 목록 (Vocalist, Vocaloid 등)
+    seed_vocalists AS (
+      SELECT DISTINCT sa.artist_id
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.song_id = ${seedSongId}
+        AND (
+          sa.categories LIKE '%Vocalist%'
+          OR a.artist_type = 'Vocaloid'
+          OR a.artist_type = 'UTAU'
+          OR a.artist_type = 'CeVIO'
+          OR a.artist_type = 'SynthesizerV'
+        )
+    ),
+
+    -- 시드 곡의 태그 (카테고리별 분류)
+    seed_tags AS (
+      SELECT
+        st.tag_id,
+        t.category_name,
+        t.name as tag_name
+      FROM song_tags st
+      JOIN tags t ON st.tag_id = t.vocadb_id
+      WHERE st.song_id = ${seedSongId}
+    ),
+
+    -- 시드 곡 메타데이터
+    seed_meta AS (
+      SELECT
+        se.length_seconds,
+        se.publish_date
+      FROM songs_enhanced se
+      WHERE se.song_id = ${seedSongId}
+    ),
+
+    -- 후보 곡들에 점수 부여
     scored_songs AS (
       SELECT
         se.song_id,
@@ -230,22 +301,102 @@ export async function getSimilarSongsPlaylist(
         se.thumb_url,
         se.view_count,
         se.length_seconds,
-        -- 태그 매칭 점수 (공통 태그 수)
+        se.favorited_times,
+        se.rating_score,
+        se.publish_date,
+
+        -- 1. 프로듀서 매칭 (0 or 1)
+        CASE WHEN EXISTS (
+          SELECT 1 FROM song_artists sa
+          WHERE sa.song_id = se.song_id
+            AND sa.is_support = false
+            AND sa.artist_id IN (SELECT artist_id FROM seed_producers)
+        ) THEN 1.0 ELSE 0.0 END as producer_match,
+
+        -- 2. 보컬리스트 매칭 (0 or 1)
+        CASE WHEN EXISTS (
+          SELECT 1 FROM song_artists sa
+          WHERE sa.song_id = se.song_id
+            AND sa.artist_id IN (SELECT artist_id FROM seed_vocalists)
+        ) THEN 1.0 ELSE 0.0 END as vocalist_match,
+
+        -- 3. 분위기(Mood) 태그 점수 (0~1, 정규화됨)
         COALESCE(
-          (SELECT COUNT(*) FROM song_tags st
+          (SELECT COUNT(*)::float / GREATEST((SELECT COUNT(*) FROM seed_tags WHERE category_name IN ('Moods', 'Themes')), 1)
+           FROM song_tags st
+           JOIN tags t ON st.tag_id = t.vocadb_id
            WHERE st.song_id = se.song_id
-           AND st.tag_id IN (SELECT tag_id FROM seed_tags)),
-          0
-        ) as tag_score,
-        -- 조회수 유사도 점수 (1에 가까울수록 유사)
-        1.0 - ABS(LOG10(GREATEST(se.view_count, 1)::float) - LOG10(GREATEST(${viewCount}, 1)::float)) / 3.0 as view_score
+             AND t.category_name IN ('Moods', 'Themes')
+             AND st.tag_id IN (SELECT tag_id FROM seed_tags WHERE category_name IN ('Moods', 'Themes'))),
+          0.0
+        ) as mood_score,
+
+        -- 4. 장르(Genre) 태그 점수 (0~1, 정규화됨)
+        COALESCE(
+          (SELECT COUNT(*)::float / GREATEST((SELECT COUNT(*) FROM seed_tags WHERE category_name IN ('Genres', 'Instrumentation')), 1)
+           FROM song_tags st
+           JOIN tags t ON st.tag_id = t.vocadb_id
+           WHERE st.song_id = se.song_id
+             AND t.category_name IN ('Genres', 'Instrumentation')
+             AND st.tag_id IN (SELECT tag_id FROM seed_tags WHERE category_name IN ('Genres', 'Instrumentation'))),
+          0.0
+        ) as genre_score,
+
+        -- 5. 기타 태그 점수 (0~1, 정규화됨)
+        COALESCE(
+          (SELECT COUNT(*)::float / GREATEST((SELECT COUNT(*) FROM seed_tags WHERE category_name NOT IN ('Moods', 'Themes', 'Genres', 'Instrumentation') OR category_name IS NULL), 1)
+           FROM song_tags st
+           JOIN tags t ON st.tag_id = t.vocadb_id
+           WHERE st.song_id = se.song_id
+             AND (t.category_name NOT IN ('Moods', 'Themes', 'Genres', 'Instrumentation') OR t.category_name IS NULL)
+             AND st.tag_id IN (SELECT tag_id FROM seed_tags WHERE category_name NOT IN ('Moods', 'Themes', 'Genres', 'Instrumentation') OR category_name IS NULL)),
+          0.0
+        ) as other_tag_score,
+
+        -- 6. 조회수 유사도 (0~1, log 스케일 거리 기반)
+        GREATEST(0.0, 1.0 - ABS(LOG10(GREATEST(se.view_count, 1)::float) - LOG10(GREATEST(${viewCount}, 1)::float)) / 4.0) as view_score,
+
+        -- 7. 길이 유사도 (0~1, ±60초 이내면 고득점)
+        CASE
+          WHEN se.length_seconds IS NULL OR (SELECT length_seconds FROM seed_meta) IS NULL THEN 0.5
+          ELSE GREATEST(0.0, 1.0 - ABS(se.length_seconds - COALESCE((SELECT length_seconds FROM seed_meta), se.length_seconds))::float / 120.0)
+        END as length_score,
+
+        -- 8. 발매일 유사도 (0~1, ±1년 이내면 고득점)
+        CASE
+          WHEN se.publish_date IS NULL OR (SELECT publish_date FROM seed_meta) IS NULL THEN 0.5
+          ELSE GREATEST(0.0, 1.0 - ABS(EXTRACT(EPOCH FROM (se.publish_date::timestamp - (SELECT publish_date FROM seed_meta)::timestamp))::float / (365.25 * 24.0 * 3600.0)) / 3.0)
+        END as date_score,
+
+        -- 9. 품질 점수 (0~1, favorited와 rating 정규화)
+        LEAST(1.0, (se.favorited_times::float / 1000.0 + se.rating_score::float / 100.0) / 2.0) as quality_score
+
       FROM songs_enhanced se
       WHERE se.is_vocaloid_song = true
         AND se.view_count >= ${minViews}
         AND se.view_count <= ${maxViews}
         AND se.youtube_id IS NOT NULL
         AND NOT (se.song_id = ANY(${allExcludeIds}::int[]))
+    ),
+
+    -- 가중치 적용하여 최종 점수 계산
+    final_scored AS (
+      SELECT
+        *,
+        (
+          producer_match * ${SIMILARITY_WEIGHTS.sameProducer} +
+          vocalist_match * ${SIMILARITY_WEIGHTS.sameVocalist} +
+          mood_score * ${SIMILARITY_WEIGHTS.tagMood} +
+          genre_score * ${SIMILARITY_WEIGHTS.tagGenre} +
+          other_tag_score * ${SIMILARITY_WEIGHTS.tagOther} +
+          view_score * ${SIMILARITY_WEIGHTS.viewSimilarity} +
+          length_score * ${SIMILARITY_WEIGHTS.lengthSimilarity} +
+          date_score * ${SIMILARITY_WEIGHTS.dateSimilarity} +
+          quality_score * ${SIMILARITY_WEIGHTS.qualityBonus}
+        ) as similarity_score
+      FROM scored_songs
     )
+
     SELECT
       song_id as "vocadbId",
       default_name as "defaultName",
@@ -259,10 +410,9 @@ export async function getSimilarSongsPlaylist(
       thumb_url as "thumbUrl",
       view_count as "viewCount",
       length_seconds as "lengthSeconds"
-    FROM scored_songs
+    FROM final_scored
     ORDER BY
-      tag_score DESC,
-      view_score DESC,
+      similarity_score DESC,
       random()
     LIMIT ${limit}
   `;
