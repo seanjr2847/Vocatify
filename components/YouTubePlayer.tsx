@@ -10,6 +10,7 @@ export function YouTubePlayer() {
   const [isReady, setIsReady] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
   const lastEndedVideoRef = useRef<string | null>(null);
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // viewMode에 따라 다른 설정 적용
   const isFullscreen = state.viewMode === 'fullscreen';
@@ -99,8 +100,42 @@ export function YouTubePlayer() {
     }
   }, [playNextInQueue]);
 
+  // Silent audio to prevent browser from throttling background tabs
+  // This keeps the tab "active" so YouTube events fire properly
+  useEffect(() => {
+    if (!state.isPlaying) {
+      // Stop silent audio when not playing
+      if (silentAudioRef.current) {
+        silentAudioRef.current.pause();
+      }
+      return;
+    }
+
+    // Create silent audio element if not exists
+    if (!silentAudioRef.current) {
+      // Create a very short silent audio using data URI (10ms of silence)
+      const silentAudio = new Audio(
+        'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+      );
+      silentAudio.loop = true;
+      silentAudio.volume = 0.01; // Nearly silent
+      silentAudioRef.current = silentAudio;
+    }
+
+    // Play silent audio to keep tab active
+    silentAudioRef.current.play().catch(() => {
+      // Autoplay might be blocked, that's okay
+    });
+
+    return () => {
+      if (silentAudioRef.current) {
+        silentAudioRef.current.pause();
+      }
+    };
+  }, [state.isPlaying]);
+
   // Polling mechanism for background tab support
-  // Browsers throttle setInterval in background tabs, but it still runs (at ~1Hz)
+  // Combined with silent audio, this ensures reliable detection
   useEffect(() => {
     if (!isReady || !playerRef.current || !state.currentSong) return;
 
@@ -127,8 +162,8 @@ export function YouTubePlayer() {
       }
     };
 
-    // Poll every 2 seconds (background tabs throttle to ~1Hz anyway)
-    const intervalId = setInterval(checkPlaybackStatus, 2000);
+    // Poll every 1 second for more responsive background detection
+    const intervalId = setInterval(checkPlaybackStatus, 1000);
 
     return () => clearInterval(intervalId);
   }, [isReady, state.currentSong, playNextInQueue, playerRef]);
@@ -139,6 +174,16 @@ export function YouTubePlayer() {
       lastEndedVideoRef.current = null;
     }
   }, [state.currentSong?.youtubeId]);
+
+  // Cleanup silent audio on unmount
+  useEffect(() => {
+    return () => {
+      if (silentAudioRef.current) {
+        silentAudioRef.current.pause();
+        silentAudioRef.current = null;
+      }
+    };
+  }, []);
 
   // MediaSession API for OS-level media controls (works in background)
   useEffect(() => {
