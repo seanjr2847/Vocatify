@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * ArtistsByRole Component
  *
@@ -7,6 +9,7 @@
  */
 
 import Link from 'next/link';
+import { Tooltip } from '@/components/ui/tooltip';
 
 interface Artist {
   id: number;
@@ -121,18 +124,19 @@ function ArtistChip({ artist }: { artist: Artist }) {
   const searchUrl = `/search?q=${encodeURIComponent(artist.name)}`;
 
   return (
-    <Link
-      href={searchUrl}
-      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
-                 bg-[#2a2a2a] border border-gray-800
-                 hover:bg-[#3a3a3a] hover:border-[#39c5bb]
-                 transition-all cursor-pointer group"
-      title={`${artist.name} 검색하기`}
-    >
-      <span className="text-sm font-medium text-gray-200 group-hover:text-white">
-        {artist.name}
-      </span>
-    </Link>
+    <Tooltip content={`${artist.name} 검색하기`} side="top">
+      <Link
+        href={searchUrl}
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
+                   bg-[#2a2a2a] border border-gray-800
+                   hover:bg-[#3a3a3a] hover:border-[#39c5bb]
+                   transition-all cursor-pointer group"
+      >
+        <span className="text-sm font-medium text-gray-200 group-hover:text-white">
+          {artist.name}
+        </span>
+      </Link>
+    </Tooltip>
   );
 }
 

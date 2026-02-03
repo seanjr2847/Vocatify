@@ -165,9 +165,12 @@ jobs:
     name: Update Ranking Cache
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # YouTube crawler 완료 후 실행 (스케줄 시에도 의존성 적용)
+    needs: youtube-crawler
     if: |
-      (github.event.schedule == '0 19 * * *') ||
-      (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'ranking-cache' || github.event.inputs.crawler == 'all'))
+      always() &&
+      ((github.event.schedule == '0 19 * * *') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.crawler == 'ranking-cache' || github.event.inputs.crawler == 'all')))
 
     steps:
       - name: Update Weekly Stats Cache
@@ -177,155 +180,110 @@ jobs:
         run: |
           echo "📊 Step 1/6: Updating weekly stats cache..."
 
-          response=$(curl -L -X POST "$VERCEL_URL/api/cron/weekly-stats" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
+          # Retry function for API calls
+          call_api() {
+            local endpoint=$1
+            local max_retries=3
+            local retry=0
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
+            while [ $retry -lt $max_retries ]; do
+              response=$(curl -L -X POST "$VERCEL_URL$endpoint" \
+                -H "Authorization: Bearer $CRON_SECRET" \
+                -H "Content-Type: application/json" \
+                --connect-timeout 30 \
+                --max-time 120 \
+                -w "\n%{http_code}" \
+                -s)
 
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
+              http_code=$(echo "$response" | tail -n1)
+              body=$(echo "$response" | sed '$d')
 
-          if [ "$http_code" != "200" ]; then
-            echo "⚠️ Weekly stats update failed (non-fatal, continuing...)"
-          else
+              echo "HTTP Status: $http_code"
+              echo "Response: $body"
+
+              if [ "$http_code" = "200" ]; then
+                return 0
+              fi
+
+              retry=$((retry + 1))
+              if [ $retry -lt $max_retries ]; then
+                echo "⚠️ Attempt $retry failed, retrying in 10 seconds..."
+                sleep 10
+              fi
+            done
+
+            return 1
+          }
+
+          if call_api "/api/cron/weekly-stats"; then
             echo "✅ Weekly stats updated successfully!"
-          fi
-
-      - name: Update Daily Stats Cache
-        env:
-          VERCEL_URL: ${{ secrets.VERCEL_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          echo ""
-          echo "📊 Step 2/6: Updating daily stats cache..."
-
-          response=$(curl -L -X POST "$VERCEL_URL/api/cron/daily-stats" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
-
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-
-          if [ "$http_code" != "200" ]; then
-            echo "⚠️ Daily stats update failed (non-fatal, continuing...)"
           else
-            echo "✅ Daily stats updated successfully!"
+            echo "⚠️ Weekly stats update failed (non-fatal, continuing...)"
           fi
 
-      - name: Update Total Ranking Cache
+      - name: Update All Ranking Caches
         env:
           VERCEL_URL: ${{ secrets.VERCEL_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          echo ""
-          echo "📊 Step 3/6: Updating total ranking cache..."
+          # Retry function for API calls
+          call_api() {
+            local endpoint=$1
+            local name=$2
+            local fatal=$3
+            local max_retries=3
+            local retry=0
 
-          response=$(curl -L -X POST "$VERCEL_URL/api/cron/ranking/total" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
+            echo ""
+            echo "📊 $name..."
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
+            while [ $retry -lt $max_retries ]; do
+              response=$(curl -L -X POST "$VERCEL_URL$endpoint" \
+                -H "Authorization: Bearer $CRON_SECRET" \
+                -H "Content-Type: application/json" \
+                --connect-timeout 30 \
+                --max-time 120 \
+                -w "\n%{http_code}" \
+                -s)
 
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
+              http_code=$(echo "$response" | tail -n1)
+              body=$(echo "$response" | sed '$d')
 
-          if [ "$http_code" != "200" ]; then
-            echo "❌ Total ranking update failed"
-            exit 1
-          fi
+              echo "HTTP Status: $http_code"
+              echo "Response: $body"
 
-          echo "✅ Total ranking updated successfully!"
+              if [ "$http_code" = "200" ]; then
+                echo "✅ $name completed!"
+                return 0
+              fi
 
-      - name: Update Weekly Ranking Cache
-        env:
-          VERCEL_URL: ${{ secrets.VERCEL_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          echo ""
-          echo "📊 Step 4/6: Updating weekly ranking cache..."
+              retry=$((retry + 1))
+              if [ $retry -lt $max_retries ]; then
+                echo "⚠️ Attempt $retry failed, retrying in 10 seconds..."
+                sleep 10
+              fi
+            done
 
-          response=$(curl -L -X POST "$VERCEL_URL/api/cron/ranking/weekly" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
+            if [ "$fatal" = "true" ]; then
+              echo "❌ $name failed after $max_retries attempts"
+              return 1
+            else
+              echo "⚠️ $name failed (non-fatal, continuing...)"
+              return 0
+            fi
+          }
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
+          echo "🚀 Starting ranking cache updates..."
 
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
+          # Step 1-2: Stats caches (non-fatal)
+          call_api "/api/cron/weekly-stats" "Step 1/6: Weekly stats" "false"
+          call_api "/api/cron/daily-stats" "Step 2/6: Daily stats" "false"
 
-          if [ "$http_code" != "200" ]; then
-            echo "⚠️ Weekly ranking update failed (non-fatal, continuing...)"
-          else
-            echo "✅ Weekly ranking updated successfully!"
-          fi
+          # Step 3-6: Ranking caches
+          call_api "/api/cron/ranking/total" "Step 3/6: Total ranking" "true" || exit 1
+          call_api "/api/cron/ranking/weekly" "Step 4/6: Weekly ranking" "false"
+          call_api "/api/cron/ranking/new" "Step 5/6: New ranking" "true" || exit 1
+          call_api "/api/cron/ranking/daily" "Step 6/6: Daily ranking" "true" || exit 1
 
-      - name: Update New Ranking Cache
-        env:
-          VERCEL_URL: ${{ secrets.VERCEL_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          echo ""
-          echo "📊 Step 5/6: Updating new ranking cache..."
-
-          response=$(curl -L -X POST "$VERCEL_URL/api/cron/ranking/new" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
-
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-
-          if [ "$http_code" != "200" ]; then
-            echo "❌ New ranking update failed"
-            exit 1
-          fi
-
-          echo "✅ New ranking updated successfully!"
-
-      - name: Update Daily Ranking Cache
-        env:
-          VERCEL_URL: ${{ secrets.VERCEL_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          echo ""
-          echo "📊 Step 6/6: Updating daily ranking cache..."
-
-          response=$(curl -L -X POST "$VERCEL_URL/api/cron/ranking/daily" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            -w "\n%{http_code}" \
-            -s)
-
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-
-          if [ "$http_code" != "200" ]; then
-            echo "❌ Daily ranking update failed"
-            exit 1
-          fi
-
-          echo "✅ Daily ranking updated successfully!"
           echo ""
           echo "🎉 All ranking caches updated successfully!"
