@@ -26,6 +26,7 @@ interface AddToPlaylistButtonProps {
   variant?: "default" | "ghost" | "outline";
   size?: "default" | "sm" | "lg" | "icon";
   showText?: boolean;
+  className?: string;
 }
 
 export function AddToPlaylistButton({
@@ -34,6 +35,7 @@ export function AddToPlaylistButton({
   variant: _variant = "ghost",
   size: _size = "icon",
   showText = false,
+  className,
 }: AddToPlaylistButtonProps) {
   const { status } = useSession();
   const router = useRouter();
@@ -129,9 +131,9 @@ export function AddToPlaylistButton({
         ) : (
           <button
             disabled={isLoading}
-            className="flex items-center justify-center w-12 h-12 rounded-full bg-[#2a2a2a] hover:bg-[#3a3a3a] transition-colors text-white hover:text-[#39c5bb]"
+            className={className || "flex items-center justify-center w-12 h-12 rounded-full bg-[#2a2a2a] hover:bg-[#3a3a3a] transition-colors text-white hover:text-[#39c5bb]"}
           >
-            <ListMusic className="h-6 w-6" />
+            <ListMusic className={className ? "h-5 w-5" : "h-6 w-6"} />
           </button>
         )}
       </DropdownMenuTrigger>

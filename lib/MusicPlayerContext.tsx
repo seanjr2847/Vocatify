@@ -15,7 +15,8 @@ interface PlayerState {
   isMuted: boolean;
   viewMode: 'minimized' | 'fullscreen';
   activeTab: 'queue' | 'lyrics';
-  playlist: Song[]; // 재생목록
+  playlist: Song[]; // 다음에 재생될 곡들 (queue)
+  playHistory: Song[]; // 이전에 재생된 곡들 (history)
   playlistSource: string; // "PLAYING FROM:" 표시용
   // Radio mode
   isRadioMode: boolean;
@@ -87,6 +88,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       const data = JSON.parse(stored);
       return {
         playlist: (data.playlist || []).map(deserializeSong).filter(Boolean) as Song[],
+        playHistory: (data.playHistory || []).map(deserializeSong).filter(Boolean) as Song[],
         playlistSource: data.playlistSource || 'Queue',
         currentSong: deserializeSong(data.currentSong),
       };
@@ -105,7 +107,8 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     isMuted: false,
     viewMode: 'minimized', // 기본값: 재생목록 숨김
     activeTab: 'queue', // 기본 탭: Play queue
-    playlist: [],
+    playlist: [], // 다음에 재생될 곡들
+    playHistory: [], // 이전에 재생된 곡들
     playlistSource: 'Queue', // 기본 소스
     // Radio mode
     isRadioMode: false,
@@ -128,6 +131,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     try {
       const dataToSave = {
         playlist: state.playlist.map(serializeSong),
+        playHistory: state.playHistory.slice(-50).map(serializeSong), // 최근 50개만 유지
         playlistSource: state.playlistSource,
         currentSong: serializeSong(state.currentSong),
         isRadioMode: state.isRadioMode,
@@ -143,6 +147,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [
     state.playlist,
+    state.playHistory,
     state.playlistSource,
     state.currentSong,
     state.isRadioMode,
@@ -185,20 +190,22 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
     setState(prev => {
       // Remove the song we're about to play from playlist (if exists)
-      let newPlaylist = prev.playlist.filter(s => s.vocadbId !== song.vocadbId);
+      const newPlaylist = prev.playlist.filter(s => s.vocadbId !== song.vocadbId);
 
-      // Add current song to the END of playlist (for history/previous)
+      // Add current song to history (for playPrevious)
+      let newHistory = prev.playHistory;
       if (prev.currentSong && prev.currentSong.vocadbId !== song.vocadbId) {
-        // Remove current song if already in playlist to avoid duplicates
-        newPlaylist = newPlaylist.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
-        // Add to end for playPrevious functionality
-        newPlaylist = [...newPlaylist, prev.currentSong];
+        // Remove from history if already there to avoid duplicates
+        newHistory = newHistory.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
+        // Add to history
+        newHistory = [...newHistory, prev.currentSong];
       }
 
       return {
         ...prev,
         currentSong: song,
         playlist: newPlaylist,
+        playHistory: newHistory,
         isPlaying: false, // YouTube의 onStateChange에서 자동으로 true로 설정됨
         currentTime: 0,
       };
@@ -298,7 +305,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const clearPlaylist = useCallback(() => {
-    setState(prev => ({ ...prev, playlist: [] }));
+    setState(prev => ({ ...prev, playlist: [], playHistory: [] }));
   }, []);
 
   const updateDuration = useCallback((duration: number) => {
@@ -362,6 +369,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         ...prev,
         currentSong: convertApiSongToSong(seedSong),
         playlist: playlist.map(convertApiSongToSong),
+        playHistory: [], // Reset history when starting radio
         playlistSource: channel?.name || '라디오',
         isRadioMode: true,
         radioChannel: channel,
@@ -395,6 +403,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         ...prev,
         currentSong: convertApiSongToSong(seedSong),
         playlist: playlist.map(convertApiSongToSong),
+        playHistory: [], // Reset history when starting radio
         playlistSource: `${displayTitle} 라디오`,
         isRadioMode: true,
         radioChannel: null,
@@ -436,10 +445,14 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       if (prev.playlist.length === 0) {
         // No more songs in queue
         if (prev.repeatMode === 'all' && prev.currentSong) {
-          // Add current song back to playlist to continue loop
+          // Repeat all: move all history back to playlist and continue
+          const allSongs = [...prev.playHistory, prev.currentSong];
           return {
             ...prev,
-            playlist: [prev.currentSong],
+            playlist: allSongs.slice(1), // 첫 곡은 currentSong으로
+            currentSong: allSongs[0],
+            playHistory: [],
+            currentTime: 0,
           };
         }
         if (prev.isRadioMode) {
@@ -458,17 +471,17 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       const nextSong = prev.playlist[nextSongIndex];
       const remainingPlaylist = prev.playlist.filter((_, idx) => idx !== nextSongIndex);
 
-      // Keep current song in playlist (at the end) for history
-      // But in radio mode, don't keep to prevent infinite queue growth
-      let newPlaylist = remainingPlaylist;
-      if (prev.currentSong && !prev.isRadioMode) {
-        newPlaylist = [...remainingPlaylist, prev.currentSong];
+      // Add current song to history (not back to playlist)
+      let newHistory = prev.playHistory;
+      if (prev.currentSong) {
+        newHistory = [...newHistory, prev.currentSong];
       }
 
       return {
         ...prev,
         currentSong: nextSong,
-        playlist: newPlaylist,
+        playlist: remainingPlaylist,
+        playHistory: newHistory,
         radioPlayedIds: prev.isRadioMode
           ? [...prev.radioPlayedIds, nextSong.vocadbId]
           : prev.radioPlayedIds,
@@ -531,8 +544,8 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return { ...prev, currentTime: 0 };
       }
 
-      // Otherwise, play the last song from the playlist
-      if (prev.playlist.length === 0) {
+      // Otherwise, play the last song from history
+      if (prev.playHistory.length === 0) {
         // No previous song, just restart current
         if (playerRef.current) {
           playerRef.current.seekTo(0);
@@ -541,19 +554,18 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return { ...prev, currentTime: 0 };
       }
 
-      // Get the last song from playlist (most recently played)
-      const previousSong = prev.playlist[prev.playlist.length - 1];
-      const newPlaylist = prev.playlist.slice(0, -1);
+      // Get the last song from history
+      const previousSong = prev.playHistory[prev.playHistory.length - 1];
+      const newHistory = prev.playHistory.slice(0, -1);
 
       // Add current song to the beginning of playlist (it will be "next")
-      // Check for duplicates first
-      const filteredPlaylist = newPlaylist.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
-      const updatedPlaylist = [prev.currentSong, ...filteredPlaylist];
+      const newPlaylist = [prev.currentSong, ...prev.playlist];
 
       return {
         ...prev,
         currentSong: previousSong,
-        playlist: updatedPlaylist,
+        playlist: newPlaylist,
+        playHistory: newHistory,
         currentTime: 0,
       };
     });

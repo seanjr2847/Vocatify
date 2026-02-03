@@ -5,9 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Song } from "@/lib/db";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getDisplayTitle } from "@/lib/utils/format-utils";
+import { PlayButton } from "@/components/PlayButton";
+import { AddToPlaylistButton } from "@/components/user/AddToPlaylistButton";
+import { useMusicPlayer } from "@/lib/MusicPlayerContext";
+import { toast } from "sonner";
 
 interface SearchResultsProps {
   initialResults: Song[];
@@ -40,10 +44,34 @@ export function SearchResults({
 }: SearchResultsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { addToPlaylist, startSimilarRadio } = useMusicPlayer();
   const [sortBy, setSortBy] = useState(initialSortBy);
   const [artistType, setArtistType] = useState(initialArtistType);
   const [tagId] = useState(initialTagId);
   const [tagName] = useState(initialTagName);
+  const [radioLoadingId, setRadioLoadingId] = useState<number | null>(null);
+
+  const handleAddToQueue = (e: React.MouseEvent, song: Song) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addToPlaylist(song);
+    toast.success(`"${getDisplayTitle(song)}"을(를) 재생 대기열에 추가했습니다`);
+  };
+
+  const handleStartRadio = async (e: React.MouseEvent, song: Song) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRadioLoadingId(song.vocadbId);
+    try {
+      await startSimilarRadio(song.vocadbId);
+      toast.success(`"${getDisplayTitle(song)}" 라디오를 시작합니다`);
+    } catch (error) {
+      console.error('Radio start error:', error);
+      toast.error('라디오 시작에 실패했습니다');
+    } finally {
+      setRadioLoadingId(null);
+    }
+  };
 
   const totalPages = Math.ceil(total / 20);
 
@@ -337,7 +365,7 @@ export function SearchResults({
               <Link
                 key={song.vocadbId}
                 href={`/songs/${song.vocadbId}`}
-                className="flex items-center gap-4 p-4 bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-all hover:shadow-lg hover:shadow-[#39c5bb]/10 border border-transparent hover:border-[#39c5bb]/30"
+                className="group flex items-center gap-4 p-4 bg-gray-800/50 hover:bg-gray-800 rounded-lg transition-all hover:shadow-lg hover:shadow-[#39c5bb]/10 border border-transparent hover:border-[#39c5bb]/30"
               >
                 {/* Thumbnail */}
                 <div className="relative w-24 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-700">
@@ -373,11 +401,50 @@ export function SearchResults({
                 </div>
 
                 {/* Stats */}
-                <div className="flex-shrink-0 text-right">
+                <div className="flex-shrink-0 text-right mr-2">
                   <div className="text-white font-semibold">
                     {parseInt(viewCount).toLocaleString()}
                   </div>
                   <div className="text-xs text-gray-400">조회수</div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Play Button */}
+                  <PlayButton song={song} variant="small" />
+
+                  {/* Add to Queue */}
+                  <button
+                    onClick={(e) => handleAddToQueue(e, song)}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white hover:text-[#39c5bb]"
+                    title="재생 대기열에 추가"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+
+                  {/* Similar Radio */}
+                  <button
+                    onClick={(e) => handleStartRadio(e, song)}
+                    disabled={radioLoadingId === song.vocadbId}
+                    className={`w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white hover:text-[#39c5bb] ${
+                      radioLoadingId === song.vocadbId ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    title="비슷한 곡 라디오"
+                  >
+                    <Radio className="w-5 h-5" />
+                  </button>
+
+                  {/* Add to Playlist */}
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <AddToPlaylistButton
+                      songId={song.vocadbId}
+                      songTitle={displayTitle}
+                      variant="ghost"
+                      size="icon"
+                      showText={false}
+                      className="flex items-center justify-center w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white hover:text-[#39c5bb]"
+                    />
+                  </div>
                 </div>
               </Link>
             );
