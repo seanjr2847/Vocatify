@@ -46,6 +46,7 @@ interface MusicPlayerContextValue {
   playerRef: React.MutableRefObject<YouTubePlayerType | null>;
   // Radio mode
   startRadio: (channelSlug: string) => Promise<void>;
+  startSimilarRadio: (songId: number) => Promise<void>;
   stopRadio: () => void;
   playNextInQueue: () => void;
   // Playback controls
@@ -376,6 +377,39 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [convertApiSongToSong]);
 
+  // Start similar songs radio based on a seed song
+  const startSimilarRadio = useCallback(async (songId: number) => {
+    try {
+      const response = await fetch(`/api/radio/similar?songId=${songId}`);
+      const data = await response.json();
+
+      if (!data.success) {
+        console.error('Failed to start similar radio:', data.error);
+        return;
+      }
+
+      const { seedSong, playlist } = data;
+      const displayTitle = seedSong.titleKorean || seedSong.titleEnglish || seedSong.defaultName;
+
+      setState(prev => ({
+        ...prev,
+        currentSong: convertApiSongToSong(seedSong),
+        playlist: playlist.map(convertApiSongToSong),
+        playlistSource: `${displayTitle} 라디오`,
+        isRadioMode: true,
+        radioChannel: null,
+        radioTags: [],
+        radioPlayedIds: [seedSong.vocadbId],
+        isPlaying: false,
+        currentTime: 0,
+        viewMode: 'fullscreen',
+      }));
+
+    } catch (error) {
+      console.error('Similar radio start error:', error);
+    }
+  }, [convertApiSongToSong]);
+
   const stopRadio = useCallback(() => {
     setState(prev => ({
       ...prev,
@@ -564,6 +598,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     playerRef,
     // Radio mode
     startRadio,
+    startSimilarRadio,
     stopRadio,
     playNextInQueue,
     // Playback controls

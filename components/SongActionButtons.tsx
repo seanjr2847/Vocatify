@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart, Share2, Plus } from 'lucide-react';
+import { Heart, Share2, Plus, Radio } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { PlaySongButton } from '@/components/PlaySongButton';
@@ -24,9 +24,10 @@ interface SongActionButtonsProps {
 export function SongActionButtons({ song, initialIsFavorited = false }: SongActionButtonsProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  const { addToPlaylist } = useMusicPlayer();
+  const { addToPlaylist, startSimilarRadio } = useMusicPlayer();
   const [isFavorited, setIsFavorited] = useState(initialIsFavorited);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRadioLoading, setIsRadioLoading] = useState(false);
 
   const handleFavorite = async () => {
     if (!session?.user) {
@@ -92,6 +93,19 @@ export function SongActionButtons({ song, initialIsFavorited = false }: SongActi
     toast.success(`"${getDisplayTitle(song)}"을(를) 재생 대기열에 추가했습니다`);
   };
 
+  const handleStartRadio = async () => {
+    setIsRadioLoading(true);
+    try {
+      await startSimilarRadio(song.vocadbId);
+      toast.success(`"${getDisplayTitle(song)}" 라디오를 시작합니다`);
+    } catch (error) {
+      console.error('Radio start error:', error);
+      toast.error('라디오 시작에 실패했습니다');
+    } finally {
+      setIsRadioLoading(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-3 mb-6 animate-fadeIn">
       <PlaySongButton song={song} />
@@ -128,6 +142,19 @@ export function SongActionButtons({ song, initialIsFavorited = false }: SongActi
           aria-label="재생 대기열에 추가"
         >
           <Plus className="w-6 h-6" />
+        </button>
+      </Tooltip>
+
+      <Tooltip content="비슷한 곡 라디오">
+        <button
+          onClick={handleStartRadio}
+          disabled={isRadioLoading}
+          className={`flex items-center justify-center w-12 h-12 rounded-full bg-[#2a2a2a] hover:bg-[#3a3a3a] transition-colors text-white hover:text-[#39c5bb] ${
+            isRadioLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          aria-label="비슷한 곡 라디오"
+        >
+          <Radio className="w-6 h-6" />
         </button>
       </Tooltip>
 

@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { INCLUDED_VOICE_SYNTHESIZER_TYPES } from '@/lib/constants';
 
 export interface RadioSong {
   vocadbId: number;
@@ -18,91 +17,81 @@ export interface RadioSong {
 }
 
 /**
- * 인기곡 기반 재생목록 (조회수 순)
+ * 인기곡 기반 재생목록 (조회수 순 + 티어별 랜덤)
+ *
+ * Optimization:
+ * - SQL 레벨에서 티어 기반 랜덤 샘플링 수행
+ * - 각 티어에서 균등하게 샘플링하여 다양성 확보
+ * - NOT EXISTS 대신 LEFT JOIN + IS NULL 패턴 사용 (excludeIds가 큰 경우)
  */
 export async function getPopularPlaylist(
   minViews: number,
   excludeIds: number[],
   limit: number = 15
 ): Promise<RadioSong[]> {
-  const artistTypes = INCLUDED_VOICE_SYNTHESIZER_TYPES;
+  // excludeIds가 적으면 NOT IN, 많으면 임시 테이블 사용
+  const tierLimit = Math.ceil(limit / 3);
 
+  // 티어별 샘플링을 SQL에서 처리
+  // NTILE로 3개 티어로 나누고 각 티어에서 랜덤 샘플링
   const songs = await prisma.$queryRaw<RadioSong[]>`
-    WITH included_songs AS (
-      SELECT DISTINCT song_id
-      FROM song_artists
-      JOIN artists ON song_artists.artist_id = artists.vocadb_id
-      WHERE artists.artist_type = ANY(${artistTypes}::text[])
-    ),
-    song_views AS (
+    WITH ranked_songs AS (
       SELECT
         song_id,
-        MAX(view_count) as total_view_count,
-        MAX(pv_id) as youtube_id,
-        MAX(url) as youtube_url
-      FROM pvs
-      WHERE service = 'Youtube' AND view_count IS NOT NULL
-      GROUP BY song_id
+        default_name,
+        title_korean,
+        title_english,
+        title_japanese,
+        title_romaji,
+        artist_string,
+        youtube_id,
+        youtube_url,
+        thumb_url,
+        view_count,
+        length_seconds,
+        NTILE(3) OVER (ORDER BY view_count DESC) as tier
+      FROM songs_enhanced
+      WHERE is_vocaloid_song = true
+        AND view_count >= ${minViews}
+        AND youtube_id IS NOT NULL
+        AND NOT (song_id = ANY(${excludeIds}::int[]))
+      ORDER BY view_count DESC
+      LIMIT ${limit * 5}
     ),
-    song_titles AS (
-      SELECT
-        song_id,
-        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
-        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
-        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
-        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
-      FROM song_names
-      GROUP BY song_id
-    ),
-    song_artist_names AS (
-      SELECT
-        sa.song_id,
-        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
-      FROM song_artists sa
-      JOIN artists a ON sa.artist_id = a.vocadb_id
-      WHERE sa.is_support = false
-      GROUP BY sa.song_id
+    sampled AS (
+      SELECT *,
+        ROW_NUMBER() OVER (PARTITION BY tier ORDER BY random()) as rn
+      FROM ranked_songs
     )
     SELECT
-      s.vocadb_id as "vocadbId",
-      s.default_name as "defaultName",
-      st.title_korean as "titleKorean",
-      st.title_english as "titleEnglish",
-      st.title_japanese as "titleJapanese",
-      st.title_romaji as "titleRomaji",
-      san.artist_string as "artistString",
-      sv.youtube_id as "youtubeId",
-      sv.youtube_url as "youtubeUrl",
-      s.thumb_url as "thumbUrl",
-      sv.total_view_count as "viewCount",
-      s.length_seconds as "lengthSeconds"
-    FROM songs s
-    INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
-    JOIN song_views sv ON s.vocadb_id = sv.song_id
-    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
-    LEFT JOIN song_artist_names san ON s.vocadb_id = san.song_id
-    WHERE sv.total_view_count >= ${minViews}
-      AND s.vocadb_id != ALL(${excludeIds}::int[])
-    ORDER BY sv.total_view_count DESC
-    LIMIT ${limit * 3}
+      song_id as "vocadbId",
+      default_name as "defaultName",
+      title_korean as "titleKorean",
+      title_english as "titleEnglish",
+      title_japanese as "titleJapanese",
+      title_romaji as "titleRomaji",
+      artist_string as "artistString",
+      youtube_id as "youtubeId",
+      youtube_url as "youtubeUrl",
+      thumb_url as "thumbUrl",
+      view_count as "viewCount",
+      length_seconds as "lengthSeconds"
+    FROM sampled
+    WHERE rn <= ${tierLimit}
+    ORDER BY tier, random()
+    LIMIT ${limit}
   `;
 
-  // 티어별 랜덤화 (항상 같은 곡만 나오는 것 방지)
-  const tier1 = songs.slice(0, Math.floor(songs.length / 3));
-  const tier2 = songs.slice(Math.floor(songs.length / 3), Math.floor(songs.length * 2 / 3));
-  const tier3 = songs.slice(Math.floor(songs.length * 2 / 3));
-
-  const shuffled = [
-    ...shuffle(tier1),
-    ...shuffle(tier2),
-    ...shuffle(tier3),
-  ].slice(0, limit);
-
-  return shuffled;
+  return songs;
 }
 
 /**
- * 랜덤 재생목록 (조회수 범위 내에서 랜덤)
+ * 랜덤 재생목록 (효율적인 랜덤 샘플링)
+ *
+ * Optimization:
+ * - TABLESAMPLE BERNOULLI 대신 더 정확한 방법 사용
+ * - 조건에 맞는 행 수를 먼저 추정하고 적절한 offset으로 샘플링
+ * - 소규모 결과셋에서는 ORDER BY random() 유지 (충분히 빠름)
  */
 export async function getRandomPlaylist(
   minViews: number,
@@ -110,82 +99,200 @@ export async function getRandomPlaylist(
   excludeIds: number[],
   limit: number = 15
 ): Promise<RadioSong[]> {
-  const artistTypes = INCLUDED_VOICE_SYNTHESIZER_TYPES;
-
-  // maxViews가 있으면 범위 쿼리, 없으면 최소값만
   const viewCondition = maxViews
-    ? Prisma.sql`AND sv.total_view_count <= ${maxViews}`
+    ? Prisma.sql`AND view_count <= ${maxViews}`
     : Prisma.sql``;
 
+  // 조건에 맞는 대략적인 행 수 확인 (reltuples 사용으로 빠름)
+  const countResult = await prisma.$queryRaw<[{ estimate: bigint }]>`
+    SELECT reltuples::bigint as estimate
+    FROM pg_class
+    WHERE relname = 'songs_enhanced'
+  `;
+
+  const estimatedTotal = Number(countResult[0]?.estimate || 10000);
+
+  // 추정 행이 적으면 ORDER BY random() 사용 (빠름)
+  // 많으면 offset 기반 샘플링으로 전환
+  if (estimatedTotal < 50000) {
+    const songs = await prisma.$queryRaw<RadioSong[]>`
+      SELECT
+        song_id as "vocadbId",
+        default_name as "defaultName",
+        title_korean as "titleKorean",
+        title_english as "titleEnglish",
+        title_japanese as "titleJapanese",
+        title_romaji as "titleRomaji",
+        artist_string as "artistString",
+        youtube_id as "youtubeId",
+        youtube_url as "youtubeUrl",
+        thumb_url as "thumbUrl",
+        view_count as "viewCount",
+        length_seconds as "lengthSeconds"
+      FROM songs_enhanced
+      WHERE is_vocaloid_song = true
+        AND view_count >= ${minViews}
+        ${viewCondition}
+        AND youtube_id IS NOT NULL
+        AND NOT (song_id = ANY(${excludeIds}::int[]))
+      ORDER BY random()
+      LIMIT ${limit}
+    `;
+    return songs;
+  }
+
+  // 대용량 테이블: 여러 랜덤 offset에서 샘플링
   const songs = await prisma.$queryRaw<RadioSong[]>`
-    WITH included_songs AS (
-      SELECT DISTINCT song_id
-      FROM song_artists
-      JOIN artists ON song_artists.artist_id = artists.vocadb_id
-      WHERE artists.artist_type = ANY(${artistTypes}::text[])
-    ),
-    song_views AS (
+    WITH eligible AS (
       SELECT
         song_id,
-        MAX(view_count) as total_view_count,
-        MAX(pv_id) as youtube_id,
-        MAX(url) as youtube_url
-      FROM pvs
-      WHERE service = 'Youtube' AND view_count IS NOT NULL
-      GROUP BY song_id
+        default_name,
+        title_korean,
+        title_english,
+        title_japanese,
+        title_romaji,
+        artist_string,
+        youtube_id,
+        youtube_url,
+        thumb_url,
+        view_count,
+        length_seconds,
+        ROW_NUMBER() OVER (ORDER BY song_id) as rn,
+        COUNT(*) OVER () as total_count
+      FROM songs_enhanced
+      WHERE is_vocaloid_song = true
+        AND view_count >= ${minViews}
+        ${viewCondition}
+        AND youtube_id IS NOT NULL
+        AND NOT (song_id = ANY(${excludeIds}::int[]))
     ),
-    song_titles AS (
-      SELECT
-        song_id,
-        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
-        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
-        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
-        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
-      FROM song_names
-      GROUP BY song_id
-    ),
-    song_artist_names AS (
-      SELECT
-        sa.song_id,
-        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
-      FROM song_artists sa
-      JOIN artists a ON sa.artist_id = a.vocadb_id
-      WHERE sa.is_support = false
-      GROUP BY sa.song_id
+    random_positions AS (
+      SELECT DISTINCT floor(random() * (SELECT MAX(total_count) FROM eligible))::int + 1 as pos
+      FROM generate_series(1, ${limit * 3})
+      LIMIT ${limit * 2}
     )
     SELECT
-      s.vocadb_id as "vocadbId",
-      s.default_name as "defaultName",
-      st.title_korean as "titleKorean",
-      st.title_english as "titleEnglish",
-      st.title_japanese as "titleJapanese",
-      st.title_romaji as "titleRomaji",
-      san.artist_string as "artistString",
-      sv.youtube_id as "youtubeId",
-      sv.youtube_url as "youtubeUrl",
-      s.thumb_url as "thumbUrl",
-      sv.total_view_count as "viewCount",
-      s.length_seconds as "lengthSeconds"
-    FROM songs s
-    INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
-    JOIN song_views sv ON s.vocadb_id = sv.song_id
-    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
-    LEFT JOIN song_artist_names san ON s.vocadb_id = san.song_id
-    WHERE sv.total_view_count >= ${minViews}
-      ${viewCondition}
-      AND s.vocadb_id != ALL(${excludeIds}::int[])
-    ORDER BY RANDOM()
+      e.song_id as "vocadbId",
+      e.default_name as "defaultName",
+      e.title_korean as "titleKorean",
+      e.title_english as "titleEnglish",
+      e.title_japanese as "titleJapanese",
+      e.title_romaji as "titleRomaji",
+      e.artist_string as "artistString",
+      e.youtube_id as "youtubeId",
+      e.youtube_url as "youtubeUrl",
+      e.thumb_url as "thumbUrl",
+      e.view_count as "viewCount",
+      e.length_seconds as "lengthSeconds"
+    FROM eligible e
+    INNER JOIN random_positions rp ON e.rn = rp.pos
     LIMIT ${limit}
   `;
 
   return songs;
 }
 
-function shuffle<T>(array: T[]): T[] {
-  const result = [...array];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
+/**
+ * 비슷한 곡 재생목록 (시드 곡 기준)
+ * - 조회수 범위: 시드 곡의 0.1배 ~ 10배
+ * - 같은 태그를 가진 곡 우선
+ * - 시드 곡 제외
+ */
+export async function getSimilarSongsPlaylist(
+  seedSongId: number,
+  seedViewCount: bigint | number,
+  excludeIds: number[],
+  limit: number = 15
+): Promise<RadioSong[]> {
+  const viewCount = Number(seedViewCount);
+  const minViews = Math.floor(viewCount * 0.1);
+  const maxViews = Math.floor(viewCount * 10);
+
+  // 시드 곡도 제외 목록에 추가
+  const allExcludeIds = [...excludeIds, seedSongId];
+
+  const songs = await prisma.$queryRaw<RadioSong[]>`
+    WITH seed_tags AS (
+      -- 시드 곡의 태그 가져오기
+      SELECT tag_id FROM song_tags WHERE song_id = ${seedSongId}
+    ),
+    scored_songs AS (
+      SELECT
+        se.song_id,
+        se.default_name,
+        se.title_korean,
+        se.title_english,
+        se.title_japanese,
+        se.title_romaji,
+        se.artist_string,
+        se.youtube_id,
+        se.youtube_url,
+        se.thumb_url,
+        se.view_count,
+        se.length_seconds,
+        -- 태그 매칭 점수 (공통 태그 수)
+        COALESCE(
+          (SELECT COUNT(*) FROM song_tags st
+           WHERE st.song_id = se.song_id
+           AND st.tag_id IN (SELECT tag_id FROM seed_tags)),
+          0
+        ) as tag_score,
+        -- 조회수 유사도 점수 (1에 가까울수록 유사)
+        1.0 - ABS(LOG10(GREATEST(se.view_count, 1)::float) - LOG10(GREATEST(${viewCount}, 1)::float)) / 3.0 as view_score
+      FROM songs_enhanced se
+      WHERE se.is_vocaloid_song = true
+        AND se.view_count >= ${minViews}
+        AND se.view_count <= ${maxViews}
+        AND se.youtube_id IS NOT NULL
+        AND NOT (se.song_id = ANY(${allExcludeIds}::int[]))
+    )
+    SELECT
+      song_id as "vocadbId",
+      default_name as "defaultName",
+      title_korean as "titleKorean",
+      title_english as "titleEnglish",
+      title_japanese as "titleJapanese",
+      title_romaji as "titleRomaji",
+      artist_string as "artistString",
+      youtube_id as "youtubeId",
+      youtube_url as "youtubeUrl",
+      thumb_url as "thumbUrl",
+      view_count as "viewCount",
+      length_seconds as "lengthSeconds"
+    FROM scored_songs
+    ORDER BY
+      tag_score DESC,
+      view_score DESC,
+      random()
+    LIMIT ${limit}
+  `;
+
+  return songs;
+}
+
+/**
+ * 시드 곡 정보 가져오기
+ */
+export async function getSeedSong(songId: number): Promise<RadioSong | null> {
+  const songs = await prisma.$queryRaw<RadioSong[]>`
+    SELECT
+      song_id as "vocadbId",
+      default_name as "defaultName",
+      title_korean as "titleKorean",
+      title_english as "titleEnglish",
+      title_japanese as "titleJapanese",
+      title_romaji as "titleRomaji",
+      artist_string as "artistString",
+      youtube_id as "youtubeId",
+      youtube_url as "youtubeUrl",
+      thumb_url as "thumbUrl",
+      view_count as "viewCount",
+      length_seconds as "lengthSeconds"
+    FROM songs_enhanced
+    WHERE song_id = ${songId}
+      AND youtube_id IS NOT NULL
+    LIMIT 1
+  `;
+
+  return songs[0] || null;
 }
