@@ -175,7 +175,8 @@
       "Bash(1 powershell -Command \"Start-Sleep -Seconds 12\" netstat -ano)",
       "Bash(npx next build:*)",
       "Bash(1 powershell -Command \"Start-Sleep -Seconds 10\" netstat -ano)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(git status:*)"
     ]
   }
 }

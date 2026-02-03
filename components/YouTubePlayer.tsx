@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import YouTube, { YouTubeProps, YouTubeEvent } from 'react-youtube';
 import { useMusicPlayer } from '@/lib/MusicPlayerContext';
+import { getDisplayTitle } from '@/lib/utils/format-utils';
 
 export function YouTubePlayer() {
-  const { state, playerRef, updateDuration, updatePlayingState, playNextInQueue } = useMusicPlayer();
+  const { state, playerRef, updateDuration, updatePlayingState, playNextInQueue, playPrevious } = useMusicPlayer();
   const [isReady, setIsReady] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
+  const lastEndedVideoRef = useRef<string | null>(null);
 
   // viewMode에 따라 다른 설정 적용
   const isFullscreen = state.viewMode === 'fullscreen';
@@ -90,7 +92,91 @@ export function YouTubePlayer() {
     // 5: HTML5 player error
     // 100: Video not found / removed
     // 101, 150: Video not embeddable
-  }, []);
+
+    // On error, try to play next song
+    if (event.data === 100 || event.data === 101 || event.data === 150) {
+      playNextInQueue();
+    }
+  }, [playNextInQueue]);
+
+  // Polling mechanism for background tab support
+  // Browsers throttle setInterval in background tabs, but it still runs (at ~1Hz)
+  useEffect(() => {
+    if (!isReady || !playerRef.current || !state.currentSong) return;
+
+    const checkPlaybackStatus = () => {
+      if (!playerRef.current) return;
+
+      try {
+        const playerState = playerRef.current.getPlayerState?.();
+        const currentTime = playerRef.current.getCurrentTime?.() || 0;
+        const duration = playerRef.current.getDuration?.() || 0;
+
+        // Check if video ended (state 0 or near end of video)
+        // Using a 1.5 second threshold to handle background throttling
+        if (playerState === 0 || (duration > 0 && currentTime >= duration - 1.5)) {
+          const videoId = state.currentSong?.youtubeId;
+          // Prevent duplicate triggers
+          if (videoId && lastEndedVideoRef.current !== videoId) {
+            lastEndedVideoRef.current = videoId;
+            playNextInQueue();
+          }
+        }
+      } catch (error) {
+        // Player might not be ready, ignore errors
+      }
+    };
+
+    // Poll every 2 seconds (background tabs throttle to ~1Hz anyway)
+    const intervalId = setInterval(checkPlaybackStatus, 2000);
+
+    return () => clearInterval(intervalId);
+  }, [isReady, state.currentSong, playNextInQueue, playerRef]);
+
+  // Reset lastEndedVideoRef when song changes
+  useEffect(() => {
+    if (state.currentSong?.youtubeId) {
+      lastEndedVideoRef.current = null;
+    }
+  }, [state.currentSong?.youtubeId]);
+
+  // MediaSession API for OS-level media controls (works in background)
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !state.currentSong) return;
+
+    const displayTitle = getDisplayTitle(state.currentSong);
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: displayTitle,
+      artist: state.currentSong.artistString || 'Unknown Artist',
+      artwork: state.currentSong.thumbUrl ? [
+        { src: state.currentSong.thumbUrl, sizes: '512x512', type: 'image/jpeg' }
+      ] : []
+    });
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      playerRef.current?.playVideo();
+    });
+
+    navigator.mediaSession.setActionHandler('pause', () => {
+      playerRef.current?.pauseVideo();
+    });
+
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      playPrevious();
+    });
+
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      playNextInQueue();
+    });
+
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null);
+      navigator.mediaSession.setActionHandler('pause', null);
+      navigator.mediaSession.setActionHandler('previoustrack', null);
+      navigator.mediaSession.setActionHandler('nexttrack', null);
+    };
+  }, [state.currentSong, playNextInQueue, playPrevious, playerRef]);
 
   // Load new video when currentSong changes
   useEffect(() => {
