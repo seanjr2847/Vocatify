@@ -28,13 +28,17 @@ function getYouTubeThumbnail(videoId: string): string {
   return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 }
 
+function getSongThumbnail(song: Song): string {
+  return song.thumbUrl || (song.youtubeId ? getYouTubeThumbnail(song.youtubeId) : '/placeholder.png');
+}
+
 interface SortableSongItemProps {
   song: Song;
   onPlay: () => void;
   onRemove: () => void;
 }
 
-// 정렬 가능한 곡 아이템 컴포넌트 - Memoized
+// 정렬 가능한 곡 아이템 (다음 곡 영역용)
 const SortableSongItem = memo(function SortableSongItem({
   song,
   onPlay,
@@ -61,8 +65,6 @@ const SortableSongItem = memo(function SortableSongItem({
     onRemove();
   }, [onRemove]);
 
-  const thumbnailUrl = song.thumbUrl || (song.youtubeId ? getYouTubeThumbnail(song.youtubeId) : '/placeholder.png');
-
   return (
     <div
       ref={setNodeRef}
@@ -87,7 +89,7 @@ const SortableSongItem = memo(function SortableSongItem({
       >
         <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0">
           <Image
-            src={thumbnailUrl}
+            src={getSongThumbnail(song)}
             alt={getDisplayTitle(song)}
             fill
             className="object-cover"
@@ -111,13 +113,48 @@ const SortableSongItem = memo(function SortableSongItem({
   );
 });
 
+// 재생 완료된 곡 아이템 (dimmed, 클릭만 가능)
+const PlayedSongItem = memo(function PlayedSongItem({
+  song,
+  onPlay,
+}: {
+  song: Song;
+  onPlay: () => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-2 p-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer opacity-50"
+      onClick={onPlay}
+    >
+      {/* 드래그 핸들 자리 (빈 공간으로 정렬 맞춤) */}
+      <div className="p-1 w-6" />
+
+      <div className="flex items-center gap-4 flex-1">
+        <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0">
+          <Image
+            src={getSongThumbnail(song)}
+            alt={getDisplayTitle(song)}
+            fill
+            className="object-cover"
+            sizes="48px"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white text-sm font-medium truncate">{getDisplayTitle(song)}</p>
+          <p className="text-gray-400 text-xs truncate">{song.artistString}</p>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export function QueueTabContent() {
   const { state, playSong, removeFromPlaylist, reorderPlaylist, switchToUserQueue } = useMusicPlayer();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // 8px 이동 후 드래그 시작 (클릭과 구분)
+        distance: 8,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -125,33 +162,52 @@ export function QueueTabContent() {
     })
   );
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
+  const isUserMode = state.activeSource === 'user';
+  const queueIndex = state.userQueueIndex;
 
-    if (over && active.id !== over.id) {
-      const oldIndex = state.userQueue.findIndex((song) => song.vocadbId === active.id);
-      const newIndex = state.userQueue.findIndex((song) => song.vocadbId === over.id);
-      reorderPlaylist(oldIndex, newIndex);
-    }
-  }, [state.userQueue, reorderPlaylist]);
-
-  const userQueueIds = useMemo(
-    () => state.userQueue.map((song) => song.vocadbId),
-    [state.userQueue]
+  // 큐를 3개 영역으로 분할
+  const playedSongs = useMemo(
+    () => queueIndex > 0 ? state.userQueue.slice(0, queueIndex) : [],
+    [state.userQueue, queueIndex]
   );
 
-  // 현재 User Queue 모드인지
-  const isUserMode = state.activeSource === 'user';
+  const currentQueueSong = useMemo(
+    () => (isUserMode && queueIndex >= 0 && queueIndex < state.userQueue.length)
+      ? state.userQueue[queueIndex]
+      : null,
+    [state.userQueue, queueIndex, isUserMode]
+  );
 
-  // 현재 재생 중인 곡 (User 모드일 때만 표시)
-  const currentUserSong = isUserMode ? state.currentSong : null;
+  const upcomingSongs = useMemo(
+    () => queueIndex >= 0 ? state.userQueue.slice(queueIndex + 1) : state.userQueue,
+    [state.userQueue, queueIndex]
+  );
 
-  const currentSongThumbnail = currentUserSong?.thumbUrl ||
-    (currentUserSong?.youtubeId ? getYouTubeThumbnail(currentUserSong.youtubeId) : '/placeholder.png');
+  const upcomingSongIds = useMemo(
+    () => upcomingSongs.map((song) => song.vocadbId),
+    [upcomingSongs]
+  );
+
+  // DnD에서 upcoming 인덱스 → 전체 큐 인덱스로 매핑
+  const upcomingStartIndex = queueIndex >= 0 ? queueIndex + 1 : 0;
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldDndIndex = upcomingSongs.findIndex((song) => song.vocadbId === active.id);
+    const newDndIndex = upcomingSongs.findIndex((song) => song.vocadbId === over.id);
+    if (oldDndIndex === -1 || newDndIndex === -1) return;
+
+    reorderPlaylist(upcomingStartIndex + oldDndIndex, upcomingStartIndex + newDndIndex);
+  }, [upcomingSongs, upcomingStartIndex, reorderPlaylist]);
+
+  // 현재 재생 중인 곡 (큐 밖에서 재생 중인 경우)
+  const currentNonQueueSong = isUserMode && queueIndex < 0 && state.currentSong ? state.currentSong : null;
 
   return (
     <div className="p-8">
-      {/* Radio Mode Indicator - Radio 중일 때 Queue에서 재생 버튼 */}
+      {/* Radio Mode Indicator */}
       {state.activeSource === 'radio' && state.userQueue.length > 0 && (
         <div className="px-4 py-3 mb-4 bg-gradient-to-r from-blue-500/10 to-transparent border-l-2 border-blue-500 rounded-r-lg">
           <div className="flex items-center justify-between">
@@ -177,18 +233,18 @@ export function QueueTabContent() {
         </div>
       )}
 
-      {/* QUEUE - 현재 재생 중 + 다음 곡 통합 */}
-      {(currentUserSong || state.userQueue.length > 0) && (
+      {/* 큐에 곡이 있을 때 */}
+      {(state.userQueue.length > 0 || currentNonQueueSong) && (
         <div>
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
             Playing from {state.userQueueSource || 'Queue'}
-            {state.userQueue.length > 0 && (
-              <span className="ml-2 text-gray-500 normal-case">(드래그하여 순서 변경)</span>
-            )}
+            <span className="ml-2 text-gray-500 normal-case">
+              ({state.userQueue.length}곡)
+            </span>
           </h3>
 
-          {/* 현재 재생 중인 곡 (User 모드일 때만) */}
-          {currentUserSong && (
+          {/* 큐 밖에서 재생 중인 곡 (검색 등에서 직접 재생) */}
+          {currentNonQueueSong && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-[#39c5bb15] border border-[#39c5bb30] mb-1">
               <div className="p-1 text-[#39c5bb]">
                 <div className="w-4 h-4 flex items-center justify-center">
@@ -198,34 +254,73 @@ export function QueueTabContent() {
               <div className="flex items-center gap-4 flex-1">
                 <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0">
                   <Image
-                    src={currentSongThumbnail}
-                    alt={getDisplayTitle(currentUserSong)}
+                    src={getSongThumbnail(currentNonQueueSong)}
+                    alt={getDisplayTitle(currentNonQueueSong)}
                     fill
                     className="object-cover"
                     sizes="48px"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{getDisplayTitle(currentUserSong)}</p>
-                  <p className="text-gray-400 text-xs truncate">{currentUserSong.artistString}</p>
+                  <p className="text-white text-sm font-medium truncate">{getDisplayTitle(currentNonQueueSong)}</p>
+                  <p className="text-gray-400 text-xs truncate">{currentNonQueueSong.artistString}</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* 다음 곡 목록 (User Queue) */}
-          {state.userQueue.length > 0 && (
+          {/* 재생 완료된 곡 (dimmed) */}
+          {playedSongs.length > 0 && (
+            <div className="space-y-0">
+              {playedSongs.map((song) => (
+                <PlayedSongItem
+                  key={song.vocadbId}
+                  song={song}
+                  onPlay={() => playSong(song)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* 현재 재생 중인 곡 (큐에서 재생 중일 때) */}
+          {currentQueueSong && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-[#39c5bb15] border border-[#39c5bb30] my-0.5">
+              <div className="p-1 text-[#39c5bb]">
+                <div className="w-4 h-4 flex items-center justify-center">
+                  <div className="w-2 h-2 bg-[#39c5bb] rounded-full animate-pulse" />
+                </div>
+              </div>
+              <div className="flex items-center gap-4 flex-1">
+                <div className="relative w-12 h-12 rounded overflow-hidden flex-shrink-0">
+                  <Image
+                    src={getSongThumbnail(currentQueueSong)}
+                    alt={getDisplayTitle(currentQueueSong)}
+                    fill
+                    className="object-cover"
+                    sizes="48px"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium truncate">{getDisplayTitle(currentQueueSong)}</p>
+                  <p className="text-gray-400 text-xs truncate">{currentQueueSong.artistString}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 다음 곡 목록 (드래그 가능) */}
+          {upcomingSongs.length > 0 && (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={userQueueIds}
+                items={upcomingSongIds}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="space-y-1">
-                  {state.userQueue.map((song) => (
+                <div className="space-y-0">
+                  {upcomingSongs.map((song) => (
                     <SortableSongItem
                       key={song.vocadbId}
                       song={song}
@@ -241,7 +336,7 @@ export function QueueTabContent() {
       )}
 
       {/* Empty State */}
-      {!currentUserSong && state.userQueue.length === 0 && (
+      {state.userQueue.length === 0 && !currentNonQueueSong && (
         <div className="text-center text-gray-400 py-12">
           <p>재생목록이 비어있습니다</p>
           {state.activeSource === 'radio' && (

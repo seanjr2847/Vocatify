@@ -18,7 +18,7 @@ interface PlayerState {
 
   // User Queue (독립 - 라디오 상태와 무관하게 보존)
   userQueue: Song[];
-  userQueueHistory: Song[];
+  userQueueIndex: number; // 현재 재생 위치 (-1: 큐에서 재생 중 아님)
   userQueueSource: string; // "PLAYING FROM:" 표시용
 
   // Radio Queue (독립)
@@ -96,13 +96,12 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
       const data = JSON.parse(stored);
 
-      // 마이그레이션: 기존 playlist/playHistory → userQueue/userQueueHistory
+      // 마이그레이션: 기존 playlist/playHistory → userQueue (index 모델)
       if (data.playlist && !data.userQueue) {
-        // 기존 구조에서 새 구조로 마이그레이션
         const wasRadioMode = data.isRadioMode === true;
         return {
           userQueue: wasRadioMode ? [] : (data.playlist || []).map(deserializeSong).filter(Boolean) as Song[],
-          userQueueHistory: wasRadioMode ? [] : (data.playHistory || []).map(deserializeSong).filter(Boolean) as Song[],
+          userQueueIndex: -1,
           userQueueSource: data.playlistSource || 'Queue',
           radioQueue: wasRadioMode ? (data.playlist || []).map(deserializeSong).filter(Boolean) as Song[] : [],
           radioHistory: wasRadioMode ? (data.playHistory || []).map(deserializeSong).filter(Boolean) as Song[] : [],
@@ -115,10 +114,33 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         };
       }
 
-      // 새 구조로 직접 로드
+      // 마이그레이션: userQueueHistory → userQueueIndex
+      if (data.userQueueHistory && data.userQueueIndex === undefined) {
+        const history = (data.userQueueHistory || []).map(deserializeSong).filter(Boolean) as Song[];
+        const queue = (data.userQueue || []).map(deserializeSong).filter(Boolean) as Song[];
+        const currentSong = deserializeSong(data.currentSong);
+        // history + currentSong + queue 순서로 병합
+        const fullQueue = [...history, ...(currentSong ? [currentSong] : []), ...queue];
+        const currentIndex = currentSong ? history.length : -1;
+        return {
+          userQueue: fullQueue,
+          userQueueIndex: currentIndex,
+          userQueueSource: data.userQueueSource || 'Queue',
+          radioQueue: (data.radioQueue || []).map(deserializeSong).filter(Boolean) as Song[],
+          radioHistory: (data.radioHistory || []).map(deserializeSong).filter(Boolean) as Song[],
+          radioPlayedIds: data.radioPlayedIds || [],
+          activeSource: data.activeSource || 'user',
+          radioChannel: data.radioChannel || null,
+          currentSong,
+          isShuffleEnabled: data.isShuffleEnabled || false,
+          repeatMode: data.repeatMode || 'off',
+        };
+      }
+
+      // 현재 구조로 직접 로드
       return {
         userQueue: (data.userQueue || []).map(deserializeSong).filter(Boolean) as Song[],
-        userQueueHistory: (data.userQueueHistory || []).map(deserializeSong).filter(Boolean) as Song[],
+        userQueueIndex: data.userQueueIndex ?? -1,
         userQueueSource: data.userQueueSource || 'Queue',
         radioQueue: (data.radioQueue || []).map(deserializeSong).filter(Boolean) as Song[],
         radioHistory: (data.radioHistory || []).map(deserializeSong).filter(Boolean) as Song[],
@@ -147,7 +169,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
     // User Queue (독립)
     userQueue: [],
-    userQueueHistory: [],
+    userQueueIndex: -1,
     userQueueSource: 'Queue',
 
     // Radio Queue (독립)
@@ -167,6 +189,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
   const playerRef = useRef<YouTubePlayerType | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isRadioFetchingRef = useRef(false);
 
   // Session Storage에 재생목록 자동 저장 (새 구조)
   useEffect(() => {
@@ -176,7 +199,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       const dataToSave = {
         // User Queue
         userQueue: state.userQueue.map(serializeSong),
-        userQueueHistory: state.userQueueHistory.slice(-50).map(serializeSong), // 최근 50개만 유지
+        userQueueIndex: state.userQueueIndex,
         userQueueSource: state.userQueueSource,
         // Radio Queue
         radioQueue: state.radioQueue.map(serializeSong),
@@ -197,7 +220,7 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, [
     state.userQueue,
-    state.userQueueHistory,
+    state.userQueueIndex,
     state.userQueueSource,
     state.radioQueue,
     state.radioHistory,
@@ -240,38 +263,38 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     }
 
     setState(prev => {
-      // activeSource에 따라 적절한 Queue에서 곡 제거 및 History에 추가
-      let newUserQueue = prev.userQueue;
-      let newUserHistory = prev.userQueueHistory;
+      // 곡이 실제로 속한 큐 판별
+      const userQueueIdx = prev.userQueue.findIndex(s => s.vocadbId === song.vocadbId);
+      const isInRadioQueue = prev.radioQueue.some(s => s.vocadbId === song.vocadbId);
+
+      const songSource = userQueueIdx >= 0 ? 'user' : isInRadioQueue ? 'radio' : prev.activeSource;
+
+      let newUserQueueIndex = prev.userQueueIndex;
       let newRadioQueue = prev.radioQueue;
       let newRadioHistory = prev.radioHistory;
 
-      if (prev.activeSource === 'user') {
-        // User Queue에서 곡 제거
-        newUserQueue = prev.userQueue.filter(s => s.vocadbId !== song.vocadbId);
-        // 현재 곡을 User History에 추가
+      if (songSource === 'user') {
+        // User Queue: 제거하지 않고 인덱스만 이동
+        newUserQueueIndex = userQueueIdx;
+      } else if (songSource === 'radio') {
+        // Radio Queue: 기존 소비 모델 유지
+        newRadioQueue = prev.radioQueue.filter(s => s.vocadbId !== song.vocadbId);
         if (prev.currentSong && prev.currentSong.vocadbId !== song.vocadbId) {
-          newUserHistory = newUserHistory.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
-          newUserHistory = [...newUserHistory, prev.currentSong];
+          newRadioHistory = [...newRadioHistory.filter(s => s.vocadbId !== prev.currentSong!.vocadbId), prev.currentSong];
         }
       } else {
-        // Radio Queue에서 곡 제거
-        newRadioQueue = prev.radioQueue.filter(s => s.vocadbId !== song.vocadbId);
-        // 현재 곡을 Radio History에 추가
-        if (prev.currentSong && prev.currentSong.vocadbId !== song.vocadbId) {
-          newRadioHistory = newRadioHistory.filter(s => s.vocadbId !== prev.currentSong!.vocadbId);
-          newRadioHistory = [...newRadioHistory, prev.currentSong];
-        }
+        // 어느 큐에도 없는 곡 (검색 결과 등) → 큐 위치 유지 안 함
+        newUserQueueIndex = -1;
       }
 
       return {
         ...prev,
         currentSong: song,
-        userQueue: newUserQueue,
-        userQueueHistory: newUserHistory,
+        activeSource: songSource,
+        userQueueIndex: newUserQueueIndex,
         radioQueue: newRadioQueue,
         radioHistory: newRadioHistory,
-        isPlaying: false, // YouTube의 onStateChange에서 자동으로 true로 설정됨
+        isPlaying: false,
         currentTime: 0,
       };
     });
@@ -354,26 +377,53 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const removeFromPlaylist = useCallback((vocadbId: number) => {
-    // userQueue에서만 제거
-    setState(prev => ({
-      ...prev,
-      userQueue: prev.userQueue.filter(song => song.vocadbId !== vocadbId),
-    }));
+    setState(prev => {
+      const removeIdx = prev.userQueue.findIndex(song => song.vocadbId === vocadbId);
+      if (removeIdx === -1) return prev;
+
+      const newQueue = prev.userQueue.filter(song => song.vocadbId !== vocadbId);
+      let newIndex = prev.userQueueIndex;
+
+      if (removeIdx < prev.userQueueIndex) {
+        // 현재 곡 앞의 곡 제거 → 인덱스 1 감소
+        newIndex--;
+      } else if (removeIdx === prev.userQueueIndex) {
+        // 현재 재생 곡 제거 → 같은 인덱스에서 다음 곡 재생
+        if (newQueue.length === 0) {
+          return { ...prev, userQueue: [], userQueueIndex: -1, currentSong: null, isPlaying: false };
+        }
+        newIndex = Math.min(removeIdx, newQueue.length - 1);
+        return { ...prev, userQueue: newQueue, userQueueIndex: newIndex, currentSong: newQueue[newIndex], currentTime: 0 };
+      }
+
+      return { ...prev, userQueue: newQueue, userQueueIndex: newIndex };
+    });
   }, []);
 
   const reorderPlaylist = useCallback((oldIndex: number, newIndex: number) => {
-    // userQueue만 대상으로 정렬
     setState(prev => {
       const newUserQueue = [...prev.userQueue];
       const [movedItem] = newUserQueue.splice(oldIndex, 1);
       newUserQueue.splice(newIndex, 0, movedItem);
-      return { ...prev, userQueue: newUserQueue };
+
+      // 현재 재생 위치가 영향 받으면 인덱스 보정
+      let newQueueIndex = prev.userQueueIndex;
+      if (prev.userQueueIndex >= 0) {
+        if (oldIndex === prev.userQueueIndex) {
+          newQueueIndex = newIndex;
+        } else if (oldIndex < prev.userQueueIndex && newIndex >= prev.userQueueIndex) {
+          newQueueIndex--;
+        } else if (oldIndex > prev.userQueueIndex && newIndex <= prev.userQueueIndex) {
+          newQueueIndex++;
+        }
+      }
+
+      return { ...prev, userQueue: newUserQueue, userQueueIndex: newQueueIndex };
     });
   }, []);
 
   const clearPlaylist = useCallback(() => {
-    // userQueue만 초기화
-    setState(prev => ({ ...prev, userQueue: [], userQueueHistory: [] }));
+    setState(prev => ({ ...prev, userQueue: [], userQueueIndex: -1 }));
   }, []);
 
   const updateDuration = useCallback((duration: number) => {
@@ -498,22 +548,21 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
   const stopRadio = useCallback(() => {
     setState(prev => {
-      // User Queue에 곡이 있으면 첫 번째 곡 재생
-      const firstUserSong = prev.userQueue[0];
+      // 큐에서 이어서 재생할 위치 결정
+      const resumeIndex = prev.userQueueIndex >= 0 && prev.userQueueIndex < prev.userQueue.length
+        ? prev.userQueueIndex
+        : prev.userQueue.length > 0 ? 0 : -1;
 
       return {
         ...prev,
-        // Radio 상태 초기화
         radioQueue: [],
         radioHistory: [],
         radioPlayedIds: [],
         radioChannel: null,
-        // Source 전환
         activeSource: 'user',
         activeTab: 'queue',
-        // User Queue에 곡이 있으면 재생
-        currentSong: firstUserSong || prev.currentSong,
-        userQueue: firstUserSong ? prev.userQueue.slice(1) : prev.userQueue,
+        currentSong: resumeIndex >= 0 ? prev.userQueue[resumeIndex] : prev.currentSong,
+        userQueueIndex: resumeIndex,
       };
     });
   }, []);
@@ -521,18 +570,16 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
   // Radio 중 User Queue로 전환하는 함수
   const switchToUserQueue = useCallback(() => {
     setState(prev => {
-      if (prev.activeSource === 'user') return prev; // 이미 User 모드
+      if (prev.activeSource === 'user') return prev;
 
-      // User Queue에 곡이 있으면 첫 번째 곡 재생
-      const firstUserSong = prev.userQueue[0];
-
-      if (!firstUserSong) {
-        // User Queue가 비어있으면 탭만 전환
-        return {
-          ...prev,
-          activeTab: 'queue',
-        };
+      if (prev.userQueue.length === 0) {
+        return { ...prev, activeTab: 'queue' };
       }
+
+      // 큐에서 이어서 재생할 위치 결정
+      const resumeIndex = prev.userQueueIndex >= 0 && prev.userQueueIndex < prev.userQueue.length
+        ? prev.userQueueIndex
+        : 0;
 
       // 현재 라디오 곡을 라디오 히스토리에 추가
       let newRadioHistory = prev.radioHistory;
@@ -542,13 +589,10 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
 
       return {
         ...prev,
-        // Source 전환
         activeSource: 'user',
         activeTab: 'queue',
-        // User Queue에서 재생
-        currentSong: firstUserSong,
-        userQueue: prev.userQueue.slice(1),
-        // Radio 상태 유지 (나중에 돌아올 수 있도록)
+        currentSong: prev.userQueue[resumeIndex],
+        userQueueIndex: resumeIndex,
         radioHistory: newRadioHistory,
       };
     });
@@ -558,7 +602,6 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
     setState(prev => {
       // Repeat one song
       if (prev.repeatMode === 'one' && prev.currentSong) {
-        // Replay current song
         if (playerRef.current) {
           playerRef.current.seekTo(0);
           playerRef.current.playVideo();
@@ -566,73 +609,97 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return { ...prev, currentTime: 0 };
       }
 
-      // activeSource에 따라 적절한 Queue 선택
-      const currentQueue = prev.activeSource === 'user' ? prev.userQueue : prev.radioQueue;
-      const currentHistory = prev.activeSource === 'user' ? prev.userQueueHistory : prev.radioHistory;
+      // === User Queue: 인덱스 기반 ===
+      if (prev.activeSource === 'user') {
+        // 큐가 비어있거나 큐 밖에서 재생 중일 때
+        if (prev.userQueue.length === 0) {
+          return { ...prev, isPlaying: false };
+        }
 
-      if (currentQueue.length === 0) {
-        // No more songs in current queue
-        if (prev.repeatMode === 'all' && prev.currentSong) {
-          // Repeat all: move all history back to queue and continue
-          const allSongs = [...currentHistory, prev.currentSong];
-          if (prev.activeSource === 'user') {
-            return {
-              ...prev,
-              userQueue: allSongs.slice(1),
-              currentSong: allSongs[0],
-              userQueueHistory: [],
-              currentTime: 0,
-            };
-          } else {
-            return {
-              ...prev,
-              radioQueue: allSongs.slice(1),
-              currentSong: allSongs[0],
-              radioHistory: [],
-              currentTime: 0,
-            };
+        // 큐 밖에서 재생 중이면 (검색 결과 등) 큐 처음부터
+        if (prev.userQueueIndex < 0) {
+          return {
+            ...prev,
+            userQueueIndex: 0,
+            currentSong: prev.userQueue[0],
+            currentTime: 0,
+          };
+        }
+
+        const upcomingCount = prev.userQueue.length - (prev.userQueueIndex + 1);
+
+        if (upcomingCount === 0) {
+          // 큐 끝 도달
+          if (prev.repeatMode === 'all') {
+            return { ...prev, userQueueIndex: 0, currentSong: prev.userQueue[0], currentTime: 0 };
           }
+          return { ...prev, isPlaying: false };
         }
-        if (prev.activeSource === 'radio') {
-          // Fetch more songs for radio mode (will be handled by useEffect)
-          return prev;
+
+        // Shuffle: 남은 곡 중 랜덤 선택 후 다음 위치로 swap
+        let nextIndex = prev.userQueueIndex + 1;
+        if (prev.isShuffleEnabled && upcomingCount > 1) {
+          const randomOffset = Math.floor(Math.random() * upcomingCount);
+          const swapIndex = nextIndex + randomOffset;
+          const newQueue = [...prev.userQueue];
+          [newQueue[nextIndex], newQueue[swapIndex]] = [newQueue[swapIndex], newQueue[nextIndex]];
+          return {
+            ...prev,
+            userQueue: newQueue,
+            userQueueIndex: nextIndex,
+            currentSong: newQueue[nextIndex],
+            currentTime: 0,
+          };
         }
-        return { ...prev, isPlaying: false };
+
+        return {
+          ...prev,
+          userQueueIndex: nextIndex,
+          currentSong: prev.userQueue[nextIndex],
+          currentTime: 0,
+        };
       }
 
-      // Shuffle: pick a random song from queue
+      // === Radio Queue: 기존 소비 모델 유지 ===
+      const radioQueue = prev.radioQueue;
+      const radioHistory = prev.radioHistory;
+
+      if (radioQueue.length === 0) {
+        if (prev.repeatMode === 'all' && prev.currentSong) {
+          const allSongs = [...radioHistory, prev.currentSong];
+          return {
+            ...prev,
+            radioQueue: allSongs.slice(1),
+            currentSong: allSongs[0],
+            radioHistory: [],
+            currentTime: 0,
+          };
+        }
+        // Fetch more songs (handled by useEffect)
+        return prev;
+      }
+
       let nextSongIndex = 0;
-      if (prev.isShuffleEnabled && currentQueue.length > 1) {
-        nextSongIndex = Math.floor(Math.random() * currentQueue.length);
+      if (prev.isShuffleEnabled && radioQueue.length > 1) {
+        nextSongIndex = Math.floor(Math.random() * radioQueue.length);
       }
 
-      const nextSong = currentQueue[nextSongIndex];
-      const remainingQueue = currentQueue.filter((_, idx) => idx !== nextSongIndex);
+      const nextSong = radioQueue[nextSongIndex];
+      const remainingQueue = radioQueue.filter((_, idx) => idx !== nextSongIndex);
 
-      // Add current song to history
-      let newHistory = currentHistory;
+      let newHistory = radioHistory;
       if (prev.currentSong) {
         newHistory = [...newHistory, prev.currentSong];
       }
 
-      if (prev.activeSource === 'user') {
-        return {
-          ...prev,
-          currentSong: nextSong,
-          userQueue: remainingQueue,
-          userQueueHistory: newHistory,
-          currentTime: 0,
-        };
-      } else {
-        return {
-          ...prev,
-          currentSong: nextSong,
-          radioQueue: remainingQueue,
-          radioHistory: newHistory,
-          radioPlayedIds: [...prev.radioPlayedIds, nextSong.vocadbId],
-          currentTime: 0,
-        };
-      }
+      return {
+        ...prev,
+        currentSong: nextSong,
+        radioQueue: remainingQueue,
+        radioHistory: newHistory,
+        radioPlayedIds: [...prev.radioPlayedIds, nextSong.vocadbId].slice(-50),
+        currentTime: 0,
+      };
     });
   }, []);
 
@@ -642,6 +709,10 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
       // Radio 모드이고 채널이 있을 때만 실행
       if (state.activeSource !== 'radio' || !state.radioChannel) return;
       if (state.radioQueue.length > 5) return; // Still have enough songs
+
+      // fetch 중복 방지
+      if (isRadioFetchingRef.current) return;
+      isRadioFetchingRef.current = true;
 
       try {
         const excludeIds = state.radioPlayedIds.join(',');
@@ -671,21 +742,27 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
               radioQueue: [...prev.radioQueue, ...uniqueNewSongs],
             };
           });
+        } else if (data.success && data.playlist.length === 0 && state.radioPlayedIds.length > 0) {
+          // excludeIds가 너무 많아서 결과가 없는 경우 → ID 리셋 후 재시도
+          console.log('[Radio] Empty results, clearing played IDs for refetch');
+          setState(prev => ({ ...prev, radioPlayedIds: [] }));
+          // radioPlayedIds 변경으로 다음 렌더에서 useEffect가 다시 트리거됨
         }
       } catch (error) {
         console.error('Failed to fetch more radio songs:', error);
+      } finally {
+        isRadioFetchingRef.current = false;
       }
     };
 
     fetchMoreRadioSongs();
-  }, [state.activeSource, state.radioQueue.length, state.radioChannel, state.radioPlayedIds, convertApiSongToSong]);
+  }, [state.activeSource, state.radioQueue.length, state.radioChannel, convertApiSongToSong]);
 
   const playPrevious = useCallback(() => {
     setState(prev => {
-      // If there's no current song, do nothing
       if (!prev.currentSong) return prev;
 
-      // If we're more than 3 seconds into the song, restart it
+      // 3초 이상 재생됐으면 현재 곡 처음으로
       if (prev.currentTime > 3) {
         if (playerRef.current) {
           playerRef.current.seekTo(0);
@@ -694,11 +771,27 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return { ...prev, currentTime: 0 };
       }
 
-      // activeSource에 따라 적절한 History 선택
-      const currentHistory = prev.activeSource === 'user' ? prev.userQueueHistory : prev.radioHistory;
+      // === User Queue: 인덱스 기반 ===
+      if (prev.activeSource === 'user') {
+        if (prev.userQueueIndex <= 0) {
+          // 첫 곡이거나 큐 밖 → 현재 곡 처음으로
+          if (playerRef.current) {
+            playerRef.current.seekTo(0);
+            playerRef.current.playVideo();
+          }
+          return { ...prev, currentTime: 0 };
+        }
+        const prevIndex = prev.userQueueIndex - 1;
+        return {
+          ...prev,
+          userQueueIndex: prevIndex,
+          currentSong: prev.userQueue[prevIndex],
+          currentTime: 0,
+        };
+      }
 
-      // No previous song in current history, just restart current
-      if (currentHistory.length === 0) {
+      // === Radio: 기존 히스토리 기반 ===
+      if (prev.radioHistory.length === 0) {
         if (playerRef.current) {
           playerRef.current.seekTo(0);
           playerRef.current.playVideo();
@@ -706,31 +799,15 @@ export function MusicPlayerProvider({ children }: { children: React.ReactNode })
         return { ...prev, currentTime: 0 };
       }
 
-      // Get the last song from history
-      const previousSong = currentHistory[currentHistory.length - 1];
-      const newHistory = currentHistory.slice(0, -1);
-
-      if (prev.activeSource === 'user') {
-        // Add current song to the beginning of userQueue (it will be "next")
-        const newUserQueue = [prev.currentSong, ...prev.userQueue];
-        return {
-          ...prev,
-          currentSong: previousSong,
-          userQueue: newUserQueue,
-          userQueueHistory: newHistory,
-          currentTime: 0,
-        };
-      } else {
-        // Add current song to the beginning of radioQueue (it will be "next")
-        const newRadioQueue = [prev.currentSong, ...prev.radioQueue];
-        return {
-          ...prev,
-          currentSong: previousSong,
-          radioQueue: newRadioQueue,
-          radioHistory: newHistory,
-          currentTime: 0,
-        };
-      }
+      const previousSong = prev.radioHistory[prev.radioHistory.length - 1];
+      const newRadioQueue = [prev.currentSong, ...prev.radioQueue];
+      return {
+        ...prev,
+        currentSong: previousSong,
+        radioQueue: newRadioQueue,
+        radioHistory: prev.radioHistory.slice(0, -1),
+        currentTime: 0,
+      };
     });
   }, []);
 
