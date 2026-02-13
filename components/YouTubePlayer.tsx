@@ -10,6 +10,7 @@ export function YouTubePlayer() {
   const [isReady, setIsReady] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
   const lastEndedVideoRef = useRef<string | null>(null);
+  const playingVideoRef = useRef<string | null>(null); // onStateChange(PLAYING)에서만 설정 - 실제 재생 확인된 비디오
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const pendingVideoIdRef = useRef<string | null>(null); // 백그라운드에서 대기 중인 비디오
@@ -88,22 +89,32 @@ export function YouTubePlayer() {
     // Update playing state
     if (playerState === 1) {
       updatePlayingState(true);
-      // Update currentVideoId when video starts playing
-      // This syncs our tracking with the actual loaded video (important for POLL)
+      // 실제 재생 시작 확인 → playingVideoRef 설정
       const playingVideoId = state.currentSong?.youtubeId;
-      if (playingVideoId && currentVideoId !== playingVideoId) {
-        console.log(`[YT] Syncing currentVideoId: ${currentVideoId} -> ${playingVideoId}`);
-        setCurrentVideoId(playingVideoId);
+      if (playingVideoId) {
+        playingVideoRef.current = playingVideoId;
+        lastEndedVideoRef.current = null; // 다음 종료 감지 활성화
+        pendingVideoIdRef.current = null; // 비디오 로드 성공 확인
+        console.log(`[YT] PLAYING confirmed: playingVideoRef=${playingVideoId}, lastEnded=null`);
       }
+      // setCurrentVideoId 호출 제거 → react-youtube가 플레이어를 재생성하는 것 방지
     } else if (playerState === 2) {
       updatePlayingState(false);
     } else if (playerState === 0) {
       // Video ended - play next song in queue
-      console.log('[YT] Video ended naturally, calling playNextInQueue');
-      updatePlayingState(false);
-      playNextInQueue();
+      const videoId = playingVideoRef.current;
+      // 가드: onStateChange와 POLL 간 중복 트리거 방지
+      if (videoId && lastEndedVideoRef.current !== videoId) {
+        console.log(`[YT] Video ended naturally, videoId=${videoId}`);
+        updatePlayingState(false);
+        lastEndedVideoRef.current = videoId;
+        playNextInQueue();
+      } else {
+        console.log(`[YT] ENDED ignored (duplicate or no playingVideo): playing=${videoId}, lastEnded=${lastEndedVideoRef.current}`);
+        updatePlayingState(false);
+      }
     }
-  }, [updatePlayingState, updateDuration, playerRef, playNextInQueue, state.currentSong?.youtubeId, currentVideoId]);
+  }, [updatePlayingState, updateDuration, playerRef, playNextInQueue, state.currentSong?.youtubeId]);
 
   const onError: YouTubeProps['onError'] = useCallback((event: YouTubeEvent) => {
     console.error('YouTube Player Error:', event.data);
@@ -173,20 +184,21 @@ export function YouTubePlayer() {
         return;
       }
 
-      // Skip ALL end detection in background - only detect when tab is visible
-      // Background tabs cause race conditions between state updates and POLL timing
+      // 백그라운드에서는 playerState === 0 (ENDED) 만 감지 (시간 기반 감지 제외)
+      // playingVideoRef 기반 가드로 무한 루프 방지
       if (document.visibilityState === 'hidden') {
-        // Just log state occasionally, don't trigger anything
-        pollCount++;
-        if (pollCount % 30 === 0) {
-          try {
-            const playerState = playerRef.current.getPlayerState?.();
-            const currentTime = playerRef.current.getCurrentTime?.() || 0;
-            const duration = playerRef.current.getDuration?.() || 0;
-            console.log(`[POLL] Background check: state=${playerState}, time=${currentTime.toFixed(1)}/${duration.toFixed(1)}`);
-          } catch {
-            // Ignore errors in background
+        try {
+          const playerState = playerRef.current.getPlayerState?.();
+          if (playerState === 0) {
+            const videoId = playingVideoRef.current;
+            if (videoId && lastEndedVideoRef.current !== videoId) {
+              console.log(`[POLL] Background end detected! playingVideo=${videoId}`);
+              lastEndedVideoRef.current = videoId;
+              playNextInQueueRef.current();
+            }
           }
+        } catch {
+          // Ignore errors in background
         }
         return;
       }
@@ -211,16 +223,15 @@ export function YouTubePlayer() {
         // Check if video ended (state 0 or near end of video)
         // Using a 1.5 second threshold to handle background throttling
         if (playerState === 0 || (duration > 0 && currentTime >= duration - 1.5)) {
-          // Use currentVideoId (actually loaded video) not state.currentSong.youtubeId (may be updated but not loaded)
-          const videoId = currentVideoId;
-          console.log(`[POLL] End detected! state=${playerState}, time=${currentTime}/${duration}, videoId=${videoId}`);
-          // Prevent duplicate triggers
+          const videoId = playingVideoRef.current;
+          console.log(`[POLL] End detected! state=${playerState}, time=${currentTime}/${duration}, playingVideo=${videoId}`);
+          // Prevent duplicate triggers using playingVideoRef (consistent with background POLL)
           if (videoId && lastEndedVideoRef.current !== videoId) {
             console.log('[POLL] Triggering playNextInQueue');
             lastEndedVideoRef.current = videoId;
             playNextInQueueRef.current();
           } else {
-            console.log('[POLL] Skipping (duplicate or no videoId)');
+            console.log('[POLL] Skipping (duplicate or no playingVideo)');
           }
         }
       } catch (error) {
@@ -257,14 +268,7 @@ export function YouTubePlayer() {
         workerRef.current.postMessage({ type: 'stop' });
       }
     };
-  }, [isReady, state.currentSong, playerRef, currentVideoId]);
-
-  // Reset lastEndedVideoRef when song changes
-  useEffect(() => {
-    if (state.currentSong?.youtubeId) {
-      lastEndedVideoRef.current = null;
-    }
-  }, [state.currentSong?.youtubeId]);
+  }, [isReady, state.currentSong, playerRef]);
 
   // Check playback status when tab becomes visible again
   // This catches cases where the song ended while in background
@@ -304,8 +308,8 @@ export function YouTubePlayer() {
 
           // If video has ended or is near the end, play next
           if (playerState === 0 || (duration > 0 && currentTime >= duration - 1.5)) {
-            const videoId = state.currentSong?.youtubeId;
-            console.log(`[VIS] End detected on return! videoId=${videoId}`);
+            const videoId = playingVideoRef.current;
+            console.log(`[VIS] End detected on return! playingVideo=${videoId}`);
             if (videoId && lastEndedVideoRef.current !== videoId) {
               console.log('[VIS] Triggering playNextInQueue');
               lastEndedVideoRef.current = videoId;
@@ -383,12 +387,17 @@ export function YouTubePlayer() {
 
     // Only load if video ID changed and player is ready
     if (isReady && playerRef.current && currentVideoId !== newVideoId) {
-      // 백그라운드 탭일 때는 로드 지연 (iframe 통신 실패 방지)
-      // 중요: setCurrentVideoId 호출하지 않음 - prop이 바뀌면 react-youtube가 자동 로드 시도
+      // 백그라운드 탭: loadVideoById 직접 호출 시도 + pending 폴백
+      // setCurrentVideoId 호출 안 함 → react-youtube 플레이어 재생성 방지
       if (document.visibilityState === 'hidden') {
-        console.log('[YT] Background tab - deferring video load:', newVideoId);
-        pendingVideoIdRef.current = newVideoId;
-        // currentVideoId는 변경하지 않음! visible 될 때 변경
+        pendingVideoIdRef.current = newVideoId; // 폴백: visibilitychange에서 재시도용
+        try {
+          console.log('[YT] Background loadVideoById:', newVideoId);
+          playerRef.current.loadVideoById(newVideoId);
+          // 성공 시 onStateChange(PLAYING)에서 pendingVideoIdRef가 null로 클리어됨
+        } catch (error) {
+          console.warn('[YT] Background loadVideoById failed:', error);
+        }
         return;
       }
 

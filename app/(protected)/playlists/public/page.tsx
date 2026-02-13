@@ -1,14 +1,9 @@
 import { Metadata } from "next";
 import { Globe } from "lucide-react";
 import { PublicPlaylistGrid } from "@/components/playlists/PublicPlaylistGrid";
+import { getPublicPlaylists as fetchPublicPlaylists } from "@/lib/db/user";
 
-/**
- * Public Playlists Discovery Page
- *
- * Server component that fetches and displays public playlists
- * Vercel React Best Practices Applied:
- * - server-serialization: Fetch data server-side, serialize for client
- */
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "공개 플레이리스트 | Vocatify",
@@ -17,19 +12,7 @@ export const metadata: Metadata = {
 
 async function getPublicPlaylists() {
   try {
-    // Fetch from API endpoint
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    const response = await fetch(`${baseUrl}/api/playlists/public?limit=100`, {
-      cache: "no-store", // Always fetch fresh data
-    });
-
-    if (!response.ok) {
-      console.error("Failed to fetch public playlists");
-      return [];
-    }
-
-    const data = await response.json();
-    return data.data || [];
+    return await fetchPublicPlaylists({ sortBy: "recent", limit: 100, offset: 0 });
   } catch (error) {
     console.error("Error fetching public playlists:", error);
     return [];
