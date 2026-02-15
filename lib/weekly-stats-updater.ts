@@ -8,11 +8,11 @@
 import { prisma } from './prisma';
 
 export async function updateWeeklyStatsCache() {
-  console.log('[Weekly Stats] Starting optimized update (top 1000 only)...');
+  console.log('[Weekly Stats] Starting optimized update (top 1000 + recent songs)...');
   const startTime = Date.now();
 
   try {
-    // ✅ OPTIMIZED: Calculate weekly increases for TOP 1000 songs only
+    // ✅ OPTIMIZED: Calculate weekly increases for TOP 1000 songs + recent 30-day songs
     // 7-day period (today-1 vs today-8)
 
     // Step 1: Clear existing data
@@ -22,13 +22,25 @@ export async function updateWeeklyStatsCache() {
     await prisma.$executeRaw`
       INSERT INTO song_weekly_stats (song_id, weekly_increase, current_views, previous_views, updated_at)
       WITH top_songs AS (
-        -- ✅ Get top 1000 songs by current view count (99% data reduction)
-        SELECT song_id, MAX(view_count) as max_view_count
+        -- Top 1000 songs by view count
+        SELECT song_id
         FROM pvs
         WHERE service = 'Youtube' AND view_count IS NOT NULL
         GROUP BY song_id
-        ORDER BY max_view_count DESC
+        ORDER BY MAX(view_count) DESC
         LIMIT 1000
+      ),
+      recent_songs AS (
+        -- Songs published within last 30 days (for rising new chart)
+        SELECT vocadb_id as song_id
+        FROM songs
+        WHERE publish_date IS NOT NULL
+          AND publish_date >= CURRENT_DATE - INTERVAL '30 days'
+      ),
+      target_songs AS (
+        SELECT song_id FROM top_songs
+        UNION
+        SELECT song_id FROM recent_songs
       ),
       weekly_data AS (
         SELECT
@@ -37,7 +49,7 @@ export async function updateWeeklyStatsCache() {
           dvc.total_views
         FROM daily_view_counts dvc
         INNER JOIN pvs pv ON dvc.pv_id = pv.id
-        INNER JOIN top_songs ts ON pv.song_id = ts.song_id
+        INNER JOIN target_songs ts ON pv.song_id = ts.song_id
         WHERE dvc.recorded_date >= CURRENT_DATE - INTERVAL '8 days'
           AND dvc.recorded_date <= CURRENT_DATE - INTERVAL '1 day'
           AND pv.service = 'Youtube'
