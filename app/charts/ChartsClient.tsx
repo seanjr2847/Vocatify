@@ -22,6 +22,7 @@ interface ChartsClientProps {
   initialDailyRanking: RankingItem[];
   initialWeeklyRanking: RankingItem[];
   initialNewRanking: RankingItem[];
+  initialRisingRanking: RankingItem[];
 }
 
 export function ChartsClient({
@@ -29,6 +30,7 @@ export function ChartsClient({
   initialDailyRanking,
   initialWeeklyRanking,
   initialNewRanking,
+  initialRisingRanking,
 }: ChartsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -36,7 +38,7 @@ export function ChartsClient({
   // Get initial tab from URL query param
   const initialTab = (searchParams.get('tab') as TabType) || 'total';
   const [activeTab, setActiveTab] = useState<TabType>(
-    ['total', 'daily', 'weekly', 'new'].includes(initialTab) ? initialTab : 'total'
+    ['total', 'daily', 'weekly', 'new', 'rising'].includes(initialTab) ? initialTab : 'total'
   );
   const [tabsData, setTabsData] = useState<Record<TabType, TabData>>({
     total: {
@@ -63,12 +65,18 @@ export function ChartsClient({
       hasMore: initialNewRanking.length === 100,
       isLoading: false,
     },
+    rising: {
+      data: initialRisingRanking,
+      offset: 100,
+      hasMore: initialRisingRanking.length === 100,
+      isLoading: false,
+    },
   });
 
   // Update activeTab when URL tab parameter changes
   useEffect(() => {
     const tabParam = searchParams.get('tab') as TabType;
-    if (tabParam && ['total', 'daily', 'weekly', 'new'].includes(tabParam)) {
+    if (tabParam && ['total', 'daily', 'weekly', 'new', 'rising'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -135,7 +143,7 @@ export function ChartsClient({
 
     const today = new Date();
 
-    if (activeTab === 'weekly') {
+    if (activeTab === 'weekly' || activeTab === 'rising') {
       const startDate = new Date(today);
       startDate.setDate(today.getDate() - 6);
       return `${formatDate(startDate)} ~ ${formatDate(today)} 기준`;

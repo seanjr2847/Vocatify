@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-export type TabType = 'total' | 'daily' | 'weekly' | 'new';
+export type TabType = 'total' | 'daily' | 'weekly' | 'new' | 'rising';
 
 interface ChartsTabNavigationProps {
   activeTab: TabType;
@@ -23,6 +23,7 @@ export function ChartsTabNavigation({ activeTab, onChange }: ChartsTabNavigation
     { id: 'daily', labelEn: 'DAILY TRENDING', labelKo: '일간 트렌딩' },
     { id: 'weekly', labelEn: 'WEEKLY TRENDING', labelKo: '주간 트렌딩' },
     { id: 'new', labelEn: 'NEW RELEASES', labelKo: '최신 발매' },
+    { id: 'rising', labelEn: 'RISING NEW', labelKo: '급상승 신곡' },
   ];
 
   return (

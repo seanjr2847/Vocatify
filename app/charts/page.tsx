@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { Metadata } from 'next';
-import { getCachedTotalRanking, getCachedDailyRanking, getCachedWeeklyRanking, getCachedNewRanking } from '@/lib/db';
+import { getCachedTotalRanking, getCachedDailyRanking, getCachedWeeklyRanking, getCachedNewRanking, getCachedRisingRanking } from '@/lib/db';
 import { serializeBigInt } from '@/lib/serialize';
 import { ChartsClient } from './ChartsClient';
 
@@ -15,11 +15,12 @@ export const dynamic = 'force-dynamic';
 export default async function ChartsPage() {
   // Fetch initial data for all tabs in parallel
   // All rankings now use cached data from ranking_cache table (0.1s each)
-  const [totalRanking, dailyRanking, weeklyRanking, newRanking] = await Promise.all([
+  const [totalRanking, dailyRanking, weeklyRanking, newRanking, risingRanking] = await Promise.all([
     getCachedTotalRanking(100, 0),
     getCachedDailyRanking(100, 0),
     getCachedWeeklyRanking(100, 0),
     getCachedNewRanking(100, 0),
+    getCachedRisingRanking(100, 0),
   ]);
 
   return (
@@ -29,6 +30,7 @@ export default async function ChartsPage() {
         initialDailyRanking={serializeBigInt(dailyRanking)}
         initialWeeklyRanking={serializeBigInt(weeklyRanking)}
         initialNewRanking={serializeBigInt(newRanking)}
+        initialRisingRanking={serializeBigInt(risingRanking)}
       />
     </Suspense>
   );

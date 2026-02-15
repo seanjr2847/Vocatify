@@ -66,7 +66,7 @@ interface RankingCacheRow {
  */
 function mapToRankingCacheRow(
   row: RawRankingRow,
-  rankingType: 'total' | 'weekly' | 'new' | 'daily'
+  rankingType: 'total' | 'weekly' | 'new' | 'daily' | 'rising'
 ): RankingCacheRow {
   return {
     ranking_type: rankingType,
@@ -127,7 +127,17 @@ export async function updateRankingCache() {
     const dailyRankings = await calculateDailyRanking();
     console.log(`[Ranking Cache] Daily: ${dailyRankings.length} rankings`);
 
-    const allRankings = [...totalRankings, ...weeklyRankings, ...newRankings, ...dailyRankings];
+    // Calculate rising ranking (new songs by weekly increase)
+    let risingRankings: RankingCacheRow[] = [];
+    if (hasWeeklyStats) {
+      console.log('[Ranking Cache] Calculating rising ranking...');
+      risingRankings = await calculateRisingRanking();
+      console.log(`[Ranking Cache] Rising: ${risingRankings.length} rankings`);
+    } else {
+      console.log('[Ranking Cache] Skipping rising ranking (no weekly stats data)');
+    }
+
+    const allRankings = [...totalRankings, ...weeklyRankings, ...newRankings, ...dailyRankings, ...risingRankings];
 
     console.log(`[Ranking Cache] Calculated ${allRankings.length} rankings total`);
 
@@ -159,6 +169,7 @@ export async function updateRankingCache() {
       weeklyCount: counts['weekly'] || 0,
       newCount: counts['new'] || 0,
       dailyCount: counts['daily'] || 0,
+      risingCount: counts['rising'] || 0,
       duration,
     };
   } catch (error) {
@@ -170,7 +181,7 @@ export async function updateRankingCache() {
 /**
  * Update single ranking type in cache
  */
-export async function updateSingleRankingCache(rankingType: 'total' | 'weekly' | 'new' | 'daily') {
+export async function updateSingleRankingCache(rankingType: 'total' | 'weekly' | 'new' | 'daily' | 'rising') {
   console.log(`[Ranking Cache] Updating ${rankingType} ranking...`);
   const startTime = Date.now();
 
@@ -201,6 +212,15 @@ export async function updateSingleRankingCache(rankingType: 'total' | 'weekly' |
           return { success: true, count: 0, duration: Date.now() - startTime, skipped: true };
         }
         rankings = await calculateDailyRanking();
+        break;
+      case 'rising':
+        // Check if weekly stats exist before calculating
+        const hasWeeklyStatsForRising = await prisma.song_weekly_stats.findFirst();
+        if (!hasWeeklyStatsForRising) {
+          console.log('[Ranking Cache] Skipping rising ranking (no weekly stats data)');
+          return { success: true, count: 0, duration: Date.now() - startTime, skipped: true };
+        }
+        rankings = await calculateRisingRanking();
         break;
     }
 
@@ -569,4 +589,86 @@ async function calculateNewRanking() {
   `;
 
   return result.map(row => mapToRankingCacheRow(row, 'new'));
+}
+
+/**
+ * Calculate Rising Ranking (new songs by weekly increase)
+ * Combines weekly stats with publish_date filter for new songs
+ */
+async function calculateRisingRanking() {
+  const result = await prisma.$queryRaw<RawRankingRow[]>`
+    WITH included_songs AS (
+      SELECT DISTINCT song_id
+      FROM song_artists
+      JOIN artists ON song_artists.artist_id = artists.vocadb_id
+      WHERE artists.artist_type IN ('Vocaloid', 'UTAU', 'SynthesizerV', 'CeVIO', 'VOICEVOX', 'AIVOICE', 'VoiSona', 'Voiceroid', 'NEUTRINO', 'ACEVirtualSinger')
+    ),
+    song_views AS (
+      SELECT song_id, MAX(view_count) as total_view_count, MAX(view_count_updated_at) as last_updated
+      FROM pvs WHERE service = 'Youtube' AND view_count IS NOT NULL
+      GROUP BY song_id
+    ),
+    song_titles AS (
+      SELECT
+        song_id,
+        MAX(CASE WHEN language = 'Korean' THEN value END) as title_korean,
+        MAX(CASE WHEN language = 'English' THEN value END) as title_english,
+        MAX(CASE WHEN language = 'Japanese' THEN value END) as title_japanese,
+        MAX(CASE WHEN language = 'Romaji' THEN value END) as title_romaji
+      FROM song_names
+      GROUP BY song_id
+    ),
+    song_artists AS (
+      SELECT
+        sa.song_id,
+        STRING_AGG(a.name, ', ' ORDER BY sa.id) as artist_string
+      FROM song_artists sa
+      JOIN artists a ON sa.artist_id = a.vocadb_id
+      WHERE sa.is_support = false
+      GROUP BY sa.song_id
+    ),
+    song_youtube AS (
+      SELECT DISTINCT ON (song_id)
+        song_id,
+        pv_id as youtube_id,
+        url as youtube_url
+      FROM pvs
+      WHERE service = 'Youtube' AND view_count IS NOT NULL
+      ORDER BY song_id, view_count DESC NULLS LAST
+    )
+    SELECT
+      'rising' as ranking_type,
+      ROW_NUMBER() OVER (ORDER BY ws.weekly_increase DESC) as rank,
+      s.vocadb_id as song_id,
+      s.default_name,
+      st.title_korean,
+      st.title_english,
+      st.title_japanese,
+      st.title_romaji,
+      sa.artist_string,
+      sy.youtube_id,
+      sy.youtube_url,
+      s.thumb_url,
+      sv.total_view_count as view_count,
+      sv.last_updated as view_count_updated_at,
+      s.publish_date,
+      s.song_type,
+      s.favorited_times,
+      s.rating_score,
+      s.length_seconds,
+      ws.weekly_increase
+    FROM song_weekly_stats ws
+    JOIN songs s ON s.vocadb_id = ws.song_id
+    INNER JOIN included_songs inc ON s.vocadb_id = inc.song_id
+    LEFT JOIN song_views sv ON s.vocadb_id = sv.song_id
+    LEFT JOIN song_titles st ON s.vocadb_id = st.song_id
+    LEFT JOIN song_artists sa ON s.vocadb_id = sa.song_id
+    LEFT JOIN song_youtube sy ON s.vocadb_id = sy.song_id
+    WHERE s.publish_date IS NOT NULL
+      AND s.publish_date >= CURRENT_DATE - INTERVAL '30 days'
+    ORDER BY ws.weekly_increase DESC
+    LIMIT ${RANKING_LIMIT}
+  `;
+
+  return result.map(row => mapToRankingCacheRow(row, 'rising'));
 }
